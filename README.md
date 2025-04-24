@@ -42,7 +42,7 @@ This project is licensed under the **GNU Affero General Public License v3.0 (AGP
 
 ## 🤝 Contributing
 
-We welcome contributions! Stay tuned for the upcoming `CONTRIBUTING.md`, or star the repo to follow the project’s development.
+We welcome contributions! Stay tuned for the upcoming [CONTRIBUTING.md](./CONTRIBUTING.md), or star the repo to follow the project’s development.
 
 ---
 *This README will be updated as the project evolves.*
