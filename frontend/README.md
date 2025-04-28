@@ -2,53 +2,107 @@
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
-Currently, two official plugins are available:
+# formul.ai frontend
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+A **React** project built with **Vite** and **TypeScript**.
 
-## Expanding the ESLint configuration
+## Getting Started
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+Follow these instructions to set up and run the project locally.
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+### Prerequisites
+
+- [Node.js](https://nodejs.org/) (version 16 or above recommended)
+- [npm](https://www.npmjs.com/) or [pnpm](https://pnpm.io/) or [yarn](https://yarnpkg.com/)
+
+### Installation
+
+1. Clone the repository:
+
+```bash
+git clone https://github.com/your-username/formul.ai.git
+cd formul.ai
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+2. Install dependencies:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+```bash
+npm install
+```
 
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
+_or if you prefer:_
+
+```bash
+yarn install
+```
+
+---
+
+## Available Scripts
+
+### `npm run dev`
+
+Runs the app in development mode.
+
+- Starts the Vite development server
+- Hot Module Replacement (HMR) is enabled
+
+```bash
+npm run dev
+```
+
+Access the app at [http://localhost:5173](http://localhost:5173) (default port).
+
+---
+
+### `npm run build`
+
+Builds the project for production.
+
+- Compiles TypeScript files
+- Bundles the app with Vite
+
+```bash
+npm run build
+```
+
+The output will be in the `dist/` folder.
+
+---
+
+### `npm run preview`
+
+Previews the production build locally.
+
+- Serves the contents of the `dist/` folder
+
+```bash
+npm run preview
+```
+
+Useful for verifying the production build before deployment.
+
+---
+
+### `npm run lint`
+
+Lints the project using ESLint.
+
+```bash
+npm run lint
+```
+
+Fix any code issues for a clean and consistent codebase.
+
+---
+
+## Project Structure
+
+```
+├── public/         # Static assets
+├── src/            # Source code (components, pages, etc.)
+├── tsconfig.json   # TypeScript configuration
+├── vite.config.ts  # Vite configuration
+├── package.json    # Project metadata and scripts
+└── README.md       # This file
 ```
