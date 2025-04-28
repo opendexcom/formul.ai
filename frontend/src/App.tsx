@@ -1,7 +1,9 @@
+import { Form } from './components/Form'
+
 function App() {
   return (
     <>
-      <p>Formul.ai</p>
+      <Form />
     </>
   )
 }
