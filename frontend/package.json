@@ -1,0 +1,36 @@
+{
+  "name": "frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "^4.1.4",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwindcss": "^4.1.4"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.22.0",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "@vitejs/plugin-react-swc": "^3.8.0",
+    "eslint": "^9.22.0",
+    "eslint-config-prettier": "^10.1.2",
+    "eslint-plugin-prettier": "^5.2.6",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.19",
+    "globals": "^16.0.0",
+    "prettier": "^3.5.3",
+    "prettier-plugin-organize-imports": "^4.1.0",
+    "prettier-plugin-tailwindcss": "^0.6.11",
+    "typescript": "~5.7.2",
+    "typescript-eslint": "^8.26.1",
+    "vite": "^6.3.1"
+  }
+}
