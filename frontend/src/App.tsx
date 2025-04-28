@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { FormField } from './components/FormField.tsx'
+export interface FormData {name:string, age:string, favoriteColor:string, preferredContactMethod:string }
 
 function App() {
   const [formData, setFormData] = useState({
