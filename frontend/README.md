@@ -21,7 +21,7 @@ Follow these instructions to set up and run the project locally.
 
 ```bash
 git clone https://github.com/your-username/formul.ai.git
-cd formul.ai
+cd formul.ai/frontend
 ```
 
 2. Install dependencies:
