@@ -34,8 +34,10 @@ pip install -r requirements.txt
 
 ### Run
 
+Run in development mode with auto-reloading
+
 ```bash
-uvicorn app.main:app --host 0.0.0.0 --port 8000
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 ## Start with docker
@@ -61,4 +63,14 @@ docker run --name processing_container -p 8000:8000 processing
 
 ```bash
 docker start processing_container
+```
+
+## Run tests
+
+All tests are placed in `app/tests` folder.
+
+This will run all tests
+
+```bash
+pytest
 ```
