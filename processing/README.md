@@ -64,3 +64,13 @@ docker run --name processing_container -p 8000:8000 processing
 ```bash
 docker start processing_container
 ```
+
+## Run tests
+
+All tests are placed in `app/tests` folder.
+
+This will run all tests
+
+```bash
+pytest
+```
