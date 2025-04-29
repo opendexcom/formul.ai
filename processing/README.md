@@ -34,8 +34,10 @@ pip install -r requirements.txt
 
 ### Run
 
+Run in development mode with auto-reloading
+
 ```bash
-uvicorn app.main:app --host 0.0.0.0 --port 8000
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 ## Start with docker
