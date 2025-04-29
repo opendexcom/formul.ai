@@ -28,9 +28,54 @@
 
 All processing, including AI analysis, is performed locally. This approach ensures user data remains private and compliant with data protection standards like GDPR.
 
-## 📦 Project Status
+## 🛠️ Technology Stack
 
-The project is currently in the planning and early development stage. Core technical architecture is still being defined.
+- **Frontend**: React.js (v19), TypeScript, Tailwind CSS
+- **Backend**:
+  - Java Spring Boot (v3.4.5) for Survey Service
+  - Python FastAPI for Processing Service
+- **Database**: PostgreSQL (planned)
+- **AI Integration**: Local AI models (planned)
+- **Containerization**: Docker, Docker Compose
+- **Testing**:
+  - JUnit for Java
+  - pytest for Python
+  - React Testing Library (planned)
+
+## 🧰 Required Tools
+
+- [Node.js](https://nodejs.org/) (v18+)
+- [npm](https://www.npmjs.com/) (v9+) or [Yarn](https://yarnpkg.com/) (v1.22+)
+- [Docker](https://www.docker.com/) and Docker Compose
+- [Git](https://git-scm.com/)
+- [PostgreSQL](https://www.postgresql.org/) (v14+)
+
+## 🚀 Getting Started
+
+### Installation
+
+Clone the repository:
+
+```bash
+git clone https://github.com/opendexcom/formul.ai.git
+cd formul.ai
+```
+
+### Run the Application
+
+Run entire application using Docker Compose:
+
+```bash
+docker-compose up -d
+```
+
+Run docker with rebuilding:
+
+```bash
+docker-compose up --build -d
+```
+
+The application will be available at `http://localhost`.
 
 ## 📁 Repository
 
@@ -45,4 +90,5 @@ This project is licensed under the **GNU Affero General Public License v3.0 (AGP
 We welcome contributions! Stay tuned for the upcoming [CONTRIBUTING.md](./CONTRIBUTING.md), or star the repo to follow the project’s development.
 
 ---
-*This README will be updated as the project evolves.*
+
+_This README will be updated as the project evolves._
