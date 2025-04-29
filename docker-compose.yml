@@ -5,6 +5,20 @@ services:
     build: ./processing
   survey:
     build: ./survey
+  ai:
+    restart: always
+    image: ollama/ollama:latest
+    ports:
+      - "2137:11434"
+    profiles:
+      - ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [ gpu ]
   db:
     restart: always
     image: postgres:17-alpine
