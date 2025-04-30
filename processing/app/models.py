@@ -1,6 +1,11 @@
 from pydantic import BaseModel
+from typing import List, Tuple
 
 class Item(BaseModel):
     name: str
     price: float
     is_offer: bool = False
+
+class ProcessSurveyRequest(BaseModel):
+    survey_id: str
+    answers: List[str]
