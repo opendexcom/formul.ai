@@ -1,8 +1,13 @@
 services:
   frontend:
     build: ./frontend
+    volumes:
+      - ./frontend/:/app
+      - /app/node_modules
   processing:
     build: ./processing
+    volumes:
+      - ./processing/app:/app/app
   survey:
     build: ./survey
   ai:
