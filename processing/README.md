@@ -48,6 +48,8 @@ Run (append `-d` for deattached mode)
 docker compose --profile ollama up
 ```
 
+Note: `docker compose up` will run every service except `ai`, while `docker compose --profile "*" up`, will run all possible services and `docker compose --profile ollama` will start `ollama` profile. For more information see [docker docs](https://docs.docker.com/compose/how-tos/profiles/)
+
 When encountering error `could not select device driver “” with capabilities: [[gpu]]` see [this answer](https://forums.developer.nvidia.com/t/could-not-select-device-driver-with-capabilities-gpu/80200/2)
 
 ## Installing LLM model on ollama container
