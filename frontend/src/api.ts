@@ -8,7 +8,7 @@ export const handleSubmitForm = async (e: React.FormEvent<HTMLFormElement>, form
   }
 
   try {
-    const response = await fetch(`${import.meta.env.VITE_API}//survey/submit`, {
+    const response = await fetch(`${import.meta.env.VITE_API}survey/submit`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
