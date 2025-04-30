@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { FormField } from './FormField'
 import { useFormStatus } from 'react-dom'
-import { handleSubmitForm } from '../../api'
+import { submitForm } from '../../api'
 
 export interface FormData {
   name: string
@@ -22,13 +22,28 @@ export const Form = () => {
 
   const contactMethods = ['Email', 'Phone']
 
+  const handleSubmitForm = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+
+    if (formData.name === '' || formData.age === '' || formData.favoriteColor === '') {
+      return
+    }
+
+    try {
+      submitForm(formData)
+    } catch (error) {
+      if (error instanceof Error) {
+        console.error(error.message)
+      } else {
+        console.error('An unknown error occurred')
+      }
+    }
+  }
+
   return (
     <div className="flex flex-col items-center">
       <h1>Formul.ai</h1>
-      <form
-        className="flex flex-col gap-4 md:w-3/5 w-full"
-        onSubmit={(e) => handleSubmitForm(e, formData)}
-      >
+      <form className="flex flex-col gap-4 md:w-3/5 w-full" onSubmit={handleSubmitForm}>
         <FormField
           formData={formData}
           setFormData={setFormData}
@@ -70,7 +85,7 @@ export const Form = () => {
         </div>
         <button
           disabled={pending}
-          className="bg-blue-500 text-white py-2 rounded-xl cursor-pointer"
+          className="bg-blue-500 disabled:bg-zinc-400 disabled:cursor-not-allowed text-white py-2 rounded-xl cursor-pointer"
         >
           Submit
         </button>
