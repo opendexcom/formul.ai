@@ -3,11 +3,13 @@ services:
     build: ./frontend
     volumes:
       - ./frontend/:/app
-      - /app/node_modules
+      - node_modules:/app/node_modules
+
   processing:
     build: ./processing
     volumes:
       - ./processing/app:/app/app
+
   survey:
     build: ./survey
   ai:
@@ -48,3 +50,4 @@ services:
       - survey
 volumes:
   db_data:
+  node_modules:
