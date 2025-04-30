@@ -7,5 +7,9 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     allowedHosts: ['frontend', 'localhost'],
-  }
+    // Required for docker-compose reload
+    watch: {
+      usePolling: true,
+    },
+  },
 })
