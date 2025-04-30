@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { FormField } from './FormField'
+import { useFormStatus } from 'react-dom'
+import { handleSubmitForm } from '../../api'
 
 export interface FormData {
   name: string
@@ -15,40 +17,18 @@ export const Form = () => {
     favoriteColor: '',
     preferredContactMethod: 'Email',
   })
+
+  const { pending } = useFormStatus()
+
   const contactMethods = ['Email', 'Phone']
-
-  const handleSubmitForm = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-
-    if (formData.name === '' || formData.age === '' || formData.favoriteColor === '') {
-      return
-    }
-
-    try {
-      const response = await fetch('http://gateway:8080/api/submit', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      })
-
-      if (!response.ok) {
-        throw new Error(`Response status: ${response.status}`)
-      }
-    } catch (error) {
-      if (error instanceof Error) {
-        console.error(error.message)
-      } else {
-        console.error('An unknown error occurred')
-      }
-    }
-  }
 
   return (
     <div className="flex flex-col items-center">
       <h1>Formul.ai</h1>
-      <form className="flex flex-col gap-4 md:w-3/5 w-full" onSubmit={handleSubmitForm}>
+      <form
+        className="flex flex-col gap-4 md:w-3/5 w-full"
+        onSubmit={(e) => handleSubmitForm(e, formData)}
+      >
         <FormField
           formData={formData}
           setFormData={setFormData}
@@ -88,7 +68,12 @@ export const Form = () => {
             ))}
           </select>
         </div>
-        <button className="bg-blue-500 text-white py-2 rounded-xl cursor-pointer">Submit</button>
+        <button
+          disabled={pending}
+          className="bg-blue-500 text-white py-2 rounded-xl cursor-pointer"
+        >
+          Submit
+        </button>
       </form>
     </div>
   )
