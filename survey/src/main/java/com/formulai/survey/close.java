@@ -4,10 +4,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class SurveyClose {
 
-    @PostMapping("/")
-    public Map root(@RequestParam String surveyId, @RequestParam Bool forceClose) {
+    @PostMapping("/close")
+    public String root(@RequestParam Bool forceClose) {
         return { "message": "Not implemented yet" };
     }
-
- 
 }
