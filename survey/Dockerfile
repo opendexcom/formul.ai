@@ -20,6 +20,8 @@ RUN ./mvnw dependency:go-offline -B || true
 # Copy source code
 COPY src ./src
 
+RUN chmod +x ./mvnw
+
 # Build the application
 RUN ./mvnw package -DskipTests
 # Or if using Gradle
