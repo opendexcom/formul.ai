@@ -15,7 +15,7 @@ export const ResultPage = ({ result }: ResultProps) => {
         </div>
         <div className="p-6 bg-white">
           <div className="p-4 bg-gray-100 rounded-md">
-            <p>{finalResult}</p>
+            <p className="whitespace-pre-wrap">{finalResult}</p>
           </div>
         </div>
       </div>
