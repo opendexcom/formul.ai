@@ -1,5 +1,6 @@
 from uuid import UUID
 from fastapi import Depends, FastAPI
+import sqlalchemy.exc
 from sqlmodel import Session, select
 
 from app.database import create_db_and_tables
@@ -16,13 +17,14 @@ def on_startup():
     create_db_and_tables(engine)
     try:
         with Session(engine) as session:
-            fixed_bytes = b'\x12\x34\x56\x78\x90\xab\xcd\xef\xfe\xdc\xba\x09\x87\x65\x43\x21'
-            fixed_uuid = UUID(bytes=fixed_bytes)
-            item = AnalysisJob(id=fixed_uuid, survey_id="1")
+            item=AnalysisJob(id=UUID('12345678-90ab-cdef-fedc-ba0987654321'), survey_id="1")
             session.add(item)
             session.commit()
-    except Exception as e:
-        pass
+    except sqlalchemy.exc.IntegrityError as e:
+        # This error occurs if the job already exists, and it's ok, since we have fixed ID
+        # we won't check for existence of this job beforehand because we are not in a transaction
+        # and cannot guarantee that the job will not be created between the check and the insert
+        print(f"Failed to create a job at startup: {e}")
 
 @app.get("/")
 def read_root():
