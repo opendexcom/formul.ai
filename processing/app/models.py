@@ -9,3 +9,6 @@ class ProcessSurveyRequest(BaseModel):
     survey_id: str
     question: str
     answers: list[str]
+
+class ProcessSurveyResponse(BaseModel):
+    llm_response: str

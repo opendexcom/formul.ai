@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Depends
-from .models import Item, ProcessSurveyRequest
+from .models import Item, ProcessSurveyRequest, ProcessSurveyResponse
 
 from . import deps
 
@@ -53,7 +53,7 @@ async def ask_ollama_process(request: ProcessSurveyRequest,client: AsyncClient) 
 
     return res.message.content or ""
 
-@app.post("/ask")
+@app.post("/ask", response_model=ProcessSurveyResponse)
 async def ask_ollama(request: ProcessSurveyRequest, client: AsyncClient = Depends(deps.get_ollama_client)):
 
     res=await ask_ollama_process(request,client)
