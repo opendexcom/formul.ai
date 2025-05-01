@@ -60,6 +60,8 @@ Clone the repository:
 git clone https://github.com/opendexcom/formul.ai.git
 cd formul.ai
 ```
+### First run
+To change configuration edit `.env` file.
 
 ### Run the Application
 
