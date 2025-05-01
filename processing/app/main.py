@@ -21,7 +21,7 @@ def create_item(item: Item):
 
 def construct_propmpt(request:ProcessSurveyRequest) -> str:
     prompt = "<input>\n"
-    prompt += "You will be provided with survey responses in `answers` tag, one user answer is in `answer` tag. Question for survey: {survery question}\n"
+    prompt += f"You will be provided with survey responses in `answers` tag, one user answer is in `answer` tag. Question for survey: {request.question}\n"
     prompt += "</input>\n"
     prompt += "\n"
     prompt += "<instruction>\n"

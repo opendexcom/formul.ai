@@ -8,4 +8,5 @@ class Item(BaseModel):
 
 class ProcessSurveyRequest(BaseModel):
     survey_id: str
+    question: str
     answers: List[str]
