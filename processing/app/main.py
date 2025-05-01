@@ -1,12 +1,9 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from .models import Item, ProcessSurveyRequest
 
-from ollama import AsyncClient
+from . import deps
 
-client = AsyncClient(
-  # TODO: use env var for connection url
-  host='http://ai:11434',
-)
+from ollama import AsyncClient
 
 app = FastAPI()
 
@@ -35,7 +32,7 @@ def construct_propmpt(request:ProcessSurveyRequest) -> str:
     return prompt
 
 
-async def ask_ollama_process(request: ProcessSurveyRequest):
+async def ask_ollama_process(request: ProcessSurveyRequest,client: AsyncClient) -> str:
 
     prompt = construct_propmpt(request)
 
@@ -49,13 +46,11 @@ async def ask_ollama_process(request: ProcessSurveyRequest):
         ],
     )
 
-    return res.message.content
-
-# test with curl -X POST http://localhost/api/processing/ask -H "Content-Type: application/json"   -d '{"survey_id": "123", "answers": ["I love the product", "The product is great", "I would recommend it to others"]}'
+    return res.message.content or ""
 
 @app.post("/ask")
-async def ask_ollama(request: ProcessSurveyRequest):
+async def ask_ollama(request: ProcessSurveyRequest, client: AsyncClient = Depends(deps.get_ollama_client)):
 
-    res=await ask_ollama_process(request)
+    res=await ask_ollama_process(request,client)
 
     return {"llm_response": res}
