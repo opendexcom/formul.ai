@@ -3,3 +3,5 @@ uvicorn[standard]
 pydantic
 pytest
 httpx
+sqlmodel
+psycopg[binary]
