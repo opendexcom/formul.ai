@@ -21,17 +21,17 @@ def construct_prompt(request:ProcessSurveyRequest) -> str:
     answers_xml = "\n".join(answer_tags)
 
     prompt = f"""
-<input>
-You will be provided with survey responses in `answers` tag, one user answer is in `answer` tag. Question for survey: {request.question}
-</input>
+        <input>
+            You will be provided with survey responses in `answers` tag, one user answer is in `answer` tag. Question for survey: {request.question}
+        </input>
 
-<instruction>
-Rewiew and analize responses from `answers` with goal in mind to find and extract informations that will be relevant for question. Treat similar points like one. Prefix each point accounted in final response with: \"frequent\", \"moderate\", \"occasional\" depending how often it was mentioned.
-</instruction>
+        <instruction>
+            Rewiew and analize responses from `answers` with goal in mind to find and extract informations that will be relevant for question. Treat similar points like one. Prefix each point accounted in final response with: \"frequent\", \"moderate\", \"occasional\" depending how often it was mentioned.
+        </instruction>
 
-<answers>
-{answers_xml}
-</answers>
+        <answers>
+            {answers_xml}
+        </answers>
     """
 
     return prompt
