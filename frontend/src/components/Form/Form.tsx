@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { FormField } from './FormField'
-import { useFormStatus } from 'react-dom'
 import { submitForm } from '../../api'
 
 export interface FormData {
@@ -11,6 +10,7 @@ export interface FormData {
 }
 
 export const Form = () => {
+  const [formIsSubmiting, setFormIsSubmiting] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
     age: '',
@@ -18,25 +18,30 @@ export const Form = () => {
     preferredContactMethod: 'Email',
   })
 
-  const { pending } = useFormStatus()
-
   const contactMethods = ['Email', 'Phone']
 
   const handleSubmitForm = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-
-    if (formData.name === '' || formData.age === '' || formData.favoriteColor === '') {
+    setFormIsSubmiting(true)
+    if (
+      formData.name === '' ||
+      formData.age === '' ||
+      formData.favoriteColor === '' ||
+      formData.preferredContactMethod === ''
+    ) {
       return
     }
 
     try {
-      submitForm(formData)
+      await submitForm(formData)
     } catch (error) {
       if (error instanceof Error) {
         console.error(error.message)
       } else {
         console.error('An unknown error occurred')
       }
+    } finally {
+      setFormIsSubmiting(false)
     }
   }
 
@@ -84,10 +89,10 @@ export const Form = () => {
           </select>
         </div>
         <button
-          disabled={pending}
+          disabled={formIsSubmiting}
           className="bg-blue-500 disabled:bg-zinc-400 disabled:cursor-not-allowed text-white py-2 rounded-xl cursor-pointer"
         >
-          Submit
+          {formIsSubmiting ? 'Submiting...' : 'Submit'}
         </button>
       </form>
     </div>
