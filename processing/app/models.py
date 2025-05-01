@@ -1,5 +1,4 @@
 from pydantic import BaseModel
-from typing import List, Tuple
 
 class Item(BaseModel):
     name: str
@@ -9,4 +8,4 @@ class Item(BaseModel):
 class ProcessSurveyRequest(BaseModel):
     survey_id: str
     question: str
-    answers: List[str]
+    answers: list[str]
