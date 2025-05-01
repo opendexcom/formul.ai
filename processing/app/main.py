@@ -3,11 +3,11 @@ from fastapi import Depends, FastAPI
 import sqlalchemy.exc
 from sqlmodel import Session, select
 
+from ollama import AsyncClient
+
 from app.database import create_db_and_tables
-
 from . import deps
-
-from .models import AnalysisJob, Item
+from .models import AnalysisJob, Item, ProcessSurveyRequest, ProcessSurveyResponse
 
 app = FastAPI()
 
@@ -40,3 +40,46 @@ def read_jobs(engine = Depends(deps.get_database_engine)):
         statement = select(AnalysisJob)
         results = session.exec(statement)
         return results.all()
+
+def construct_prompt(request:ProcessSurveyRequest) -> str:
+    answer_tags = [f"<answer>{answer}</answer>" for answer in request.answers]
+    answers_xml = "\n".join(answer_tags)
+
+    prompt = f"""
+        <input>
+            You will be provided with survey responses in `answers` tag, one user answer is in `answer` tag. Question for survey: {request.question}
+        </input>
+
+        <instruction>
+            Rewiew and analize responses from `answers` with goal in mind to find and extract informations that will be relevant for question. Treat similar points like one. Prefix each point accounted in final response with: \"frequent\", \"moderate\", \"occasional\" depending how often it was mentioned.
+        </instruction>
+
+        <answers>
+            {answers_xml}
+        </answers>
+    """
+
+    return prompt
+
+async def ask_ollama_process(request: ProcessSurveyRequest,client: AsyncClient) -> str:
+
+    prompt = construct_prompt(request)
+
+    res=await client.chat(
+        model="mistral:latest",
+        messages=[
+            {
+                'role': 'user',
+                'content': prompt
+            }
+        ],
+    )
+
+    return res.message.content or ""
+
+@app.post("/ask", response_model=ProcessSurveyResponse)
+async def ask_ollama(request: ProcessSurveyRequest, client: AsyncClient = Depends(deps.get_ollama_client)):
+
+    res=await ask_ollama_process(request,client)
+
+    return {"llm_response": res}

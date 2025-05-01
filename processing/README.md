@@ -40,29 +40,31 @@ Run in development mode with auto-reloading
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-## Start with docker
+## Run with docker compose with ollama profile
 
-### Build Image
-
-This will create image called `processing`
+Run (append `-d` for deattached mode)
 
 ```bash
-docker build -t processing .
+docker compose --profile ollama up
 ```
 
-### Create Container
+Note: `docker compose up` will run every service except `ai`, while `docker compose --profile "*" up`, will run all possible services and `docker compose --profile ollama` will start `ollama` profile. For more information see [docker docs](https://docs.docker.com/compose/how-tos/profiles/)
 
-This will create and start container called `processing_container` from image `processing` on port `8000`.
-If container with this name exist - if will fail, then see [starting existing container](#start-existing-container)
+When encountering error `could not select device driver “” with capabilities: [[gpu]]` see [this answer](https://forums.developer.nvidia.com/t/could-not-select-device-driver-with-capabilities-gpu/80200/2)
+
+## Installing LLM model on ollama container
+
+1. Start `docker compose` in deattach mode
+2. Run command line inside ai container
 
 ```bash
-docker run --name processing_container -p 8000:8000 processing
+docker compose exec -it ai bash
 ```
 
-### Start Existing Container
+3. Install desired model (in this example its mistral:latest)
 
 ```bash
-docker start processing_container
+ollama pull mistral:latest
 ```
 
 ## Run tests

@@ -9,7 +9,6 @@ class Item(BaseModel):
     price: float
     is_offer: bool = False
 
-
 class StatusEnum(StrEnum):
     NULL = "null"
     PENDING = "pending"
@@ -22,3 +21,10 @@ class AnalysisJob(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     status: StatusEnum = Field(default=StatusEnum.NULL)
 
+class ProcessSurveyRequest(BaseModel):
+    survey_id: str
+    question: str
+    answers: list[str]
+
+class ProcessSurveyResponse(BaseModel):
+    llm_response: str

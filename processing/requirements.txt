@@ -6,3 +6,4 @@ httpx
 sqlmodel
 psycopg[binary]
 pydantic-settings
+ollama
