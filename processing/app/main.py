@@ -34,8 +34,6 @@ Rewiew and analize responses from `answers` with goal in mind to find and extrac
 </answers>
     """
 
-    print(prompt)
-
     return prompt
 
 
