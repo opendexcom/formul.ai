@@ -5,3 +5,4 @@ pytest
 httpx
 sqlmodel
 psycopg[binary]
+pydantic-settings
