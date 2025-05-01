@@ -15,16 +15,16 @@ app = FastAPI()
 def on_startup():
     engine = deps.get_database_engine()
     create_db_and_tables(engine)
-    try:
-        with Session(engine) as session:
+    with Session(engine) as session:
             item=AnalysisJob(id=UUID('12345678-90ab-cdef-fedc-ba0987654321'), survey_id="1")
             session.add(item)
-            session.commit()
-    except sqlalchemy.exc.IntegrityError as e:
-        # This error occurs if the job already exists, and it's ok, since we have fixed ID
-        # we won't check for existence of this job beforehand because we are not in a transaction
-        # and cannot guarantee that the job will not be created between the check and the insert
-        print(f"Failed to create a job at startup: {e}")
+            try:
+                session.commit()
+            except sqlalchemy.exc.IntegrityError as e:
+                # This error occurs if the job already exists, and it's ok, since we have fixed ID
+                # we won't check for existence of this job beforehand because we are not in a transaction
+                # and cannot guarantee that the job will not be created between the check and the insert
+                print(f"Failed to create a job at startup: {e}")
 
 @app.get("/")
 def read_root():
