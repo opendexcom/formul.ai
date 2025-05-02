@@ -37,7 +37,7 @@ public class SurveyService {
 
     public String createSurvey(SurveyRequest request) {
         surveyRepository.save(toSurvey(request));
-        return "Survey created Succesfully";
+        return "Survey created successfully";
     }
 
     public Survey toSurvey(SurveyRequest surveyRequest){
