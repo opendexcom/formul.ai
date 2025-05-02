@@ -10,7 +10,7 @@ services:
     volumes:
       - ./processing/app:/app/app
     environment:
-      - SURVEY_DB_CONNECTION_STRING=postgresql+psycopg://${SURVEY_DB_USERNAME}:${SURVEY_DB_PASSWORD}@${SURVEY_DB_HOST}:${SURVEY_DB_PORT}/${SURVEY_DB_NAME}
+      - DB_CONNECTION_STRING=postgresql+psycopg://${SURVEY_DB_USERNAME}:${SURVEY_DB_PASSWORD}@${SURVEY_DB_HOST}:${SURVEY_DB_PORT}/${SURVEY_DB_NAME}
       - OLLAMA_API_URL=${OLLAMA_API_URL}
 
   survey:
