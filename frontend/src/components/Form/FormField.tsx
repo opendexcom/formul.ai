@@ -1,4 +1,4 @@
-import { FormData } from './Form'
+import { FormData } from './SignupForm'
 
 interface FormFieldProps {
   formData: FormData

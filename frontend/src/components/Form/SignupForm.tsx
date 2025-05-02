@@ -9,7 +9,7 @@ export interface FormData {
   preferredContactMethod: string
 }
 
-export const Form = () => {
+export const SignupForm = () => {
   const [formIsSubmiting, setFormIsSubmiting] = useState(false)
   const [formData, setFormData] = useState({
     name: '',

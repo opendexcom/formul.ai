@@ -1,4 +1,4 @@
-import { FormData } from './components/Form/Form'
+import { FormData } from './components/Form/SignupForm'
 
 export const submitForm = async (formData: FormData) => {
   const response = await fetch(`${import.meta.env.VITE_API}/survey/submit`, {
