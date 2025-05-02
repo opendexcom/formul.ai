@@ -4,10 +4,11 @@ FROM node:22-alpine AS build
 WORKDIR /app
 
 # Copy package files for dependency installation
-COPY package*.json ./
+COPY package.json ./
 
 # Install dependencies
-RUN npm ci
+# removed usage of npm ci because package-lock.json is locked per system 
+RUN npm install
 
 # Copy the rest of the application code
 COPY . .
