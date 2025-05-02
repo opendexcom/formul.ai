@@ -5,12 +5,14 @@ import com.formulai.survey.model.Survey;
 import com.formulai.survey.model.SurveyAnswers;
 import com.formulai.survey.repository.SurveyRepository;
 import com.formulai.survey.dto.request.SurveyRequest;
+import com.formulai.survey.dto.response.SurveyAnswerResponse;
 import com.formulai.survey.dto.response.SurveyResponse;
 import com.formulai.survey.repository.SurveyAnswerRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import static java.lang.String.format;
@@ -20,18 +22,28 @@ import static java.lang.String.format;
 public class SurveyService {
 
     private final SurveyRepository surveyRepository;
-    private final SurveyAnswerRepository surveyResponseRepository;
+    private final SurveyAnswerRepository surveyAnswerRepository;
 
-    public SurveyResponse getSurveyById(String id) {
+    public SurveyResponse getSurveyById(UUID id) {
         return surveyRepository
                 .findById(id)
                 .map(this::fromSurvey)
-                .orElseThrow(()-> new IllegalArgumentException(format("Survey %s not found!", id)));
-                // () and -> is a lambda. Lambda is a temporary function without a name.
-                // In our case we want just throw IllegalArgumentException if any problem exist.
+                .orElseThrow(() -> new IllegalArgumentException(format("Survey %s not found!", id)));
+        // () and -> is a lambda. Lambda is a temporary function without a name.
+        // In our case we want just throw IllegalArgumentException if any problem exist
     }
 
-    public List<SurveyResponse> getAllSurvey(){
+    private SurveyAnswerResponse fromSurveyAnswers(SurveyAnswers surveyAnswers) {
+        return new SurveyAnswerResponse(
+                surveyAnswers.getSurvey().getId(),
+                surveyAnswers.getAnswersJson());
+    }
+
+    private SurveyResponse fromSurvey(Survey survey) {
+        return new SurveyResponse(survey.getId(), survey.getName(), survey.getSchemaJson());
+    }
+
+    public List<SurveyResponse> getAllSurvey() {
         return surveyRepository
                 .findAll()
                 .stream()
@@ -39,12 +51,11 @@ public class SurveyService {
                 .collect(Collectors.toList());
     }
 
-    public String createSurvey(SurveyRequest request) {
-        surveyRepository.save(toSurvey(request));
-        return "Survey created successfully";
+    public SurveyResponse createSurvey(SurveyRequest request) {
+        return fromSurvey(surveyRepository.save(toSurvey(request)));
     }
 
-    public Survey toSurvey(SurveyRequest surveyRequest){
+    public Survey toSurvey(SurveyRequest surveyRequest) {
         return Survey
                 .builder()
                 .name(surveyRequest.name())
@@ -52,46 +63,21 @@ public class SurveyService {
                 .build();
     }
 
-    public List<SurveyResponse> getResponses(String survey_id) {
-        return surveyResponseRepository.find().stream().map(this::fromSurveyResponse).collect(Collectors.toList());
+    public List<SurveyAnswerResponse> getResponses(UUID surveyId) {
+        return surveyAnswerRepository.findAllBySurveyId(surveyId).stream().map(this::fromSurveyAnswers)
+                .collect(Collectors.toList());
     }
 
-    public String submitSurveyRequest(String id, SurveySubmitRequest request) {
-        surveyResponseRepository.save(toSurveyResponse(id, request));
-
-        return "Survey submitted successfully";
+    public SurveyAnswerResponse submitSurveyRequest(UUID id, SurveySubmitRequest request) {
+        return fromSurveyAnswers(surveyAnswerRepository.save(toSurveyAnswers(id, request)));
     }
 
-    private SurveyAnswers toSurveyResponse(String id, SurveySubmitRequest request)
-    {
-        var survey = surveyRepository.findById(id);
-        if(survey.isEmpty())
-            throw new IllegalArgumentException(format("Survey %s not found!", id));
-
-        if(request.responses() == null || request.responses().isEmpty())
-            throw new IllegalArgumentException("Survey responses cannot be null or empty!");
-
-        try {
-            
-            return SurveyAnswers.builder().survey(survey.get()).responsesJson(responsesJson).build();
-        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
-            throw new RuntimeException("Failed to serialize survey responses to JSON", e);
-        }
-    }
-
-    private SurveyResponse fromSurvey(Survey survey) {
-        return new SurveyResponse(
-                survey.getId(),
-                survey.getName(),
-                survey.getSchemaJson()
-        );
-    }
-
-    private SurveyResponse fromSurveyResponse(SurveyAnswers surveyResponse) {
-        return new SurveyResponse(
-                surveyResponse.getId(),
-                surveyResponse.getSurvey().getName(),
-                surveyResponse.getAnswersJson()
-        );
+    private SurveyAnswers toSurveyAnswers(UUID id, SurveySubmitRequest request) {
+        return SurveyAnswers
+                .builder()
+                .survey(surveyRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException(format("Survey %s not found!", id.toString()))))
+                .answersJson(request.answersJson())
+                .build();
     }
 }

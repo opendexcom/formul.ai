@@ -1,14 +1,14 @@
 # survey-service
 
 **Survey Management Microservice** for the `formulAI` platform.  
-Built with **Spring Boot 3.4.5**, Java **24**, and Maven.  
+Built with **Spring Boot 3.4.5**, Java **21**, and Maven.  
 Includes **OpenAPI UI** support via SpringDoc.
 
 ---
 
 ## ⚙️ Requirements
 
-- Java 24 (JDK)
+- Java 21 (JDK)
 - Maven 3.8+
 - (Optional) Docker (for future deployment)
 
