@@ -3,4 +3,7 @@ uvicorn[standard]
 pydantic
 pytest
 httpx
+sqlmodel
+psycopg[binary]
+pydantic-settings
 ollama
