@@ -1,24 +1,15 @@
 package com.formulai.survey.dto;
 
 import java.util.List;
+import java.util.UUID;
 
 public class SurveyDTO {
-    private String formId;
-    private List<String> responses;
 
-    public String getFormId()
-    {
-        return formId;
-    }
+    private List<String> responses;
 
     public List<String> getResponses()
     {
         return responses;
-    }
-
-    public void setFormId(String formId)
-    {
-        this.formId = formId;
     }
 
     public void setResponses(List<String> responses)
