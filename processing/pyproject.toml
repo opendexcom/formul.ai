@@ -1,4 +1,22 @@
-[tool.pytest.ini_options]
-pythonpath = [
-  "."
+[project]
+name = "processing"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.115.12",
+    "httpx>=0.28.1",
+    "ollama>=0.4.8",
+    "psycopg[binary]>=3.2.7",
+    "pydantic>=2.11.4",
+    "pydantic-settings>=2.9.1",
+    "sqlmodel>=0.0.24",
+    "uvicorn[standard]>=0.34.2",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.5",
+    "riff>=0.0.287.0",
 ]
