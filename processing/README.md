@@ -1,78 +1,97 @@
-## Configure locally
+# Project Setup and Usage Guide
 
-### Configure `venv`
+## About the Project
 
-#### Create
+This project serves as an interface to the "llm" service (`ai`). The primary purpose of the `ai` service is to prepare proper AI queries to analyze survey data. The analyzed results are then stored in the database. Surveys are also retrieved from the database for processing.
 
-```bash
-python3 -m venv venv
-```
+### Database Usage
 
-#### Activate
+The project uses a database to:
+- Retrieve survey data for analysis.
+- Store the results of the AI analysis.
 
-Linux
+Ensure the database is properly configured and running before starting the application. The database connection details can be found in the project's configuration files.
 
-`source venv/bin/activate`
+---
 
-On Windows (cmd.exe):
+## Configure Locally
 
-```bash
-venv\Scripts\activate
-```
+### 1. Set Up Environment with `uv`
 
-On Windows (PowerShell):
+#### Install `uv`
 
-```
-.\venv\Scripts\Activate.ps1
-```
+Follow the installation instructions for `uv` from the [official documentation](https://docs.astral.sh/uv/getting-started/installation/).
 
-### Install dependencies
+#### Sync Environment
+
+Run the following command to sync the environment:
 
 ```bash
-pip install -r requirements.txt
+uv sync
 ```
 
-### Run
+### 2. Run the Application
 
-Run in development mode with auto-reloading
+Run the application in development mode with auto-reloading:
 
 ```bash
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+uv run
 ```
 
-## Run with docker compose with ollama profile
+---
 
-Run (append `-d` for deattached mode)
+## Run with Docker Compose (Ollama Profile)
+
+### Start Services
+
+Run the following command to start services (append `-d` for detached mode):
 
 ```bash
 docker compose --profile ollama up
 ```
 
-Note: `docker compose up` will run every service except `ai`, while `docker compose --profile "*" up`, will run all possible services and `docker compose --profile ollama` will start `ollama` profile. For more information see [docker docs](https://docs.docker.com/compose/how-tos/profiles/)
+### Notes
 
-When encountering error `could not select device driver “” with capabilities: [[gpu]]` see [this answer](https://forums.developer.nvidia.com/t/could-not-select-device-driver-with-capabilities-gpu/80200/2)
+- `docker compose up` will run every service except `ai`.
+- `docker compose --profile "*"` will run all possible services.
+- `docker compose --profile ollama` will start the `ollama` profile.
 
-## Installing LLM model on ollama container
+For more information, see the [Docker Compose profiles documentation](https://docs.docker.com/compose/how-tos/profiles/).
 
-1. Start `docker compose` in deattach mode
-2. Run command line inside ai container
+### Troubleshooting
+
+If you encounter the error `could not select device driver “” with capabilities: [[gpu]]`, refer to [this answer](https://forums.developer.nvidia.com/t/could-not-select-device-driver-with-capabilities-gpu/80200/2).
+
+---
+
+## Installing LLM Model on Ollama Container
+
+1. Start Docker Compose in detached mode:
+
+   ```bash
+   docker compose up -d
+   ```
+
+2. Access the `ai` container:
+
+   ```bash
+   docker compose exec -it ai bash
+   ```
+
+3. Install the desired model (e.g., `mistral:latest`):
+
+   ```bash
+   ollama pull mistral:latest
+   ```
+
+---
+
+## Run Tests
+
+All tests are located in the `app/tests` folder.
+
+Run all tests using `uv`:
 
 ```bash
-docker compose exec -it ai bash
-```
-
-3. Install desired model (in this example its mistral:latest)
-
-```bash
-ollama pull mistral:latest
-```
-
-## Run tests
-
-All tests are placed in `app/tests` folder.
-
-This will run all tests
-
-```bash
-pytest
+uv test
 ```
