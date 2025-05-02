@@ -15,7 +15,7 @@ import java.util.UUID;
 
 @RequiredArgsConstructor
 @RestController
-@RequestMapping("/api/surveys")
+@RequestMapping("/v1/surveys")
 public class SurveyController {
 
     private final SurveyService surveyService;
