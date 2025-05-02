@@ -65,12 +65,13 @@ public class SurveyService {
     private SurveyResponse toSurveyResponse(String id, SurveySubmitRequestDTO request)
     {
         var survey = surveyRepository.findById(id);
-        if(survey.isPresent())
-        {
-            return SurveyResponse.builder().survey(survey.get()).responsesJson(request.toString()).build();
-        }
+        if(survey.isEmpty())
+            throw new IllegalArgumentException(format("Survey %s not found!", id));
 
-        throw new IllegalArgumentException("Survey not found!");
+        if(request.responses() == null || request.responses().isEmpty())
+            throw new IllegalArgumentException("Survey responses cannot be null or empty!");
+
+        return SurveyResponse.builder().survey(survey.get()).responsesJson(request.toString()).build();
     }
 
     private SurveyResponseDTO fromSurvey(Survey survey) {
