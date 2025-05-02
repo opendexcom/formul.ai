@@ -1,37 +1,33 @@
 package com.formulai.survey.controllers;
 
-import com.formulai.survey.dto.SurveyDTO;
-import org.springframework.http.HttpStatus;
+import com.formulai.survey.dto.request.SurveyRequest;
+import com.formulai.survey.dto.response.SurveyResponse;
+import com.formulai.survey.service.SurveyService;
+import jakarta.validation.Valid;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ResponseStatusException;
+import lombok.RequiredArgsConstructor;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.List;
 
+@RequiredArgsConstructor
 @RestController
-@RequestMapping("/api/survey")
+@RequestMapping("/api/surveys")
 public class SurveyController {
 
-    @PostMapping("/{id}/submit")
-    public Map<String, String> Submit(@PathVariable UUID id, @RequestBody SurveyDTO surveyDTO) {
-        Map<String, String> result = new HashMap<>();
+    private final SurveyService surveyService;
 
-        var responses = surveyDTO.getResponses();
-        if(responses == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "responses is null");
-        }
-
-        if(responses.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "responses is empty");
-        }
-
-        String successMessage = "Form submitted successfully";
-        result.put("success", successMessage);
-        result.put("formId", id.toString());
-        result.put("responses", responses.toString());
-
-        return result;
+    @GetMapping("/{id}")
+    public ResponseEntity<SurveyResponse> getSurvey(@PathVariable String id){
+        return ResponseEntity.ok(surveyService.getSurveyById(id));
+    }
+    @GetMapping
+    public ResponseEntity<List<SurveyResponse>> getAllSurveys() {
+        return ResponseEntity.ok(surveyService.getAllSurvey());
+    }
+    @PostMapping
+    public ResponseEntity<String> createSurvey(@RequestBody @Valid SurveyRequest surveyRequest){
+        return ResponseEntity.ok(surveyService.createSurvey(surveyRequest));
     }
 }
 
