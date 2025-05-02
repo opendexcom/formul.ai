@@ -4,7 +4,7 @@ FROM node:22-alpine AS build
 WORKDIR /app
 
 # Copy package files for dependency installation
-COPY package*.json ./
+COPY package.json ./
 
 # Install dependencies
 # removed usage of npm ci because package-lock.json is locked per system 
