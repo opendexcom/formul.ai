@@ -2,9 +2,9 @@ package com.formulai.survey.model;
 
 import jakarta.persistence.*;
 import lombok.*;
-import org.aspectj.weaver.patterns.TypePatternQuestions;
 
 import java.util.List;
+import java.util.UUID;
 
 @Getter
 @Setter
@@ -16,12 +16,12 @@ import java.util.List;
 public class Survey{
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    private String id;
+    private UUID id;
     private String name;
     private String schemaJson;
 
     @OneToMany(mappedBy = "survey", cascade = CascadeType.ALL)
-    private List<SurveyResponse> responses;
+    private List<SurveyAnswers> answers;
 }
 
 

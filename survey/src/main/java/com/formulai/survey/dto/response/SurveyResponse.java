@@ -1,7 +1,9 @@
 package com.formulai.survey.dto.response;
 
-public record SurveyResponseDTO(
-        String id,
+import java.util.UUID;
+
+public record SurveyResponse(
+        UUID id,
         String name,
         String schemaJson
 ) {

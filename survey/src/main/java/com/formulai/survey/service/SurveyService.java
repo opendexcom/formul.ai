@@ -1,16 +1,18 @@
 package com.formulai.survey.service;
 
-import com.formulai.survey.dto.request.SurveySubmitRequestDTO;
+import com.formulai.survey.dto.request.SurveySubmitRequest;
 import com.formulai.survey.model.Survey;
-import com.formulai.survey.model.SurveyResponse;
+import com.formulai.survey.model.SurveyAnswers;
 import com.formulai.survey.repository.SurveyRepository;
-import com.formulai.survey.dto.request.SurveyRequestDTO;
-import com.formulai.survey.dto.response.SurveyResponseDTO;
-import com.formulai.survey.repository.SurveyResponseRepository;
+import com.formulai.survey.dto.request.SurveyRequest;
+import com.formulai.survey.dto.response.SurveyAnswerResponse;
+import com.formulai.survey.dto.response.SurveyResponse;
+import com.formulai.survey.repository.SurveyAnswerRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import static java.lang.String.format;
@@ -20,18 +22,28 @@ import static java.lang.String.format;
 public class SurveyService {
 
     private final SurveyRepository surveyRepository;
-    private final SurveyResponseRepository surveyResponseRepository;
+    private final SurveyAnswerRepository surveyAnswerRepository;
 
-    public SurveyResponseDTO getSurveyById(String id) {
+    public SurveyResponse getSurveyById(UUID id) {
         return surveyRepository
                 .findById(id)
                 .map(this::fromSurvey)
-                .orElseThrow(()-> new IllegalArgumentException(format("Survey %s not found!", id)));
-                // () and -> is a lambda. Lambda is a temporary function without a name.
-                // In our case we want just throw IllegalArgumentException if any problem exist.
+                .orElseThrow(() -> new IllegalArgumentException(format("Survey %s not found!", id)));
+        // () and -> is a lambda. Lambda is a temporary function without a name.
+        // In our case we want just throw IllegalArgumentException if any problem exist
     }
 
-    public List<SurveyResponseDTO> getAllSurvey(){
+    private SurveyAnswerResponse fromSurveyAnswers(SurveyAnswers surveyAnswers) {
+        return new SurveyAnswerResponse(
+                surveyAnswers.getSurvey().getId(),
+                surveyAnswers.getAnswersJson());
+    }
+
+    private SurveyResponse fromSurvey(Survey survey) {
+        return new SurveyResponse(survey.getId(), survey.getName(), survey.getSchemaJson());
+    }
+
+    public List<SurveyResponse> getAllSurvey() {
         return surveyRepository
                 .findAll()
                 .stream()
@@ -39,12 +51,11 @@ public class SurveyService {
                 .collect(Collectors.toList());
     }
 
-    public String createSurvey(SurveyRequestDTO request) {
-        surveyRepository.save(toSurvey(request));
-        return "Survey created successfully";
+    public SurveyResponse createSurvey(SurveyRequest request) {
+        return fromSurvey(surveyRepository.save(toSurvey(request)));
     }
 
-    public Survey toSurvey(SurveyRequestDTO surveyRequest){
+    public Survey toSurvey(SurveyRequest surveyRequest) {
         return Survey
                 .builder()
                 .name(surveyRequest.name())
@@ -52,46 +63,21 @@ public class SurveyService {
                 .build();
     }
 
-    public List<SurveyResponseDTO> getResponses() {
-        return surveyResponseRepository.findAll().stream().map(this::fromSurveyResponse).collect(Collectors.toList());
+    public List<SurveyAnswerResponse> getResponses(UUID surveyId) {
+        return surveyAnswerRepository.findAllBySurveyId(surveyId).stream().map(this::fromSurveyAnswers)
+                .collect(Collectors.toList());
     }
 
-    public String submitSurveyRequest(String id, SurveySubmitRequestDTO request) {
-        surveyResponseRepository.save(toSurveyResponse(id, request));
-
-        return "Survey submitted successfully";
+    public SurveyAnswerResponse submitSurveyRequest(UUID id, SurveySubmitRequest request) {
+        return fromSurveyAnswers(surveyAnswerRepository.save(toSurveyAnswers(id, request)));
     }
 
-    private SurveyResponse toSurveyResponse(String id, SurveySubmitRequestDTO request)
-    {
-        var survey = surveyRepository.findById(id);
-        if(survey.isEmpty())
-            throw new IllegalArgumentException(format("Survey %s not found!", id));
-
-        if(request.responses() == null || request.responses().isEmpty())
-            throw new IllegalArgumentException("Survey responses cannot be null or empty!");
-
-        try {
-            String responsesJson = objectMapper.writeValueAsString(request);
-            return SurveyResponse.builder().survey(survey.get()).responsesJson(responsesJson).build();
-        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
-            throw new RuntimeException("Failed to serialize survey responses to JSON", e);
-        }
-    }
-
-    private SurveyResponseDTO fromSurvey(Survey survey) {
-        return new SurveyResponseDTO(
-                survey.getId(),
-                survey.getName(),
-                survey.getSchemaJson()
-        );
-    }
-
-    private SurveyResponseDTO fromSurveyResponse(SurveyResponse surveyResponse) {
-        return new SurveyResponseDTO(
-                surveyResponse.getId(),
-                surveyResponse.getSurvey().getName(),
-                surveyResponse.getResponsesJson()
-        );
+    private SurveyAnswers toSurveyAnswers(UUID id, SurveySubmitRequest request) {
+        return SurveyAnswers
+                .builder()
+                .survey(surveyRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException(format("Survey %s not found!", id.toString()))))
+                .answersJson(request.answersJson())
+                .build();
     }
 }
