@@ -8,4 +8,5 @@ def get_database_engine():
     return engine
 
 def get_ollama_client() -> AsyncClient:
-   return AsyncClient(host="http://ai:11434")
+    ollama_api_url = str(Settings().ollama_api_url)
+    return AsyncClient(host=ollama_api_url)

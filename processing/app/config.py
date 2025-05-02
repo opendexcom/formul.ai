@@ -6,3 +6,4 @@ class DatabaseSettings(BaseSettings):
 
 class Settings(BaseSettings):
     database: DatabaseSettings = DatabaseSettings()
+    ollama_api_url: str = Field(default="http://localhost:11435", alias="OLLAMA_API_URL")
