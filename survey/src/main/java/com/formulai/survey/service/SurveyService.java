@@ -22,7 +22,7 @@ public class SurveyService {
         return surveyRepository
                 .findById(id)
                 .map(this::fromSurvey)
-                .orElseThrow(()-> new IllegalArgumentException(format("Survey %s not fund!", id)));
+                .orElseThrow(()-> new IllegalArgumentException(format("Survey %s not found!", id)));
                 // () and -> is a lambda. Lambda is a temporary function without a name.
                 // In our case we want just throw IllegalArgumentException if any problem exist.
     }
