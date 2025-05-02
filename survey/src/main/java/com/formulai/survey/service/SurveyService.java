@@ -71,7 +71,12 @@ public class SurveyService {
         if(request.responses() == null || request.responses().isEmpty())
             throw new IllegalArgumentException("Survey responses cannot be null or empty!");
 
-        return SurveyResponse.builder().survey(survey.get()).responsesJson(request.toString()).build();
+        try {
+            String responsesJson = objectMapper.writeValueAsString(request);
+            return SurveyResponse.builder().survey(survey.get()).responsesJson(responsesJson).build();
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new RuntimeException("Failed to serialize survey responses to JSON", e);
+        }
     }
 
     private SurveyResponseDTO fromSurvey(Survey survey) {
