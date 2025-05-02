@@ -1,6 +1,6 @@
 package com.formulai.survey.dto.response;
 
-public record SurveyResponse(
+public record SurveyResponseDTO(
         String id,
         String name,
         String schemaJson

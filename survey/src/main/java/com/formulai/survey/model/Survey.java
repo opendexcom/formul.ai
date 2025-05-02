@@ -2,6 +2,9 @@ package com.formulai.survey.model;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.aspectj.weaver.patterns.TypePatternQuestions;
+
+import java.util.List;
 
 @Getter
 @Setter
@@ -16,6 +19,9 @@ public class Survey{
     private String id;
     private String name;
     private String schemaJson;
+
+    @OneToMany(mappedBy = "survey", cascade = CascadeType.ALL)
+    private List<SurveyResponse> responses;
 }
 
 
