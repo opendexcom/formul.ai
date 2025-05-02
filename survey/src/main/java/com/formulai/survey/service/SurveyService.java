@@ -52,6 +52,10 @@ public class SurveyService {
                 .build();
     }
 
+    public List<SurveyResponseDTO> getResponses() {
+        return surveyResponseRepository.findAll().stream().map(this::fromSurveyResponse).collect(Collectors.toList());
+    }
+
     public String submitSurveyRequest(String id, SurveySubmitRequestDTO request) {
         surveyResponseRepository.save(toSurveyResponse(id, request));
 
@@ -74,6 +78,14 @@ public class SurveyService {
                 survey.getId(),
                 survey.getName(),
                 survey.getSchemaJson()
+        );
+    }
+
+    private SurveyResponseDTO fromSurveyResponse(SurveyResponse surveyResponse) {
+        return new SurveyResponseDTO(
+                surveyResponse.getId(),
+                surveyResponse.getSurvey().getName(),
+                surveyResponse.getResponsesJson()
         );
     }
 }

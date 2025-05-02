@@ -31,6 +31,11 @@ public class SurveyController {
         return ResponseEntity.ok(surveyService.createSurvey(surveyRequest));
     }
 
+    @GetMapping("/responses")
+    public ResponseEntity<List<SurveyResponseDTO>> getAllSurveyResponses(){
+        return ResponseEntity.ok(surveyService.getResponses());
+    }
+
     @PostMapping("/{id}/submit")
     public ResponseEntity<String> submitSurvey(@PathVariable String id, @RequestBody @Valid SurveySubmitRequestDTO surveySubmitRequest){
 

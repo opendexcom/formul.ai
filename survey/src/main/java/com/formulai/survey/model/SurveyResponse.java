@@ -1,4 +1,4 @@
-﻿package com.formulai.survey.model;
+package com.formulai.survey.model;
 
 import jakarta.persistence.*;
 import lombok.*;

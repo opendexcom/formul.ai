@@ -1,4 +1,4 @@
-﻿package com.formulai.survey.repository;
+package com.formulai.survey.repository;
 
 import com.formulai.survey.model.SurveyResponse;
 import org.springframework.data.jpa.repository.JpaRepository;
