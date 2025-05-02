@@ -1,12 +1,12 @@
 package com.formulai.survey.service;
 
-import com.formulai.survey.dto.request.SurveySubmitRequestDTO;
+import com.formulai.survey.dto.request.SurveySubmitRequest;
 import com.formulai.survey.model.Survey;
-import com.formulai.survey.model.SurveyResponse;
+import com.formulai.survey.model.SurveyAnswers;
 import com.formulai.survey.repository.SurveyRepository;
-import com.formulai.survey.dto.request.SurveyRequestDTO;
-import com.formulai.survey.dto.response.SurveyResponseDTO;
-import com.formulai.survey.repository.SurveyResponseRepository;
+import com.formulai.survey.dto.request.SurveyRequest;
+import com.formulai.survey.dto.response.SurveyResponse;
+import com.formulai.survey.repository.SurveyAnswerRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -20,9 +20,9 @@ import static java.lang.String.format;
 public class SurveyService {
 
     private final SurveyRepository surveyRepository;
-    private final SurveyResponseRepository surveyResponseRepository;
+    private final SurveyAnswerRepository surveyResponseRepository;
 
-    public SurveyResponseDTO getSurveyById(String id) {
+    public SurveyResponse getSurveyById(String id) {
         return surveyRepository
                 .findById(id)
                 .map(this::fromSurvey)
@@ -31,7 +31,7 @@ public class SurveyService {
                 // In our case we want just throw IllegalArgumentException if any problem exist.
     }
 
-    public List<SurveyResponseDTO> getAllSurvey(){
+    public List<SurveyResponse> getAllSurvey(){
         return surveyRepository
                 .findAll()
                 .stream()
@@ -39,12 +39,12 @@ public class SurveyService {
                 .collect(Collectors.toList());
     }
 
-    public String createSurvey(SurveyRequestDTO request) {
+    public String createSurvey(SurveyRequest request) {
         surveyRepository.save(toSurvey(request));
         return "Survey created successfully";
     }
 
-    public Survey toSurvey(SurveyRequestDTO surveyRequest){
+    public Survey toSurvey(SurveyRequest surveyRequest){
         return Survey
                 .builder()
                 .name(surveyRequest.name())
@@ -52,17 +52,17 @@ public class SurveyService {
                 .build();
     }
 
-    public List<SurveyResponseDTO> getResponses() {
-        return surveyResponseRepository.findAll().stream().map(this::fromSurveyResponse).collect(Collectors.toList());
+    public List<SurveyResponse> getResponses(String survey_id) {
+        return surveyResponseRepository.find().stream().map(this::fromSurveyResponse).collect(Collectors.toList());
     }
 
-    public String submitSurveyRequest(String id, SurveySubmitRequestDTO request) {
+    public String submitSurveyRequest(String id, SurveySubmitRequest request) {
         surveyResponseRepository.save(toSurveyResponse(id, request));
 
         return "Survey submitted successfully";
     }
 
-    private SurveyResponse toSurveyResponse(String id, SurveySubmitRequestDTO request)
+    private SurveyAnswers toSurveyResponse(String id, SurveySubmitRequest request)
     {
         var survey = surveyRepository.findById(id);
         if(survey.isEmpty())
@@ -72,26 +72,26 @@ public class SurveyService {
             throw new IllegalArgumentException("Survey responses cannot be null or empty!");
 
         try {
-            String responsesJson = objectMapper.writeValueAsString(request);
-            return SurveyResponse.builder().survey(survey.get()).responsesJson(responsesJson).build();
+            
+            return SurveyAnswers.builder().survey(survey.get()).responsesJson(responsesJson).build();
         } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
             throw new RuntimeException("Failed to serialize survey responses to JSON", e);
         }
     }
 
-    private SurveyResponseDTO fromSurvey(Survey survey) {
-        return new SurveyResponseDTO(
+    private SurveyResponse fromSurvey(Survey survey) {
+        return new SurveyResponse(
                 survey.getId(),
                 survey.getName(),
                 survey.getSchemaJson()
         );
     }
 
-    private SurveyResponseDTO fromSurveyResponse(SurveyResponse surveyResponse) {
-        return new SurveyResponseDTO(
+    private SurveyResponse fromSurveyResponse(SurveyAnswers surveyResponse) {
+        return new SurveyResponse(
                 surveyResponse.getId(),
                 surveyResponse.getSurvey().getName(),
-                surveyResponse.getResponsesJson()
+                surveyResponse.getAnswersJson()
         );
     }
 }
