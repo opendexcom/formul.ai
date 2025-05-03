@@ -18,6 +18,8 @@ public class Survey{
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
     private String name;
+
+    @Column(columnDefinition = "TEXT") // To store large JSON data
     private String schemaJson;
 
     @OneToMany(mappedBy = "survey", cascade = CascadeType.ALL)
