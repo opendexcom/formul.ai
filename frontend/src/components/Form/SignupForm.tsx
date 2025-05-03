@@ -92,7 +92,7 @@ export const SignupForm = () => {
           disabled={formIsSubmiting}
           className="bg-blue-500 disabled:bg-zinc-400 disabled:cursor-not-allowed text-white py-2 rounded-xl cursor-pointer"
         >
-          {formIsSubmiting ? 'Submiting...' : 'Submit'}
+          {formIsSubmiting ? 'Submitting...' : 'Submit'}
         </button>
       </form>
     </div>
