@@ -11,9 +11,6 @@ import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.servers.Server;
 import jakarta.persistence.EntityManagerFactory;
 
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -38,7 +35,7 @@ public class SurveyServiceApplication {
 	@Bean(name = DATABASE_STARTUP_VALIDATOR)
     public DatabaseStartupValidator databaseStartupValidator(DataSource dataSource) {
 		var dsv = new DatabaseStartupValidator();
-        dsv.setDataSource(dataSource);
+		dsv.setDataSource(dataSource);
 		dsv.setInterval(3);
 		dsv.setTimeout(60);
 
