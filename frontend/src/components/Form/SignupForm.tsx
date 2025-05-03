@@ -22,7 +22,7 @@ export const SignupForm = () => {
 
   const handleSubmitForm = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    setFormIsSubmiting(true)
+    setFormIsSubmitting(true)
     if (
       formData.name === '' ||
       formData.age === '' ||
@@ -41,7 +41,7 @@ export const SignupForm = () => {
         console.error('An unknown error occurred')
       }
     } finally {
-      setFormIsSubmiting(false)
+      setFormIsSubmitting(false)
     }
   }
 
@@ -89,10 +89,10 @@ export const SignupForm = () => {
           </select>
         </div>
         <button
-          disabled={formIsSubmiting}
+          disabled={formIsSubmitting}
           className="bg-blue-500 disabled:bg-zinc-400 disabled:cursor-not-allowed text-white py-2 rounded-xl cursor-pointer"
         >
-          {formIsSubmiting ? 'Submitting...' : 'Submit'}
+          {formIsSubmitting ? 'Submitting...' : 'Submit'}
         </button>
       </form>
     </div>
