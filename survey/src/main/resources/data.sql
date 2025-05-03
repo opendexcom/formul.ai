@@ -1,6 +1,6 @@
 INSERT INTO survey(id, name, schema_json)
 SELECT
-    gen_random_uuid(),
+    '23e4693c-3975-4d91-a2f2-190993043c1c',
     'Initial Survey',
     '{"questions":[
         {"id":"1","text":"What is your name?","type":"text"},
