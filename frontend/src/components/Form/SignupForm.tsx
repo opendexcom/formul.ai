@@ -10,7 +10,7 @@ export interface FormData {
 }
 
 export const SignupForm = () => {
-  const [formIsSubmiting, setFormIsSubmiting] = useState(false)
+  const [formIsSubmitting, setFormIsSubmitting] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
     age: '',
