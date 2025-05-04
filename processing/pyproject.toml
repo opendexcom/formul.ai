@@ -15,9 +15,13 @@ dependencies = [
     "uvicorn[standard]>=0.34.2",
 ]
 
+[tool.pytest.ini_options]
+pythonpath = ["."]
+
 [dependency-groups]
 dev = [
     "pytest>=8.3.5",
+    "pytest-asyncio>=0.26.0",
     "riff>=0.0.287.0",
 ]
 
@@ -33,3 +37,4 @@ target-version = "py311"
 select = ["E", "F", "W", "C", "N"]
 ignore = ["E501"]  # Example: Ignore line length errors
 exclude = ["migrations", "tests"]
+

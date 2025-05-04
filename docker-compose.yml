@@ -9,6 +9,7 @@ services:
     build: ./processing
     volumes:
       - ./processing/app:/app/app
+      - ./processing/data:/app/data
     environment:
       - DB_CONNECTION_STRING=postgresql+psycopg://${SURVEY_DB_USERNAME}:${SURVEY_DB_PASSWORD}@${SURVEY_DB_HOST}:${SURVEY_DB_PORT}/${SURVEY_DB_NAME}
       - OLLAMA_API_URL=${OLLAMA_API_URL}
@@ -31,13 +32,15 @@ services:
       - "2137:11434"
     profiles:
       - ollama
+    volumes:
+      - ollama_data:/root/.ollama     - ollama
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
               count: all
-              capabilities: [ gpu ]
+              capabilities: [gpu]
 
   db:
     restart: always
@@ -64,5 +67,6 @@ services:
       - processing
       - survey
 volumes:
+  ollama_data:
   db_data:
   node_modules:
