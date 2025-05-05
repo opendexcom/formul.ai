@@ -17,7 +17,8 @@ from .models import PSurveyAnswer
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    engine = deps.get_database_engine()
+    settings = deps.get_settings()
+    engine = deps.get_db_engine(settings=settings)
     reset_db(engine)
     create_db_and_tables(engine)
 

@@ -1,54 +1,71 @@
+from functools import lru_cache
+
 from app.config import Settings
 from app.repository.survey_repository import SurveyRepository
 from app.repository.task_repository import TaskRepository
 from app.services.analysis_service import AnalysisService
 from app.services.survey_service import SurveyService
 from app.services.task_service import TaskService
+from fastapi import Depends
 from ollama import AsyncClient
+from sqlalchemy import Engine
 from sqlmodel import create_engine
 from sqlmodel import Session
 
 
-def get_database_engine():
-    postgres_url = str(Settings().database.db_connection_url)
+@lru_cache()
+def get_settings() -> Settings:
+    return Settings()
+
+
+def get_db_engine(settings: Settings = Depends(get_settings)):
+    postgres_url = str(settings.database.db_connection_url)
     engine = create_engine(postgres_url)
     return engine
 
 
-def get_db_connection():
-    engine = get_database_engine()
-    with engine.begin() as db_connection:
+def get_db_session(engine: Engine = Depends(get_db_engine)):
+    with Session(engine) as db_connection:
         yield db_connection
 
 
-def get_db_session():
-    engine = get_database_engine()
-    return Session(engine)
+def get_db_session_factory(engine=Depends(get_db_engine)):
+    def factory():
+        return Session(engine)
+
+    return factory
 
 
-def get_ollama_client() -> AsyncClient:
-    ollama_api_url = str(Settings().ollama_api_url)
+def get_ollama_client(settings: Settings = Depends(get_settings)) -> AsyncClient:
+    ollama_api_url = str(settings.ollama_api_url)
     return AsyncClient(host=ollama_api_url)
 
 
-def get_task_repository() -> TaskRepository:
-    return TaskRepository(session_factory=get_db_session)
+def get_task_repository(
+    session_factory=Depends(get_db_session_factory),
+) -> TaskRepository:
+    return TaskRepository(session_factory=session_factory)
 
 
-def get_task_service() -> TaskService:
-    task_repository = get_task_repository()
-    return TaskService(task_repository=task_repository)
+def get_survey_repository(
+    session_factory=Depends(get_db_session_factory),
+) -> SurveyRepository:
+    return SurveyRepository(session_factory=session_factory)
 
 
-def get_analysis_service() -> AnalysisService:
-    ollama_client = get_ollama_client()
+def get_task_service(
+    repo: TaskRepository = Depends(get_task_repository),
+) -> TaskService:
+    return TaskService(task_repository=repo)
+
+
+def get_survey_service(
+    repo: SurveyRepository = Depends(get_survey_repository),
+) -> SurveyService:
+    return SurveyService(survey_repository=repo)
+
+
+def get_analysis_service(
+    ollama_client: AsyncClient = Depends(get_ollama_client),
+) -> AnalysisService:
     return AnalysisService(ollama_client=ollama_client)
-
-
-def get_survey_repository() -> SurveyRepository:
-    return SurveyRepository(session_factory=get_db_session)
-
-
-def get_survey_service() -> SurveyService:
-    survey_repository = get_survey_repository()
-    return SurveyService(survey_repository=survey_repository)
