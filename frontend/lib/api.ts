@@ -1,4 +1,4 @@
-import { FormData } from './components/Form/SignupForm'
+import { FormData } from '../src/components/Form/SurveyForm'
 
 const surveyId = '23e4693c-3975-4d91-a2f2-190993043c1c'
 
