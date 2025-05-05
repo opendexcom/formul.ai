@@ -33,7 +33,7 @@ services:
     profiles:
       - ollama
     volumes:
-      - ollama_data:/root/.ollama     - ollama
+      - ollama_data:/root/.ollama
     deploy:
       resources:
         reservations:
