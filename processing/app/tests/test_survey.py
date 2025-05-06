@@ -23,7 +23,7 @@ def test_get_start_survey_analysis():
 
     def get_survey_service_mock():
         class MockSurveyService:
-            def get_survey_by_id(self, survey_id) -> Optional[PSurvey]:
+            async def get_survey_by_id(self, survey_id) -> Optional[PSurvey]:
                 if survey_id != local_survey_id:
                     return None
                 survey = PSurvey(
@@ -43,7 +43,7 @@ def test_get_start_survey_analysis():
         class MockTaskService:
             created_task: Optional[AnalysisTask] = None
 
-            def create_task(
+            async def create_task(
                 self,
                 survey_id: UUID4,
                 status: AnalysisTaskStatus = AnalysisTaskStatus.NULL,
@@ -57,7 +57,9 @@ def test_get_start_survey_analysis():
                 created_task = task
                 return task
 
-            def complete_task(self, job: AnalysisTask, result: str) -> AnalysisTask:
+            async def complete_task(
+                self, job: AnalysisTask, result: str
+            ) -> AnalysisTask:
                 if created_task is None:
                     raise NotFoundError(f"Task with ID {job.id} not found")
                 if job.id != created_task.id:
@@ -91,7 +93,5 @@ def test_get_start_survey_analysis():
         "id": str(local_task_id),
         "status": AnalysisTaskStatus.IN_PROGRESS.value,
         "survey_id": str(local_survey_id),
-        "created_at": created_task.created_at.astimezone(timezone.utc)
-        .isoformat()
-        .replace("+00:00", "Z"),
+        "created_at": created_task.created_at.isoformat(),
     }
