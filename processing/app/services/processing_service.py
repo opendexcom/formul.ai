@@ -1,6 +1,7 @@
 from datetime import datetime
 from datetime import timezone
 from pathlib import Path
+from typing import Callable
 
 from app.core.exceptions import NotFoundError
 from app.models import AnalysisJobResponse
@@ -80,7 +81,7 @@ class ProcessingService:
 
     async def start_survey_async_analysis(
         self, survey_id: UUID4
-    ) -> tuple[AnalysisJobResponse, callable]:
+    ) -> tuple[AnalysisJobResponse, Callable]:
         """Start asynchronous analysis of a survey"""
         survey_data, response = await self.prepare_survey_analysis_task(survey_id)
 
