@@ -57,6 +57,13 @@ def test_get_start_survey_analysis():
                 created_task = task
                 return task
 
+            async def get_task_by_id(self, task_id: UUID4) -> Task:
+                if created_task is None:
+                    raise NotFoundError(f"Task with ID {task_id} not found")
+                if task_id != created_task.id:
+                    raise NotFoundError(f"Task with ID {task_id} not found")
+                return created_task
+
             async def complete_task(self, job: Task, result: str) -> Task:
                 if created_task is None:
                     raise NotFoundError(f"Task with ID {job.id} not found")
