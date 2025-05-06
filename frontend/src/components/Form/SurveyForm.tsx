@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { submitForm } from '../../../lib/api'
 import {
   Button,
+  Card,
+  CardContent,
   Checkbox,
   FormControl,
   FormControlLabel,
@@ -104,83 +106,86 @@ export const SurveyForm = () => {
   }
 
   return (
-    <div>
-      <Typography variant="h1">Formul.ai</Typography>
-      <Stack component="form" onSubmit={handleSubmitForm} spacing={4}>
-        <FormControl>
-          <LeftAlignedFormLabel error={!!formErrors.tasks}>
-            Co masz robić w projekcie
-          </LeftAlignedFormLabel>
-          <FormGroup>
-            {formData.tasks.map((task) => (
-              <FormControlLabel
-                key={task.name}
-                control={
-                  <Checkbox name={task.name} checked={task.value} onChange={handleCheckboxChange} />
-                }
-                label={task.name}
-              />
-            ))}
-          </FormGroup>
-          {formErrors.tasks && (
-            <Typography color="error" variant="caption">
-              {formErrors.tasks}
-            </Typography>
-          )}
-        </FormControl>
-
-        <FormControl>
-          <FormLabel error={!!formErrors.rating}>Jak oceniasz proces do tego momentu</FormLabel>
-          <Grid container justifyContent="center">
-            <RadioGroup row name="rating" value={formData.rating} onChange={handleChange}>
-              {Array.from({ length: 10 }, (_, i) => (
-                <FormControlLabel
-                  key={i}
-                  value={String(i + 1)}
-                  control={<Radio sx={{ p: 0.5 }} />}
-                  label={i + 1}
-                  labelPlacement="bottom"
-                  sx={{ mx: 0.5 }}
-                />
-              ))}
-            </RadioGroup>
-          </Grid>
-          {formErrors.rating && (
-            <Typography color="error" variant="caption">
-              {formErrors.rating}
-            </Typography>
-          )}
-        </FormControl>
-
-        <TextField
-          label="Co Ci się podoba"
-          slotProps={{ inputLabel: { shrink: true } }}
-          multiline
-          rows={4}
-          name="likes"
-          value={formData.likes}
-          onChange={handleChange}
-          error={!!formErrors.likes}
-          helperText={formErrors.likes}
-        />
-
-        <TextField
-          multiline
-          label="Co byś poprawił"
-          slotProps={{ inputLabel: { shrink: true } }}
-          rows={4}
-          name="improvements"
-          value={formData.improvements}
-          onChange={handleChange}
-          error={!!formErrors.improvements}
-          helperText={formErrors.improvements}
-        />
-
-        <Button type="submit" disabled={formIsSubmitting} variant="contained">
-          {formIsSubmitting ? 'Submitting...' : 'Submit'}
-        </Button>
-      </Stack>
-    </div>
+    <>
+      <Card>
+        <CardContent>
+          <Stack component="form" onSubmit={handleSubmitForm} spacing={4}>
+            <FormControl>
+              <LeftAlignedFormLabel error={!!formErrors.tasks}>
+                Co masz robić w projekcie
+              </LeftAlignedFormLabel>
+              <FormGroup>
+                {formData.tasks.map((task) => (
+                  <FormControlLabel
+                    key={task.name}
+                    control={
+                      <Checkbox
+                        name={task.name}
+                        checked={task.value}
+                        onChange={handleCheckboxChange}
+                      />
+                    }
+                    label={task.name}
+                  />
+                ))}
+              </FormGroup>
+              {formErrors.tasks && (
+                <Typography color="error" variant="caption">
+                  {formErrors.tasks}
+                </Typography>
+              )}
+            </FormControl>
+            <FormControl>
+              <FormLabel error={!!formErrors.rating}>Jak oceniasz proces do tego momentu</FormLabel>
+              <Grid container justifyContent="center">
+                <RadioGroup row name="rating" value={formData.rating} onChange={handleChange}>
+                  {Array.from({ length: 10 }, (_, i) => (
+                    <FormControlLabel
+                      key={i}
+                      value={String(i + 1)}
+                      control={<Radio sx={{ p: 0.5 }} />}
+                      label={i + 1}
+                      labelPlacement="bottom"
+                      sx={{ mx: 0.5 }}
+                    />
+                  ))}
+                </RadioGroup>
+              </Grid>
+              {formErrors.rating && (
+                <Typography color="error" variant="caption">
+                  {formErrors.rating}
+                </Typography>
+              )}
+            </FormControl>
+            <TextField
+              label="Co Ci się podoba"
+              slotProps={{ inputLabel: { shrink: true } }}
+              multiline
+              rows={4}
+              name="likes"
+              value={formData.likes}
+              onChange={handleChange}
+              error={!!formErrors.likes}
+              helperText={formErrors.likes}
+            />
+            <TextField
+              multiline
+              label="Co byś poprawił"
+              slotProps={{ inputLabel: { shrink: true } }}
+              rows={4}
+              name="improvements"
+              value={formData.improvements}
+              onChange={handleChange}
+              error={!!formErrors.improvements}
+              helperText={formErrors.improvements}
+            />
+            <Button type="submit" disabled={formIsSubmitting} variant="contained">
+              {formIsSubmitting ? 'Submitting...' : 'Submit'}
+            </Button>
+          </Stack>
+        </CardContent>
+      </Card>
+    </>
   )
 }
 
