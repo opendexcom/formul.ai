@@ -24,19 +24,17 @@ def get_settings() -> Settings:
 
 def get_db_engine(settings: Settings = Depends(get_settings)) -> AsyncEngine:
     postgres_url = str(settings.database.db_connection_url)
-    engine = create_async_engine(
-        postgres_url, pool_size=50, max_overflow=50, pool_pre_ping=True
-    )
+    engine = create_async_engine(postgres_url, pool_size=50, max_overflow=50, pool_pre_ping=True)
     return engine
 
 
 def get_db_session_factory(
     engine: AsyncEngine = Depends(get_db_engine),
 ) -> AsyncSessionFactory:
-    SessionFactory = async_sessionmaker(
+    session_factory = async_sessionmaker(
         autocommit=False, autoflush=False, bind=engine, expire_on_commit=False
     )
-    return SessionFactory
+    return session_factory
 
 
 def get_db_session(engine: Engine = Depends(get_db_engine)):

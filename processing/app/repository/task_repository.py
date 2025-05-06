@@ -13,7 +13,7 @@ class TaskRepository:
             session.add(task)
             await session.commit()
 
-    async def update(self, task: Task)->Task:
+    async def update(self, task: Task) -> Task:
         async with self.session_factory() as session:
             session.add(task)
             await session.commit()

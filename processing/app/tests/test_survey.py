@@ -29,7 +29,7 @@ def test_get_start_survey_analysis():
                 survey = Survey(
                     id=survey_id,
                     name="Test Survey",
-                    schemaJson="{}",
+                    json_schema="{}",
                     # TODO: Add create answers and link with survey
                     answers=[],
                 )

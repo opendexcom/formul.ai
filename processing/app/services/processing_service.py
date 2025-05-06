@@ -9,7 +9,6 @@ from app.models import TaskStatus
 from app.services.analysis_service import AnalysisService
 from app.services.survey_service import SurveyService
 from app.services.task_service import TaskService
-from fastapi import BackgroundTasks
 from ollama import ResponseError
 from pydantic import UUID4
 
@@ -34,13 +33,13 @@ class ProcessingService:
         if survey == None:
             raise NotFoundError()
 
-        answersJsons = [answer.answersJson for answer in survey.answers]
+        answers_jsons = [answer.answers_json for answer in survey.answers]
         print(f"{survey=}")
-        print(f"{answersJsons=}")
+        print(f"{answers_jsons=}")
         survey_data = ProcessSurveyRequest(
             survey_id=survey.id,
             question="What do you think about this project so far, what do you like, what you dislike?",
-            answers=answersJsons,
+            answers=answers_jsons,
         )
 
         task = await self.task_service.create_task(survey_id, TaskStatus.IN_PROGRESS)
@@ -54,9 +53,7 @@ class ProcessingService:
 
         return survey_data, response
 
-    async def execute_survey_analysis(
-        self, survey_data: ProcessSurveyRequest, task_id: UUID4
-    ):
+    async def execute_survey_analysis(self, survey_data: ProcessSurveyRequest, task_id: UUID4):
         """Execute survey analysis task"""
         write_to_file = False
         task = await self.task_service.get_task_by_id(task_id)

@@ -34,14 +34,14 @@ class Survey(SQLModel, table=True):
     __tablename__ = "survey"  # type: ignore
     id: UUID4 = Field(default_factory=uuid.uuid4, primary_key=True)
     name: str = Field()
-    schemaJson: str = Field(sa_column=Column("schema_json", String))
+    json_schema: str = Field(sa_column=Column("schema_json", String))
     answers: list["SurveyAnswer"] = Relationship(back_populates="survey")
 
 
 class SurveyAnswer(SQLModel, table=True):
     __tablename__ = "survey_answers"  # type: ignore
     id: UUID4 = Field(default_factory=uuid.uuid4, primary_key=True)
-    answersJson: str = Field(sa_column=Column("answers_json", String))
+    answers_json: str = Field(sa_column=Column("answers_json", String))
 
     survey_id: UUID4 = Field(foreign_key="survey.id")
     survey: Optional["Survey"] = Relationship(back_populates="answers")

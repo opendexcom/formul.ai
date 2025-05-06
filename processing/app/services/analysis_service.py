@@ -1,5 +1,3 @@
-import sys
-
 from app.models import ProcessSurveyRequest
 from app.models import SurveyPoints
 from ollama import AsyncClient

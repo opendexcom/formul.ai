@@ -1,4 +1,3 @@
-import sys
 from functools import lru_cache
 
 from app.models import Task
