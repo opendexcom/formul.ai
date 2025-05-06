@@ -5,6 +5,7 @@ from app.db.sessions import AsyncSessionFactory
 from app.repository.survey_repository import SurveyRepository
 from app.repository.task_repository import TaskRepository
 from app.services.analysis_service import AnalysisService
+from app.services.processing_service import ProcessingService
 from app.services.survey_service import SurveyService
 from app.services.task_service import TaskService
 from fastapi import Depends
@@ -76,3 +77,11 @@ def get_analysis_service(
     ollama_client: AsyncClient = Depends(get_ollama_client),
 ) -> AnalysisService:
     return AnalysisService(ollama_client=ollama_client)
+
+
+def get_processing_service(
+    task_service: TaskService = Depends(get_task_service),
+    analysis_service: AnalysisService = Depends(get_analysis_service),
+    survey_service: SurveyService = Depends(get_survey_service),
+) -> ProcessingService:
+    return ProcessingService(task_service, analysis_service, survey_service)
