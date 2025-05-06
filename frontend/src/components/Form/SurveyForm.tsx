@@ -3,6 +3,7 @@ import { submitForm } from '../../../lib/api'
 import {
   Button,
   Checkbox,
+  FormControl,
   FormControlLabel,
   FormGroup,
   FormLabel,
@@ -10,17 +11,13 @@ import {
   Radio,
   RadioGroup,
   Stack,
+  styled,
   TextField,
   Typography,
 } from '@mui/material'
 
 export interface FormData {
-  tasks: {
-    front: boolean
-    backend: boolean
-    devops: boolean
-    inne: boolean
-  }
+  tasks: { name: string; value: boolean }[]
   rating: string
   likes: string
   improvements: string
@@ -29,12 +26,12 @@ export interface FormData {
 export const SurveyForm = () => {
   const [formIsSubmitting, setFormIsSubmitting] = useState(false)
   const [formData, setFormData] = useState({
-    tasks: {
-      front: false,
-      backend: false,
-      devops: false,
-      inne: false,
-    },
+    tasks: [
+      { name: 'front', value: false },
+      { name: 'backend', value: false },
+      { name: 'devops', value: false },
+      { name: 'inne', value: false },
+    ],
     rating: '',
     likes: '',
     improvements: '',
@@ -94,10 +91,7 @@ export const SurveyForm = () => {
     const { name, checked } = event.target
     setFormData((prev) => ({
       ...prev,
-      tasks: {
-        ...prev.tasks,
-        [name]: checked,
-      },
+      tasks: prev.tasks.map((task) => (task.name === name ? { ...task, value: checked } : task)),
     }))
   }
 
@@ -112,52 +106,55 @@ export const SurveyForm = () => {
   return (
     <div>
       <Typography variant="h1">Formul.ai</Typography>
-      <Stack component="form" onSubmit={handleSubmitForm} spacing={1}>
-        <FormLabel error={!!formErrors.tasks}>Co masz robić w projekcie</FormLabel>
-        <FormGroup>
-          {Object.keys(formData.tasks).map((task) => (
-            <FormControlLabel
-              key={task}
-              control={
-                <Checkbox
-                  name={task}
-                  checked={formData.tasks[task as keyof typeof formData.tasks]}
-                  onChange={handleCheckboxChange}
-                />
-              }
-              label={task}
-            />
-          ))}
-        </FormGroup>
-        {formErrors.tasks && (
-          <Typography color="error" variant="caption">
-            {formErrors.tasks}
-          </Typography>
-        )}
-
-        <FormLabel error={!!formErrors.rating}>Jak oceniasz proces do tego momentu</FormLabel>
-        <Grid container justifyContent="center">
-          <RadioGroup row name="rating" value={formData.rating} onChange={handleChange}>
-            {Array.from({ length: 10 }, (_, i) => (
+      <Stack component="form" onSubmit={handleSubmitForm} spacing={4}>
+        <FormControl>
+          <LeftAlignedFormLabel error={!!formErrors.tasks}>
+            Co masz robić w projekcie
+          </LeftAlignedFormLabel>
+          <FormGroup>
+            {formData.tasks.map((task) => (
               <FormControlLabel
-                key={i}
-                value={String(i + 1)}
-                control={<Radio sx={{ p: 0.5 }} />}
-                label={i + 1}
-                labelPlacement="bottom"
-                sx={{ mx: 0.5 }}
+                key={task.name}
+                control={
+                  <Checkbox name={task.name} checked={task.value} onChange={handleCheckboxChange} />
+                }
+                label={task.name}
               />
             ))}
-          </RadioGroup>
-        </Grid>
-        {formErrors.rating && (
-          <Typography color="error" variant="caption">
-            {formErrors.rating}
-          </Typography>
-        )}
+          </FormGroup>
+          {formErrors.tasks && (
+            <Typography color="error" variant="caption">
+              {formErrors.tasks}
+            </Typography>
+          )}
+        </FormControl>
 
-        <FormLabel error={!!formErrors.likes}>Co Ci się podoba</FormLabel>
+        <FormControl>
+          <FormLabel error={!!formErrors.rating}>Jak oceniasz proces do tego momentu</FormLabel>
+          <Grid container justifyContent="center">
+            <RadioGroup row name="rating" value={formData.rating} onChange={handleChange}>
+              {Array.from({ length: 10 }, (_, i) => (
+                <FormControlLabel
+                  key={i}
+                  value={String(i + 1)}
+                  control={<Radio sx={{ p: 0.5 }} />}
+                  label={i + 1}
+                  labelPlacement="bottom"
+                  sx={{ mx: 0.5 }}
+                />
+              ))}
+            </RadioGroup>
+          </Grid>
+          {formErrors.rating && (
+            <Typography color="error" variant="caption">
+              {formErrors.rating}
+            </Typography>
+          )}
+        </FormControl>
+
         <TextField
+          label="Co Ci się podoba"
+          slotProps={{ inputLabel: { shrink: true } }}
           multiline
           rows={4}
           name="likes"
@@ -167,9 +164,10 @@ export const SurveyForm = () => {
           helperText={formErrors.likes}
         />
 
-        <FormLabel error={!!formErrors.improvements}>Co byś poprawił</FormLabel>
         <TextField
           multiline
+          label="Co byś poprawił"
+          slotProps={{ inputLabel: { shrink: true } }}
           rows={4}
           name="improvements"
           value={formData.improvements}
@@ -185,3 +183,7 @@ export const SurveyForm = () => {
     </div>
   )
 }
+
+const LeftAlignedFormLabel = styled(FormLabel)({
+  textAlign: 'left',
+})
