@@ -1,9 +1,12 @@
+import { Layout } from './components/Layout'
 import { SurveyForm } from './components/Form/SurveyForm'
 
 function App() {
   return (
     <>
-      <SurveyForm />
+      <Layout title="Survey">
+        <SurveyForm />
+      </Layout>
     </>
   )
 }
