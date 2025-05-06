@@ -3,9 +3,9 @@ from uuid import uuid4
 from app.core.exceptions import NotFoundError
 from app.deps import get_task_service
 from app.main import app
-from app.models import AnalysisTask
 from app.models import AnalysisTaskResult
-from app.models import AnalysisTaskStatus
+from app.models import Task
+from app.models import TaskStatus
 from fastapi.testclient import TestClient
 from pydantic import UUID4
 from sqlmodel import UUID
@@ -18,13 +18,13 @@ def test_get_task_status():
 
     def get_task_service_mock():
         class MockTaskService:
-            async def get_task_by_id(self, task_id: UUID4) -> AnalysisTask:
+            async def get_task_by_id(self, task_id: UUID4) -> Task:
                 if task_id != local_task_id:
                     raise NotFoundError(f"Task with ID {task_id} not found")
-                return AnalysisTask(
+                return Task(
                     id=task_id,
                     survey_id=uuid4(),
-                    status=AnalysisTaskStatus.NULL,
+                    status=TaskStatus.NULL,
                     result=None,
                 )
 
@@ -36,7 +36,7 @@ def test_get_task_status():
 
     assert response.status_code == 200
     assert response.json() == {
-        "status": AnalysisTaskStatus.NULL.value,
+        "status": TaskStatus.NULL.value,
         "task_id": str(local_task_id),
     }
 
@@ -47,13 +47,13 @@ def test_get_completed_task_file():
     local_task_result = '{"ok":"true"}'
 
     class MockTaskService:
-        async def get_task_by_id(self, task_id: UUID) -> AnalysisTask:
+        async def get_task_by_id(self, task_id: UUID) -> Task:
             if task_id != local_task_id:
                 raise ValueError(f"Task with ID {task_id} not found")
-            return AnalysisTask(
+            return Task(
                 result=local_task_result,
                 survey_id=local_survey_id,
-                status=AnalysisTaskStatus.COMPLETED,
+                status=TaskStatus.COMPLETED,
             )
 
     app.dependency_overrides[get_task_service] = lambda: MockTaskService()
@@ -74,13 +74,13 @@ def test_get_non_completed_task_file():
     local_survey_id = uuid4()
 
     class MockTaskService:
-        async def get_task_by_id(self, task_id: UUID) -> AnalysisTask:
+        async def get_task_by_id(self, task_id: UUID) -> Task:
             if task_id != local_task_id:
                 raise ValueError(f"Task with ID {task_id} not found")
-            return AnalysisTask(
+            return Task(
                 result=None,
                 survey_id=local_survey_id,
-                status=AnalysisTaskStatus.NULL,
+                status=TaskStatus.NULL,
             )
 
     app.dependency_overrides[get_task_service] = lambda: MockTaskService()

@@ -9,9 +9,9 @@ from fastapi.openapi.utils import get_openapi
 from pydantic import UUID4
 
 from . import deps
-from .models import AnalysisTask
-from .models import PSurvey
-from .models import PSurveyAnswer
+from .models import Survey
+from .models import SurveyAnswer
+from .models import Task
 
 
 @asynccontextmanager
@@ -24,9 +24,9 @@ async def lifespan(app: FastAPI):
 
     async with session_factory() as session:
         survey_id: UUID4 = UUID("6cb2588c-a93b-41fe-a4a3-9b08280f4e97")
-        survey_exists = await session.get(PSurvey, survey_id)
+        survey_exists = await session.get(Survey, survey_id)
         if not survey_exists:
-            survey = PSurvey(
+            survey = Survey(
                 id=survey_id,
                 name="example",
                 schemaJson="{'question':'This is question'}",
@@ -36,10 +36,10 @@ async def lifespan(app: FastAPI):
         else:
             print(f"Survey with ID {survey_id} already exists.")
 
-        task = AnalysisTask(
+        task = Task(
             id=UUID("610c3050-0d86-4f6f-b7a6-759a42732f17"), survey_id=survey_id
         )
-        task_exists = await session.get(AnalysisTask, task.id)
+        task_exists = await session.get(Task, task.id)
         if not task_exists:
             session.add(task)
             await session.commit()
@@ -64,8 +64,8 @@ async def lifespan(app: FastAPI):
             "Honestly, I’m surprised how far we’ve come given how many of us started clueless. But I’d kill for a better README and setup guide.",
             "Cool tech stack, solid project idea, and I like the energy. But right now, too much tech for too little process — we need to simplify or organize better.",
         ]:
-            answer = PSurveyAnswer(survey_id=survey_id, answersJson=answer_text)
-            answer_exists = await session.get(PSurveyAnswer, answer.id)
+            answer = SurveyAnswer(survey_id=survey_id, answersJson=answer_text)
+            answer_exists = await session.get(SurveyAnswer, answer.id)
             if not answer_exists:
                 session.add(answer)
                 await session.commit()

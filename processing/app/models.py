@@ -1,17 +1,18 @@
 import uuid
 from datetime import datetime
-from datetime import timezone
 from enum import StrEnum
 from typing import Optional
 
 from pydantic import BaseModel
 from pydantic import UUID4
+from sqlmodel import Column
 from sqlmodel import Field
 from sqlmodel import Relationship
 from sqlmodel import SQLModel
+from sqlmodel import String
 
 
-class AnalysisTaskStatus(StrEnum):
+class TaskStatus(StrEnum):
     NULL = "null"
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
@@ -19,42 +20,44 @@ class AnalysisTaskStatus(StrEnum):
 
 
 # separate Task with answer into separate model? (AnalysisTaskCompleted with result:str + status:COMPLETED)
-class AnalysisTask(SQLModel, table=True, schema="analysis_tasks"):
+class Task(SQLModel, table=True):
     id: UUID4 = Field(default_factory=uuid.uuid4, primary_key=True)
     survey_id: UUID4 = Field(index=True)
     # TODO: parametrize default_factory depending on database engine (sync/async),
     # since async engine use only offset-naive datetime
     created_at: datetime = Field(default_factory=lambda: datetime.now())
-    status: AnalysisTaskStatus = Field(default=AnalysisTaskStatus.NULL)
+    status: TaskStatus = Field(default=TaskStatus.NULL)
     result: Optional[str] | None = Field(default=None)
 
 
-class PSurvey(SQLModel, table=True):
+class Survey(SQLModel, table=True):
+    __tablename__ = "survey"  # type: ignore
     id: UUID4 = Field(default_factory=uuid.uuid4, primary_key=True)
     name: str = Field()
     schemaJson: str = Field()
-    answers: list["PSurveyAnswer"] = Relationship(back_populates="survey")
+    answers: list["SurveyAnswer"] = Relationship(back_populates="survey")
 
 
-class PSurveyAnswer(SQLModel, table=True, schema="processing_survey_answers"):
+class SurveyAnswer(SQLModel, table=True):
+    __tablename__ = "survey_answers"  # type: ignore
     id: UUID4 = Field(default_factory=uuid.uuid4, primary_key=True)
     answersJson: str = Field()
 
-    survey_id: UUID4 = Field(foreign_key="psurvey.id")
-    survey: Optional["PSurvey"] = Relationship(back_populates="answers")
+    survey_id: UUID4 = Field(foreign_key="survey.id")
+    survey: Optional["Survey"] = Relationship(back_populates="answers")
 
 
 class AnalysisJobResponse(BaseModel):
     id: UUID4
     survey_id: UUID4
     created_at: datetime
-    status: AnalysisTaskStatus
+    status: TaskStatus
 
 
 class AnalysisTaskResult(BaseModel):
     result: str | None
     survey_id: UUID4
-    status: AnalysisTaskStatus
+    status: TaskStatus
 
 
 class ProcessSurveyRequest(BaseModel):
@@ -67,7 +70,7 @@ class SurveyStatusReponse(BaseModel):
     id: UUID4
     survey_id: str
     created_at: datetime
-    status: AnalysisTaskStatus
+    status: TaskStatus
 
 
 class ProcessSurveyResponse(BaseModel):

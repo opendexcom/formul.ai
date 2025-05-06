@@ -8,8 +8,8 @@ from app.deps import get_analysis_service
 from app.deps import get_survey_service
 from app.deps import get_task_service
 from app.models import AnalysisJobResponse
-from app.models import AnalysisTaskStatus
 from app.models import ProcessSurveyRequest
+from app.models import TaskStatus
 from app.services.analysis_service import AnalysisService
 from app.services.survey_service import SurveyService
 from app.services.task_service import TaskService
@@ -45,7 +45,7 @@ async def start_survey_analysis(
         answers=answersJsons,
     )
 
-    task = await task_service.create_task(survey_id, AnalysisTaskStatus.IN_PROGRESS)
+    task = await task_service.create_task(survey_id, TaskStatus.IN_PROGRESS)
 
     write_to_file = False
 
@@ -56,7 +56,7 @@ async def start_survey_analysis(
             llm_reponse = await analysis_service.start_survey_analysis(survey_data)
         except ResponseError as e:
             print(f"Ollama server error {e}")
-            task.status = AnalysisTaskStatus.ERROR
+            task.status = TaskStatus.ERROR
             await task_service.update_task(task)
             return
 

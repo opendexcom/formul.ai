@@ -1,7 +1,7 @@
 from uuid import UUID
 
-from app.models import AnalysisTask
-from app.models import AnalysisTaskStatus
+from app.models import Task
+from app.models import TaskStatus
 from app.repository.task_repository import TaskRepository
 
 
@@ -10,25 +10,25 @@ class TaskService:
         self.task_repository = task_repository
 
     async def create_task(
-        self, survey_id: UUID, status: AnalysisTaskStatus = AnalysisTaskStatus.NULL
-    ) -> AnalysisTask:
+        self, survey_id: UUID, status: TaskStatus = TaskStatus.NULL
+    ) -> Task:
         """Create a new analysis job in database"""
-        job = AnalysisTask(survey_id=survey_id, status=status)
+        job = Task(survey_id=survey_id, status=status)
         await self.task_repository.create(job)
         return job
 
     def update_task(
-        self, task: AnalysisTask
+        self, task: Task
     ) :
         return self.task_repository.update(task)
 
-    async def get_task_by_id(self, task_id: UUID) -> AnalysisTask:
+    async def get_task_by_id(self, task_id: UUID) -> Task:
         task = await self.task_repository.get_by_id(task_id)
         return task
 
-    async def complete_task(self, job: AnalysisTask, result: str) -> AnalysisTask:
+    async def complete_task(self, job: Task, result: str) -> Task:
         """Update the status of an analysis job"""
-        job.status = AnalysisTaskStatus.COMPLETED
+        job.status = TaskStatus.COMPLETED
         job.result = result
         await self.task_repository.update(job)
         return job

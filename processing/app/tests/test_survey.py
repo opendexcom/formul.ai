@@ -8,9 +8,9 @@ from app.deps import get_analysis_service
 from app.deps import get_survey_service
 from app.deps import get_task_service
 from app.main import app
-from app.models import AnalysisTask
-from app.models import AnalysisTaskStatus
-from app.models import PSurvey
+from app.models import Survey
+from app.models import Task
+from app.models import TaskStatus
 from fastapi.testclient import TestClient
 from pydantic import UUID4
 
@@ -23,10 +23,10 @@ def test_get_start_survey_analysis():
 
     def get_survey_service_mock():
         class MockSurveyService:
-            async def get_survey_by_id(self, survey_id) -> Optional[PSurvey]:
+            async def get_survey_by_id(self, survey_id) -> Optional[Survey]:
                 if survey_id != local_survey_id:
                     return None
-                survey = PSurvey(
+                survey = Survey(
                     id=survey_id,
                     name="Test Survey",
                     schemaJson="{}",
@@ -37,18 +37,18 @@ def test_get_start_survey_analysis():
 
         return MockSurveyService()
 
-    created_task: AnalysisTask | None = None
+    created_task: Task | None = None
 
     def get_task_service_mock():
         class MockTaskService:
-            created_task: Optional[AnalysisTask] = None
+            created_task: Optional[Task] = None
 
             async def create_task(
                 self,
                 survey_id: UUID4,
-                status: AnalysisTaskStatus = AnalysisTaskStatus.NULL,
-            ) -> AnalysisTask:
-                task = AnalysisTask(
+                status: TaskStatus = TaskStatus.NULL,
+            ) -> Task:
+                task = Task(
                     id=local_task_id,
                     survey_id=survey_id,
                     status=status,
@@ -57,14 +57,12 @@ def test_get_start_survey_analysis():
                 created_task = task
                 return task
 
-            async def complete_task(
-                self, job: AnalysisTask, result: str
-            ) -> AnalysisTask:
+            async def complete_task(self, job: Task, result: str) -> Task:
                 if created_task is None:
                     raise NotFoundError(f"Task with ID {job.id} not found")
                 if job.id != created_task.id:
                     raise NotFoundError(f"Task with ID {job.id} not found")
-                job.status = created_task.status = AnalysisTaskStatus.COMPLETED
+                job.status = created_task.status = TaskStatus.COMPLETED
                 job.result = created_task.result = result
                 return job
 
@@ -91,7 +89,7 @@ def test_get_start_survey_analysis():
     # how to check it more elegantly?
     assert response.json() == {
         "id": str(local_task_id),
-        "status": AnalysisTaskStatus.IN_PROGRESS.value,
+        "status": TaskStatus.IN_PROGRESS.value,
         "survey_id": str(local_survey_id),
         "created_at": created_task.created_at.isoformat(),
     }
