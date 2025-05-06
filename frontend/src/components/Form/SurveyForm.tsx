@@ -1,16 +1,15 @@
 import { useState } from 'react'
 import { submitForm } from '../../../lib/api'
 import {
-  Box,
   Button,
   Checkbox,
-  FormControl,
   FormControlLabel,
   FormGroup,
   FormLabel,
   Grid,
   Radio,
   RadioGroup,
+  Stack,
   TextField,
   Typography,
 } from '@mui/material'
@@ -48,10 +47,8 @@ export const SurveyForm = () => {
     improvements: '',
   })
 
-  const handleSubmitForm = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-
-    const newErrors = {
+  const validateFormData = (formData: FormData) => {
+    const errors = {
       tasks: '',
       rating: '',
       likes: '',
@@ -59,11 +56,19 @@ export const SurveyForm = () => {
     }
 
     const atLeastOneTaskChecked = Object.values(formData.tasks).some((v) => v)
-    if (!atLeastOneTaskChecked) newErrors.tasks = 'Wybierz przynajmniej jedno zadanie.'
+    if (!atLeastOneTaskChecked) errors.tasks = 'Wybierz przynajmniej jedno zadanie.'
 
-    if (!formData.rating) newErrors.rating = 'Ocena jest wymagana.'
-    if (!formData.likes.trim()) newErrors.likes = 'To pole jest wymagane.'
-    if (!formData.improvements.trim()) newErrors.improvements = 'To pole jest wymagane.'
+    if (!formData.rating) errors.rating = 'Ocena jest wymagana.'
+    if (!formData.likes.trim()) errors.likes = 'To pole jest wymagane.'
+    if (!formData.improvements.trim()) errors.improvements = 'To pole jest wymagane.'
+
+    return errors
+  }
+
+  const handleSubmitForm = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+
+    const newErrors = validateFormData(formData)
 
     setFormErrors(newErrors)
 
@@ -107,87 +112,76 @@ export const SurveyForm = () => {
   return (
     <div>
       <Typography variant="h1">Formul.ai</Typography>
-      <Box
-        component="form"
-        onSubmit={handleSubmitForm}
-        sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
-      >
-        <FormControl error={!!formErrors.tasks}>
-          <FormLabel>Co masz robić w projekcie</FormLabel>
-          <FormGroup>
-            {(['front', 'backend', 'devops', 'inne'] as Array<keyof typeof formData.tasks>).map(
-              (task) => (
-                <FormControlLabel
-                  key={task}
-                  control={
-                    <Checkbox
-                      name={task}
-                      checked={formData.tasks[task]}
-                      onChange={handleCheckboxChange}
-                    />
-                  }
-                  label={task}
+      <Stack component="form" onSubmit={handleSubmitForm} spacing={1}>
+        <FormLabel error={!!formErrors.tasks}>Co masz robić w projekcie</FormLabel>
+        <FormGroup>
+          {Object.keys(formData.tasks).map((task) => (
+            <FormControlLabel
+              key={task}
+              control={
+                <Checkbox
+                  name={task}
+                  checked={formData.tasks[task as keyof typeof formData.tasks]}
+                  onChange={handleCheckboxChange}
                 />
-              ),
-            )}
-          </FormGroup>
-          {formErrors.tasks && (
-            <Typography color="error" variant="caption">
-              {formErrors.tasks}
-            </Typography>
-          )}
-        </FormControl>
-        <FormControl error={!!formErrors.rating}>
-          <FormLabel>Jak oceniasz proces do tego momentu</FormLabel>
-          <Grid container justifyContent="center">
-            <RadioGroup row name="rating" value={formData.rating} onChange={handleChange}>
-              {Array.from({ length: 10 }, (_, i) => (
-                <FormControlLabel
-                  key={i}
-                  value={String(i + 1)}
-                  control={<Radio sx={{ p: 0.5 }} />}
-                  label={i + 1}
-                  labelPlacement="bottom"
-                  sx={{ mx: 0.5 }}
-                />
-              ))}
-            </RadioGroup>
-          </Grid>
-          {formErrors.rating && (
-            <Typography color="error" variant="caption">
-              {formErrors.rating}
-            </Typography>
-          )}
-        </FormControl>
-        <FormControl fullWidth error={!!formErrors.likes}>
-          <FormLabel>Co Ci się podoba</FormLabel>
-          <TextField
-            multiline
-            rows={4}
-            name="likes"
-            value={formData.likes}
-            onChange={handleChange}
-            error={!!formErrors.likes}
-            helperText={formErrors.likes}
-          />
-        </FormControl>
-        <FormControl fullWidth error={!!formErrors.improvements}>
-          <FormLabel>Co byś poprawił</FormLabel>
-          <TextField
-            multiline
-            rows={4}
-            name="improvements"
-            value={formData.improvements}
-            onChange={handleChange}
-            error={!!formErrors.improvements}
-            helperText={formErrors.improvements}
-          />
-        </FormControl>
+              }
+              label={task}
+            />
+          ))}
+        </FormGroup>
+        {formErrors.tasks && (
+          <Typography color="error" variant="caption">
+            {formErrors.tasks}
+          </Typography>
+        )}
+
+        <FormLabel error={!!formErrors.rating}>Jak oceniasz proces do tego momentu</FormLabel>
+        <Grid container justifyContent="center">
+          <RadioGroup row name="rating" value={formData.rating} onChange={handleChange}>
+            {Array.from({ length: 10 }, (_, i) => (
+              <FormControlLabel
+                key={i}
+                value={String(i + 1)}
+                control={<Radio sx={{ p: 0.5 }} />}
+                label={i + 1}
+                labelPlacement="bottom"
+                sx={{ mx: 0.5 }}
+              />
+            ))}
+          </RadioGroup>
+        </Grid>
+        {formErrors.rating && (
+          <Typography color="error" variant="caption">
+            {formErrors.rating}
+          </Typography>
+        )}
+
+        <FormLabel error={!!formErrors.likes}>Co Ci się podoba</FormLabel>
+        <TextField
+          multiline
+          rows={4}
+          name="likes"
+          value={formData.likes}
+          onChange={handleChange}
+          error={!!formErrors.likes}
+          helperText={formErrors.likes}
+        />
+
+        <FormLabel error={!!formErrors.improvements}>Co byś poprawił</FormLabel>
+        <TextField
+          multiline
+          rows={4}
+          name="improvements"
+          value={formData.improvements}
+          onChange={handleChange}
+          error={!!formErrors.improvements}
+          helperText={formErrors.improvements}
+        />
 
         <Button type="submit" disabled={formIsSubmitting} variant="contained">
           {formIsSubmitting ? 'Submitting...' : 'Submit'}
         </Button>
-      </Box>
+      </Stack>
     </div>
   )
 }
