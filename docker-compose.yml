@@ -3,7 +3,7 @@ services:
     build: ./frontend
     volumes:
       - ./frontend/:/app
-      - node_modules:/app/node_modules
+      - /app/node_modules
 
   processing:
     build: ./processing
@@ -37,7 +37,7 @@ services:
           devices:
             - driver: nvidia
               count: all
-              capabilities: [ gpu ]
+              capabilities: [gpu]
 
   db:
     restart: always
@@ -65,4 +65,3 @@ services:
       - survey
 volumes:
   db_data:
-  node_modules:
