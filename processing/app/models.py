@@ -82,7 +82,7 @@ class SurveyPointsSentimentBucket(BaseModel):
 
 
 class SurveyPoints(BaseModel):
-    """Data that we want collect from user to get weather data"""
+    """Data that we want collect from llm as response"""
 
     frequent: SurveyPointsSentimentBucket = Field(description="List of frequent points")
     moderate: SurveyPointsSentimentBucket = Field(description="List of moderate points")
