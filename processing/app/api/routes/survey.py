@@ -16,6 +16,6 @@ async def start_survey_analysis(
     processing_service: ProcessingService = Depends(get_processing_service),
 ):
     """Start asynchronous analysis of a survey"""
-    response, worker = await processing_service.start_survey_analysis(survey_id)
+    response, worker = await processing_service.start_survey_async_analysis(survey_id)
     background_tasks.add_task(worker)
     return response

@@ -51,14 +51,16 @@ class ProcessingService:
             status=task.status,
             created_at=task.created_at,
         )
-        
+
         return survey_data, response
 
-    async def execute_survey_analysis(self, survey_data: ProcessSurveyRequest, task_id: UUID4):
+    async def execute_survey_analysis(
+        self, survey_data: ProcessSurveyRequest, task_id: UUID4
+    ):
         """Execute survey analysis task"""
         write_to_file = False
         task = await self.task_service.get_task_by_id(task_id)
-        
+
         start_time = datetime.now(timezone.utc)
         print(f"Starting analysis_service {start_time=}")
         try:
@@ -79,13 +81,13 @@ class ProcessingService:
             print(f"response written to {filename}")
         await self.task_service.complete_task(task, llm_reponse)
 
-    async def start_survey_analysis(
+    async def start_survey_async_analysis(
         self, survey_id: UUID4
     ) -> tuple[AnalysisJobResponse, callable]:
         """Start asynchronous analysis of a survey"""
         survey_data, response = await self.prepare_survey_analysis_task(survey_id)
-        
+
         async def worker():
             await self.execute_survey_analysis(survey_data, response.id)
-        
+
         return response, worker
