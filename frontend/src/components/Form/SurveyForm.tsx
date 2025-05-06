@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { submitForm } from '../../../lib/api'
+import { useNavigate } from 'react-router'
 import {
   Button,
   Card,
@@ -26,6 +27,7 @@ export interface FormData {
 }
 
 export const SurveyForm = () => {
+  const navigate = useNavigate()
   const [formIsSubmitting, setFormIsSubmitting] = useState(false)
   const [formData, setFormData] = useState({
     tasks: [
@@ -86,6 +88,7 @@ export const SurveyForm = () => {
       }
     } finally {
       setFormIsSubmitting(false)
+      navigate('/thank-you')
     }
   }
 
