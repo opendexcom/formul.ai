@@ -22,8 +22,7 @@ from pydantic import UUID4
 router = APIRouter(prefix="/surveys")
 
 
-# should be POST
-@router.get("/{survey_id}/start", response_model=AnalysisJobResponse)
+@router.post("/{survey_id}/start", response_model=AnalysisJobResponse)
 async def start_survey_analysis(
     survey_id: UUID4,
     background_tasks: BackgroundTasks,
