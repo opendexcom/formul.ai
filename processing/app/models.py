@@ -22,7 +22,9 @@ class AnalysisTaskStatus(StrEnum):
 class AnalysisTask(SQLModel, table=True, schema="analysis_tasks"):
     id: UUID4 = Field(default_factory=uuid.uuid4, primary_key=True)
     survey_id: UUID4 = Field(index=True)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    # TODO: parametrize default_factory depending on database engine (sync/async),
+    # since async engine use only offset-naive datetime
+    created_at: datetime = Field(default_factory=lambda: datetime.now())
     status: AnalysisTaskStatus = Field(default=AnalysisTaskStatus.NULL)
     result: Optional[str] | None = Field(default=None)
 

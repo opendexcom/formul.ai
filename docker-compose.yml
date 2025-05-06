@@ -11,7 +11,7 @@ services:
       - ./processing/app:/app/app
       - ./processing/data:/app/data
     environment:
-      - DB_CONNECTION_STRING=postgresql+psycopg://${SURVEY_DB_USERNAME}:${SURVEY_DB_PASSWORD}@${SURVEY_DB_HOST}:${SURVEY_DB_PORT}/${SURVEY_DB_NAME}
+      - DB_CONNECTION_STRING=postgresql+asyncpg://${SURVEY_DB_USERNAME}:${SURVEY_DB_PASSWORD}@${SURVEY_DB_HOST}:${SURVEY_DB_PORT}/${SURVEY_DB_NAME}
       - OLLAMA_API_URL=${OLLAMA_API_URL}
     depends_on:
       - db

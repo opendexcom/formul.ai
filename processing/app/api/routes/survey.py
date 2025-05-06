@@ -31,7 +31,7 @@ async def start_survey_analysis(
     survey_service: SurveyService = Depends(get_survey_service),
 ):
     """Start asynchronous analysis of a survey"""
-    survey = survey_service.get_survey_by_id(survey_id)
+    survey = await survey_service.get_survey_by_id(survey_id)
 
     if survey == None:
         raise NotFoundError()
@@ -45,7 +45,7 @@ async def start_survey_analysis(
         answers=answersJsons,
     )
 
-    job = task_service.create_task(survey_id, AnalysisTaskStatus.IN_PROGRESS)
+    task = await task_service.create_task(survey_id, AnalysisTaskStatus.IN_PROGRESS)
 
     write_to_file = False
 
@@ -62,13 +62,13 @@ async def start_survey_analysis(
             with open(filename, "w") as f:
                 f.write(llm_reponse)
             print(f"response written to {filename}")
-        task_service.complete_task(job, llm_reponse)
+        await task_service.complete_task(task, llm_reponse)
 
     background_tasks.add_task(worker, survey_data)
 
     return AnalysisJobResponse(
-        survey_id=job.survey_id, id=job.id, status=job.status, created_at=job.created_at
-    )
+        survey_id=task.survey_id,
+        id=task.id,
         status=task.status,
         created_at=task.created_at,
     )
