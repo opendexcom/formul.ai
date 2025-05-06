@@ -1,4 +1,4 @@
-from contextlib import AbstractContextManager
+from app.core.exceptions import NotFoundError
 from app.db.sessions import AsyncSessionFactory
 from app.models import AnalysisTask
 from pydantic import UUID4
@@ -23,5 +23,5 @@ class TaskRepository:
         async with self.session_factory() as session:
             task = await session.get(AnalysisTask, task_id)
             if not task:
-                raise ValueError(f"Task with ID {task_id} not found")
+                raise NotFoundError(f"Task with ID {task_id} not found")
             return task
