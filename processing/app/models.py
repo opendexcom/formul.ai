@@ -89,6 +89,4 @@ class SurveyPoints(BaseModel):
 
     frequent: SurveyPointsSentimentBucket = Field(description="List of frequent points")
     moderate: SurveyPointsSentimentBucket = Field(description="List of moderate points")
-    occasional: SurveyPointsSentimentBucket = Field(
-        description="List of occasional points"
-    )
+    occasional: SurveyPointsSentimentBucket = Field(description="List of occasional points")
