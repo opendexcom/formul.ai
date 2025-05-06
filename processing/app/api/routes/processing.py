@@ -24,7 +24,7 @@ async def get_task_status(
 async def get_task_file(
     task_id: UUID4, task_service: TaskService = Depends(get_task_service)
 ):
-    task =await task_service.get_task_by_id(task_id)
+    task = await task_service.get_task_by_id(task_id)
     if not task.result:
         raise FileNotFoundError(f"Task with ID {task_id} has no result")
 
