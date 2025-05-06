@@ -16,6 +16,7 @@ from app.services.task_service import TaskService
 from fastapi import APIRouter
 from fastapi import BackgroundTasks
 from fastapi import Depends
+from ollama import ResponseError
 from pydantic import UUID4
 
 router = APIRouter(prefix="/surveys")
@@ -52,8 +53,14 @@ async def start_survey_analysis(
     async def worker(survey_data: ProcessSurveyRequest):
         start_time = datetime.now(timezone.utc)
         print(f"Starting analysis_service {start_time=}")
-        llm_reponse = await analysis_service.start_survey_analysis(survey_data)
-        print(f"Finished analysis_service {now=}")
+        try:
+            llm_reponse = await analysis_service.start_survey_analysis(survey_data)
+        except ResponseError as e:
+            print(f"Ollama server error {e}")
+            task.status = AnalysisTaskStatus.ERROR
+            await task_service.update_task(task)
+            return
+
         end_time = datetime.now(timezone.utc)
         print(f"Finished analysis_service {end_time=}")
         if write_to_file:
