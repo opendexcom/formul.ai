@@ -84,7 +84,7 @@ def test_get_start_survey_analysis():
 
     print("Starting test_start_survey_analysis")
     sys.stdout.flush()
-    response = client.get(f"/surveys/{local_survey_id}/start")
+    response = client.post(f"/surveys/{local_survey_id}/start")
 
     assert response.status_code == 200
 
