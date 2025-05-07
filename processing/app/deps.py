@@ -31,9 +31,7 @@ def get_db_engine(settings: Settings = Depends(get_settings)) -> AsyncEngine:
 def get_db_session_factory(
     engine: AsyncEngine = Depends(get_db_engine),
 ) -> AsyncSessionFactory:
-    session_factory = async_sessionmaker(
-        autocommit=False, autoflush=False, bind=engine, expire_on_commit=False
-    )
+    session_factory = async_sessionmaker(autocommit=False, autoflush=False, bind=engine, expire_on_commit=False)
     return session_factory
 
 

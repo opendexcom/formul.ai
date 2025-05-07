@@ -38,9 +38,7 @@ async def get_task_file(task_id: UUID4, task_service: TaskService = Depends(get_
         raise api_exceptions.FileNotFoundError(f"Task with ID {task_id} is not completed")
 
     if not task.result:
-        raise api_exceptions.FileNotFoundError(
-            f"Task with ID {task_id} is completed but has no result"
-        )
+        raise api_exceptions.FileNotFoundError(f"Task with ID {task_id} is completed but has no result")
 
     file_content = task.result
     file_like = BytesIO(file_content.encode("utf-8"))

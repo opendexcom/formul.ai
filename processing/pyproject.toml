@@ -41,7 +41,7 @@ lint.select = ["E", "F", "W", "C", "N"]
 lint.ignore = ["E501", "E711"]  # Example: Ignore line length errors
 exclude = ["migrations", "tests"]
 
-line-length = 100
+line-length = 120
 
 [tool.black]
-line-length = 100
+line-length = 120

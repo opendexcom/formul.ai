@@ -14,9 +14,7 @@ class SurveyRepository:
 
     async def get_by_id(self, survey_id: UUID) -> Optional[Survey]:
         async with self.session_factory() as session:
-            r = await session.execute(
-                select(Survey).where(Survey.id == survey_id).options(joinedload(Survey.answers))
-            )
+            r = await session.execute(select(Survey).where(Survey.id == survey_id).options(joinedload(Survey.answers)))
             return r.unique().scalar_one_or_none()
 
     async def get_all(self) -> list[Survey]:

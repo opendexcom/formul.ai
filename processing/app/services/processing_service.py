@@ -25,9 +25,7 @@ class ProcessingService:
         self.analysis_service = analysis_service
         self.survey_service = survey_service
 
-    async def prepare_survey_analysis_task(
-        self, survey_id: UUID4
-    ) -> tuple[AnalyzeSurveyData, TaskResponse]:
+    async def prepare_survey_analysis_task(self, survey_id: UUID4) -> tuple[AnalyzeSurveyData, TaskResponse]:
         """Prepare survey analysis task by creating task and preparing survey data"""
         survey = await self.survey_service.get_survey_by_id(survey_id)
 
