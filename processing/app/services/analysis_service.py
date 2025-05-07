@@ -1,5 +1,5 @@
-from app.models import ProcessSurveyRequest
-from app.models import SurveyPoints
+from app.schemas import ProcessSurveyRequest
+from app.schemas import SurveyPoints
 from ollama import AsyncClient
 
 

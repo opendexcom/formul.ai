@@ -1,5 +1,5 @@
 from app.deps import get_processing_service
-from app.models import AnalysisJobResponse
+from app.schemas import AnalysisJobResponse
 from app.services.processing_service import ProcessingService
 from fastapi import APIRouter
 from fastapi import BackgroundTasks
