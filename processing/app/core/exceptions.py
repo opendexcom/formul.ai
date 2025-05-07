@@ -26,7 +26,6 @@ class ValidationError(HTTPException):
         super().__init__(status.HTTP_422_UNPROCESSABLE_ENTITY, detail, headers)
 
 
-# if get file for task_id that has no result
 class FileNotFoundError(HTTPException):
     def __init__(self, detail: Any = None, headers: Optional[Dict[str, Any]] = None) -> None:
         super().__init__(status.HTTP_404_NOT_FOUND, detail, headers)
