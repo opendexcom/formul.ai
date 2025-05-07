@@ -1,9 +1,12 @@
-import { SignupForm } from './components/Form/SignupForm'
+import { Layout } from './components/Layout'
+import { SurveyForm } from './components/Form/SurveyForm'
 
 function App() {
   return (
     <>
-      <SignupForm />
+      <Layout title="Survey">
+        <SurveyForm />
+      </Layout>
     </>
   )
 }
