@@ -14,10 +14,10 @@ router = APIRouter()
 
 
 @router.get(
-    "/{task_id}/status",
+    "/{task_id}",
     response_model=TaskResponse,
 )
-async def get_task_status(
+async def get_task(
     task_id: UUID4,
     task_service: TaskService = Depends(get_task_service),
 ):
