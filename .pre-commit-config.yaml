@@ -1,0 +1,35 @@
+# Quick Start:
+#
+# pip install pre-commit
+# pre-commit install && pre-commit install -t pre-push
+# pre-commit run --all-files
+#
+# To Skip Checks:
+#
+# git commit --no-verify
+fail_fast: false
+
+default_language_version:
+  python: python3.13
+
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    # ruff version.
+    rev: v0.11.8
+    hooks:
+      # Run the linter.
+      #
+      # When running with --fix, Ruff's lint hook should be placed before Ruff's formatter hook,
+      # and before Black, isort, and other formatting tools, as Ruff's fix behavior can output code changes that require reformatting.
+      - id: ruff
+        args: [--fix]
+      # Run the formatter.
+      - id: ruff-format
+  - repo: local
+    hooks:
+      - id: pytest
+        name: pytest
+        entry: env PYTHONPATH="processing" uv run pytest
+        language: system
+        types: [python]
+        pass_filenames: false
