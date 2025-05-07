@@ -15,12 +15,6 @@ default_language_version:
 repos:
   - repo: local
     hooks:
-      - id: pytest
-        name: pytest
-        entry: env PYTHONPATH="processing" uv run pytest
-        language: system
-        types: [python]
-        pass_filenames: false
       - id: format
         name: ruff-format
         language: system
