@@ -8,16 +8,16 @@ from fastapi import Depends
 from fastapi.responses import StreamingResponse
 from pydantic import UUID4
 
-router = APIRouter(prefix="/processing", tags=["processing"])
+router = APIRouter()
 
 
-@router.get("/task/{task_id}/status")
+@router.get("/{task_id}/status")
 async def get_task_status(task_id: UUID4, task_service: TaskService = Depends(get_task_service)):
     task = await task_service.get_task_by_id(task_id)
     return {"status": task.status.value, "task_id": str(task_id)}
 
 
-@router.get("/task/{task_id}/file")
+@router.get("/{task_id}/file")
 async def get_task_file(task_id: UUID4, task_service: TaskService = Depends(get_task_service)):
     task = await task_service.get_task_by_id(task_id)
     if not task.result:

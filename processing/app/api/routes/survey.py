@@ -6,7 +6,7 @@ from fastapi import BackgroundTasks
 from fastapi import Depends
 from pydantic import UUID4
 
-router = APIRouter(prefix="/surveys")
+router = APIRouter()
 
 
 @router.post("/{survey_id}/start", response_model=AnalysisJobResponse)

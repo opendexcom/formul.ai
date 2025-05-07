@@ -3,7 +3,6 @@ from uuid import uuid4
 from app.core.exceptions import NotFoundError
 from app.deps import get_task_service
 from app.main import app
-from app.models import AnalysisTaskResult
 from app.models import Task
 from app.models import TaskStatus
 from fastapi.testclient import TestClient
@@ -32,7 +31,7 @@ def test_get_task_status():
 
     app.dependency_overrides[get_task_service] = get_task_service_mock
 
-    response = client.get(f"/processing/task/{local_task_id}/status")
+    response = client.get(f"/tasks/{local_task_id}/status")
 
     assert response.status_code == 200
     assert response.json() == {
@@ -58,11 +57,10 @@ def test_get_completed_task_file():
 
     app.dependency_overrides[get_task_service] = lambda: MockTaskService()
 
-    response = client.get(f"/processing/task/{local_task_id}/file")
+    response = client.get(f"/tasks/{local_task_id}/file")
     assert response.status_code == 200
     assert (
-        response.headers["Content-Disposition"]
-        == f'attachment; filename="{local_survey_id}.json"'
+        response.headers["Content-Disposition"] == f'attachment; filename="{local_survey_id}.json"'
     )
     print(response.headers)
     assert response.headers["content-type"] == "application/json"
@@ -84,6 +82,6 @@ def test_get_non_completed_task_file():
             )
 
     app.dependency_overrides[get_task_service] = lambda: MockTaskService()
-    response = client.get(f"/processing/task/{local_task_id}/file")
+    response = client.get(f"/tasks/{local_task_id}/file")
     assert response.status_code == 404
     print(response.json())
