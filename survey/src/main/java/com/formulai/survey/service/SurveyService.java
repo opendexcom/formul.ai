@@ -9,20 +9,30 @@ import com.formulai.survey.dto.response.SurveyAnswerResponse;
 import com.formulai.survey.dto.response.SurveyResponse;
 import com.formulai.survey.repository.SurveyAnswerRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 import static java.lang.String.format;
 
+@Slf4j
 @RequiredArgsConstructor
 @Service
 public class SurveyService {
 
     private final SurveyRepository surveyRepository;
     private final SurveyAnswerRepository surveyAnswerRepository;
+
+    @Value("${processing.url}")
+    private String processingBaseUrl;
+
+    private RestTemplate restTemplate = new RestTemplate();
 
     public SurveyResponse getSurveyById(UUID id) {
         return surveyRepository
@@ -70,6 +80,12 @@ public class SurveyService {
 
     public SurveyAnswerResponse submitSurveyRequest(UUID id, SurveySubmitRequest request) {
         return fromSurveyAnswers(surveyAnswerRepository.save(toSurveyAnswers(id, request)));
+    }
+
+    public String closeSurvey(UUID id) {
+        String endpoint = processingBaseUrl + "/" + id + "/start";
+        var responseEntity = restTemplate.postForEntity(endpoint, null, String.class);
+        return responseEntity.getBody();
     }
 
     private SurveyAnswers toSurveyAnswers(UUID id, SurveySubmitRequest request) {
