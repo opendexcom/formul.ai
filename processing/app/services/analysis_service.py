@@ -1,4 +1,4 @@
-from app.schemas import ProcessSurveyRequest
+from app.schemas import AnalyzeSurveyData
 from app.schemas import SurveyPoints
 from ollama import AsyncClient
 
@@ -9,7 +9,7 @@ class AnalysisService:
     def __init__(self, ollama_client: AsyncClient):
         self.ollama_client = ollama_client
 
-    async def start_survey_analysis(self, survey_data: ProcessSurveyRequest):
+    async def start_survey_analysis(self, survey_data: AnalyzeSurveyData):
         prompt = self.construct_prompt(survey_data)
         # print(prompt)
         # sys.stdout.flush()
@@ -21,7 +21,7 @@ class AnalysisService:
 
         return res.message.content or ""
 
-    def construct_prompt(self, request: ProcessSurveyRequest) -> str:
+    def construct_prompt(self, request: AnalyzeSurveyData) -> str:
         answer_tags = [f"<answer>{answer}</answer>" for answer in request.answers]
         answers_xml = "\n".join(answer_tags)
 

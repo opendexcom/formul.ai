@@ -1,5 +1,5 @@
 from app.deps import get_processing_service
-from app.schemas import AnalysisJobResponse
+from app.schemas import TaskResponse
 from app.services.processing_service import ProcessingService
 from fastapi import APIRouter
 from fastapi import BackgroundTasks
@@ -9,7 +9,7 @@ from pydantic import UUID4
 router = APIRouter()
 
 
-@router.post("/{survey_id}/start", response_model=AnalysisJobResponse)
+@router.post("/{survey_id}/start", response_model=TaskResponse)
 async def start_survey_analysis(
     survey_id: UUID4,
     background_tasks: BackgroundTasks,

@@ -2,6 +2,7 @@ from io import BytesIO
 
 from app.core.exceptions import FileNotFoundError
 from app.deps import get_task_service
+from app.schemas import TaskResponse
 from app.services.task_service import TaskService
 from fastapi import APIRouter
 from fastapi import Depends
@@ -11,13 +12,25 @@ from pydantic import UUID4
 router = APIRouter()
 
 
-@router.get("/{task_id}/status")
-async def get_task_status(task_id: UUID4, task_service: TaskService = Depends(get_task_service)):
+@router.get(
+    "/{task_id}/status",
+    response_model=TaskResponse,
+)
+async def get_task_status(
+    task_id: UUID4,
+    task_service: TaskService = Depends(get_task_service),
+):
     task = await task_service.get_task_by_id(task_id)
-    return {"status": task.status.value, "task_id": str(task_id)}
+
+    return TaskResponse(
+        id=task.id,
+        survey_id=task.survey_id,
+        created_at=task.created_at,
+        status=task.status,
+    )
 
 
-@router.get("/{task_id}/file")
+@router.get("/{task_id}/file", response_class=StreamingResponse)
 async def get_task_file(task_id: UUID4, task_service: TaskService = Depends(get_task_service)):
     task = await task_service.get_task_by_id(task_id)
     if not task.result:

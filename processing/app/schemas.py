@@ -6,23 +6,21 @@ from pydantic import UUID4
 from sqlmodel import Field
 
 
-class AnalysisJobResponse(BaseModel):
+class TaskResponse(BaseModel):
     id: UUID4
     survey_id: UUID4
     created_at: datetime
     status: TaskStatus
 
 
-class AnalysisTaskResult(BaseModel):
-    result: str | None
-    survey_id: UUID4
-    status: TaskStatus
-
-
-class ProcessSurveyRequest(BaseModel):
+class AnalyzeSurveyData(BaseModel):
     survey_id: UUID4
     question: str
     answers: list[str]
+
+
+class AnalyzeSurveyResult(BaseModel):
+    llm_response: str
 
 
 class SurveyStatusReponse(BaseModel):
@@ -32,10 +30,7 @@ class SurveyStatusReponse(BaseModel):
     status: TaskStatus
 
 
-class ProcessSurveyResponse(BaseModel):
-    llm_response: str
-
-
+# currently it is not decided what llm return format we want
 class SurveyPointsSentimentBucket(BaseModel):
     """Sentiment bucket for survey points"""
 

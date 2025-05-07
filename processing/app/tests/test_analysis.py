@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 from uuid import uuid4
 
 import pytest
-from app.schemas import ProcessSurveyRequest
+from app.schemas import AnalyzeSurveyData
 from app.services.analysis_service import AnalysisService
 
 
@@ -23,9 +23,7 @@ async def test_analysis_service__start_survey_analysis():
     local_survey_id = uuid4()
     question = "How are you?"
     answers = ["Good", "Bad"]
-    survey_data = ProcessSurveyRequest(
-        survey_id=local_survey_id, question=question, answers=answers
-    )
+    survey_data = AnalyzeSurveyData(survey_id=local_survey_id, question=question, answers=answers)
 
     response = await analysis_service.start_survey_analysis(survey_data)
 
