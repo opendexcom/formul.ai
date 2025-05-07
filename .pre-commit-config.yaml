@@ -13,18 +13,6 @@ default_language_version:
   python: python3.13
 
 repos:
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    # ruff version.
-    rev: v0.11.8
-    hooks:
-      # Run the linter.
-      #
-      # When running with --fix, Ruff's lint hook should be placed before Ruff's formatter hook,
-      # and before Black, isort, and other formatting tools, as Ruff's fix behavior can output code changes that require reformatting.
-      - id: ruff
-        args: [--fix]
-      # Run the formatter.
-      - id: ruff-format
   - repo: local
     hooks:
       - id: pytest
@@ -33,3 +21,13 @@ repos:
         language: system
         types: [python]
         pass_filenames: false
+      - id: format
+        name: ruff-format
+        language: system
+        types: [python]
+        entry: uv run ruff format
+      - id: checks
+        name: ruff-check
+        language: system
+        types: [python]
+        entry: uv run ruff check
