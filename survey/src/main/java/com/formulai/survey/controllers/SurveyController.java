@@ -46,4 +46,9 @@ public class SurveyController {
 
         return ResponseEntity.ok(surveyService.submitSurveyRequest(id, surveySubmitRequest));
     }
+
+    @PostMapping("/{id}/close")
+    public ResponseEntity<String> closeSurvey(@PathVariable UUID id) {
+        return ResponseEntity.ok(surveyService.closeSurvey(id));
+    }
 }
