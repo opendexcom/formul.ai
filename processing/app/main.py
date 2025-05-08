@@ -53,6 +53,10 @@ def read_root():
 def create_item(item: Item):
     return {"item_received": item}
 
+@app.post("/{id}/start")
+def start_job(id: UUID, engine = Depends(deps.get_database_engine)):
+    return {"message": "Job started: " + str(id)}
+
 @app.get("/jobs", response_model=list[AnalysisJob])
 def read_jobs(engine = Depends(deps.get_database_engine)):
     with Session(engine) as session:
