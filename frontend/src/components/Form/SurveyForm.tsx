@@ -2,12 +2,15 @@ import { useEffect, useState } from 'react'
 import { getForm, submitForm } from '../../../lib/api'
 import { useNavigate } from 'react-router'
 import { Card, CardContent } from '@mui/material'
-import Form from '@rjsf/core'
+import { withTheme } from '@rjsf/core'
+import { Theme } from '@rjsf/mui'
 import validator from '@rjsf/validator-ajv8'
 
 export const SurveyForm = () => {
   const navigate = useNavigate()
   const [formData, setFormData] = useState<any>(null)
+
+  const Form = withTheme(Theme)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -39,7 +42,6 @@ export const SurveyForm = () => {
     e.preventDefault()
 
     try {
-      console.log(formData)
       await submitForm(formData.formData)
     } catch (error) {
       if (error instanceof Error) {
