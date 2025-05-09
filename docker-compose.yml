@@ -3,7 +3,7 @@ services:
     build: ./frontend
     volumes:
       - ./frontend/:/app
-      - node_modules:/app/node_modules
+      - /app/node_modules
 
   processing:
     build: ./processing
@@ -69,4 +69,3 @@ services:
 volumes:
   ollama_data:
   db_data:
-  node_modules:
