@@ -1,16 +1,85 @@
+from contextlib import asynccontextmanager
 from uuid import UUID
-from fastapi import Depends, FastAPI
-from fastapi.openapi.utils import get_openapi
-import sqlalchemy.exc
-from sqlmodel import Session, select
 
-from ollama import AsyncClient
-
+from app.api.main import api_router
 from app.database import create_db_and_tables
-from . import deps
-from .models import AnalysisJob, Item, ProcessSurveyRequest, ProcessSurveyResponse
+from app.database import reset_db
+from fastapi import FastAPI
+from fastapi.openapi.utils import get_openapi
+from pydantic import UUID4
 
-app = FastAPI()
+from . import deps
+from .models import Survey
+from .models import SurveyAnswer
+from .models import Task
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    settings = deps.get_settings()
+    engine = deps.get_db_engine(settings=settings)
+    await reset_db(engine)
+    await create_db_and_tables(engine)
+    session_factory = deps.get_db_session_factory(engine=engine)
+
+    async with session_factory() as session:
+        survey_id: UUID4 = UUID("6cb2588c-a93b-41fe-a4a3-9b08280f4e97")
+        survey_exists = await session.get(Survey, survey_id)
+        if not survey_exists:
+            survey = Survey(
+                id=survey_id,
+                name="example",
+                json_schema="{'question':'This is question'}",
+            )
+            session.add(survey)
+            await session.commit()
+        else:
+            print(f"Survey with ID {survey_id} already exists.")
+
+        task = Task(id=UUID("610c3050-0d86-4f6f-b7a6-759a42732f17"), survey_id=survey_id)
+        task_exists = await session.get(Task, task.id)
+        if not task_exists:
+            session.add(task)
+            await session.commit()
+            print(f"Task with ID {task.id} created.")
+        else:
+            print(f"Task with ID {task.id} already exists.")
+
+        for answer_text in [
+            "I like that we’re using real-world tools like Docker and microservices — good exposure. But honestly, coordination’s been messy. We need clearer ownership per service.",
+            "It’s cool we’re blending multiple languages and tools, but context-switching between Java and Python is painful. Feels like overkill for a student project.",
+            "I love how ambitious the project is, especially using AI for survey analysis — feels meaningful. But the team’s all over the place skill-wise, which slows things down.",
+            "I like that we’re using GitHub seriously — issues, branches, pull requests. But half the team still doesn’t really know Git, which makes merges frustrating.",
+            "React frontend looks solid so far, props to whoever’s owning that. But we still haven’t nailed down our API contracts, and it’s breaking stuff constantly.",
+            "Cool idea and stack, but we probably should’ve picked one backend language. Java + Python + microservices = too many moving parts for a mostly newbie team.",
+            "Docker is a great learning experience — finally feels like we’re building something 'real.' Downside is debugging containers eats way too much time.",
+            "I like that we’re treating it like a real product — planning, meetings, reviews. But I wish we spent less time in meetings and more actually coding.",
+            "Feels good seeing everyone improve. Some people came in barely knowing Git, now they’re doing pull requests. But onboarding new members is still painful.",
+            "I’m proud we’re pulling off microservices, even in a rough way. Just wish we spent more time upfront defining how they’d talk to each other.",
+            "Survey AI analysis is a solid use case. But labeling training data manually? Ugh. We need a better workflow for that.",
+            "Really like how we split work — frontend/backend/devops. But we’re lacking real integration testing, so services often don’t play nice.",
+            "Fun project, even if chaotic. Everyone’s learning fast. But we need more code reviews — too many bugs sneak in.",
+            "Honestly, I’m surprised how far we’ve come given how many of us started clueless. But I’d kill for a better README and setup guide.",
+            "Cool tech stack, solid project idea, and I like the energy. But right now, too much tech for too little process — we need to simplify or organize better.",
+        ]:
+            answer = SurveyAnswer(survey_id=survey_id, answers_json=answer_text)
+            answer_exists = await session.get(SurveyAnswer, answer.id)
+            if not answer_exists:
+                session.add(answer)
+                await session.commit()
+            else:
+                print(f"Answer with ID {answer.id} already exists.")
+
+    yield  # Startup complete
+
+    # Optional: Add shutdown logic here if needed
+    print("Shutting down...")
+
+
+app = FastAPI(lifespan=lifespan)
+
+app.include_router(api_router)
+
 
 def custom_openapi():
     if app.openapi_schema:
@@ -21,88 +90,10 @@ def custom_openapi():
         description="This is a processing API for survey analysis.",
         routes=app.routes,
     )
-    openapi_schema["servers"] = [
-        {"url": "http://localhost/api/processing"}
-    ]
+    openapi_schema["servers"] = [{"url": "http://localhost/api/processing"}]
 
     app.openapi_schema = openapi_schema
     return app.openapi_schema
 
+
 app.openapi = custom_openapi
-
-@app.on_event("startup")
-def on_startup():
-    engine = deps.get_database_engine()
-    create_db_and_tables(engine)
-    with Session(engine) as session:
-            item=AnalysisJob(id=UUID('12345678-90ab-cdef-fedc-ba0987654321'), survey_id="1")
-            session.add(item)
-            try:
-                session.commit()
-            except sqlalchemy.exc.IntegrityError as e:
-                # This error occurs if the job already exists, and it's ok, since we have fixed ID
-                # we won't check for existence of this job beforehand because we are not in a transaction
-                # and cannot guarantee that the job will not be created between the check and the insert
-                print(f"Failed to create a job at startup: {e}")
-
-@app.get("/")
-def read_root():
-    return {"message": "Hello, World!"}
-
-@app.post("/items")
-def create_item(item: Item):
-    return {"item_received": item}
-
-@app.post("/{id}/start")
-def start_job(id: UUID, engine = Depends(deps.get_database_engine)):
-    return {"message": "Job started: " + str(id)}
-
-@app.get("/jobs", response_model=list[AnalysisJob])
-def read_jobs(engine = Depends(deps.get_database_engine)):
-    with Session(engine) as session:
-        statement = select(AnalysisJob)
-        results = session.exec(statement)
-        return results.all()
-
-def construct_prompt(request:ProcessSurveyRequest) -> str:
-    answer_tags = [f"<answer>{answer}</answer>" for answer in request.answers]
-    answers_xml = "\n".join(answer_tags)
-
-    prompt = f"""
-        <input>
-            You will be provided with survey responses in `answers` tag, one user answer is in `answer` tag. Question for survey: {request.question}
-        </input>
-
-        <instruction>
-            Rewiew and analize responses from `answers` with goal in mind to find and extract informations that will be relevant for question. Treat similar points like one. Prefix each point accounted in final response with: \"frequent\", \"moderate\", \"occasional\" depending how often it was mentioned.
-        </instruction>
-
-        <answers>
-            {answers_xml}
-        </answers>
-    """
-
-    return prompt
-
-async def ask_ollama_process(request: ProcessSurveyRequest,client: AsyncClient) -> str:
-
-    prompt = construct_prompt(request)
-
-    res=await client.chat(
-        model="mistral:latest",
-        messages=[
-            {
-                'role': 'user',
-                'content': prompt
-            }
-        ],
-    )
-
-    return res.message.content or ""
-
-@app.post("/ask", response_model=ProcessSurveyResponse)
-async def ask_ollama(request: ProcessSurveyRequest, client: AsyncClient = Depends(deps.get_ollama_client)):
-
-    res=await ask_ollama_process(request,client)
-
-    return {"llm_response": res}
