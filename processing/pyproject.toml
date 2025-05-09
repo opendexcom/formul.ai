@@ -24,6 +24,7 @@ asyncio_default_fixture_loop_scope = "function"
 [dependency-groups]
 dev = [
     "pytest>=8.3.5",
+    "pre-commit>=4.2.0",
     "pytest-asyncio>=0.26.0",
     "riff>=0.0.287.0",
 ]
@@ -45,3 +46,7 @@ line-length = 120
 
 [tool.black]
 line-length = 120
+
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple"
