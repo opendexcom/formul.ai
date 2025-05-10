@@ -96,6 +96,30 @@ Fix any code issues for a clean and consistent codebase.
 
 ---
 
+### `npm run storybook`
+
+Runs Storybook in development mode.
+
+```bash
+npm run storybook
+```
+
+This will open Storybook in your browser, typically at http://localhost:6006.
+
+---
+
+### `npm run build-storybook`
+
+Builds a static Storybook that you can deploy.
+
+```bash
+npm run build-storybook
+```
+
+The output will be in the storybook-static/ folder.
+
+---
+
 ## Project Structure
 
 ```
