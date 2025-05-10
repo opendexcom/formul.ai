@@ -9,6 +9,26 @@ export const getAllSurveys = async () => {
   return await response.json()
 }
 
+export const closeSurvey = async (surveyId: string) => {
+  const url = new URL(
+    `/api/survey/v1/surveys/${surveyId}/close`,
+    import.meta.env.VITE_API,
+  ).toString()
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  })
+
+  if (!response.ok) {
+    throw new Error(`Response status: ${response.status}`)
+  }
+
+  return response.json()
+}
+
+
 export const submitForm = async (formData: FormData) => {
   const url = new URL(
     `/api/survey/v1/surveys/${surveyId}/submit`,

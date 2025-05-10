@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Layout } from '../components/Layout'
 import {
+  Button,
   Card,
   CardContent,
   Table,
@@ -9,7 +10,7 @@ import {
   TableHead,
   TableRow,
 } from '@mui/material'
-import { getAllSurveys } from '../../lib/api'
+import { closeSurvey, getAllSurveys } from '../../lib/api'
 
 interface FetchData {
   id: string
@@ -38,6 +39,7 @@ export default function SurveysPage() {
                 <TableCell scope="col">ID</TableCell>
                 <TableCell scope="col">Name</TableCell>
                 <TableCell scope="col">Status</TableCell>
+                <TableCell scope="col">Button</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -52,6 +54,14 @@ export default function SurveysPage() {
                   ) : (
                     item.status
                   )}</TableCell>
+                  <TableCell>
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      onClick={() => {
+                        closeSurvey(item.id)
+                      }}>Close</Button>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
