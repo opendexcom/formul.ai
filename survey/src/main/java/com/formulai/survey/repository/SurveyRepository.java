@@ -11,6 +11,4 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface SurveyRepository extends JpaRepository<Survey, UUID> {
     Optional<Survey> findByName(String name);
-
-    
 }
