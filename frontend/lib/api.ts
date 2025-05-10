@@ -47,8 +47,8 @@ export const submitForm = async (formData: FormData) => {
   }
 }
 
-export const getForm = async () => {
-  const url = new URL('/api/survey/v1/surveys', import.meta.env.VITE_API).toString()
+export const getForm = async (id: string) => {
+  const url = new URL(`/api/survey/v1/surveys/${id}`, import.meta.env.VITE_API).toString()
 
   const response = await fetch(url)
 

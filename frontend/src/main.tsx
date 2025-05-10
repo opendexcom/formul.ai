@@ -23,7 +23,7 @@ createRoot(document.getElementById('root')!).render(
       <AppContainer>
         <BrowserRouter>
           <Routes>
-            <Route path="/form" element={<FormPage />} />
+            <Route path="/form/:id" element={<FormPage />} />
             <Route path="/thank-you" element={<ThankYouPage />} />
             <Route path="/surveys" element={<SurveysPage />} />
             <Route path="*" element={<Error404Page />} />

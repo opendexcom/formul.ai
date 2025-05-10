@@ -6,27 +6,32 @@ import { withTheme } from '@rjsf/core'
 import { Theme } from '@rjsf/mui'
 import validator from '@rjsf/validator-ajv8'
 
-export const SurveyForm = () => {
+interface SurveyFormProps {
+  'form-id'?: string;
+}
+
+export const SurveyForm = (props:SurveyFormProps ) => {
   const navigate = useNavigate()
   const [formData, setFormData] = useState<any>(null)
 
   const Form = withTheme(Theme)
 
   useEffect(() => {
-    const fetchData = async () => {
-      const schema = await fetchForm()
-      const parsedSchema = JSON.parse(schema[0].schemaJson)
+    const fetchData = async (id: string) => {
+      const schema = await fetchForm(id)
+      const parsedSchema = JSON.parse(schema.schemaJson)
       setFormData(parsedSchema)
     }
-
-    fetchData()
+    
+    const id = props['form-id'] ? props['form-id'] : ''
+    fetchData(id)
   }, [])
 
-  const fetchForm = async () => {
+  const fetchForm = async (id: string) => {
     try {
-      const schema = await getForm()
-      const parsedSchema = JSON.parse(schema[0].schemaJson)
-      const uiData = schema[0].uiData ? JSON.parse(schema[0].uiData) : {}
+      const schema = await getForm(id)
+      const parsedSchema = JSON.parse(schema.schemaJson)
+      const uiData = schema.uiData ? JSON.parse(schema.uiData) : {}
       setFormData({ schema: parsedSchema, uiData })
       return schema
     } catch (error) {

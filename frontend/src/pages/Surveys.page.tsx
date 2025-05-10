@@ -11,6 +11,7 @@ import {
   TableRow,
 } from '@mui/material'
 import { closeSurvey, getAllSurveys } from '../../lib/api'
+import { useNavigate } from 'react-router'
 
 interface FetchData {
   id: string
@@ -22,12 +23,25 @@ interface FetchData {
 
 export default function SurveysPage() {
   const [data, setData] = useState<FetchData[]>([])
+
+  const navigate = useNavigate()
+
   useEffect(() => {
     const handleGetAllSurveys = async () => {
       const data = (await getAllSurveys()) as FetchData[]
       setData(data)
     }
+
+
+    // pull data from api every 3 seconds
+    const interval = setInterval(() => {
+      handleGetAllSurveys()
+    }, 3000)
+
     handleGetAllSurveys()
+    return () => {
+        clearInterval(interval)
+    }
   }, [])
   return (
     <Layout title="Admin page">
@@ -45,7 +59,9 @@ export default function SurveysPage() {
             <TableBody>
               {data.map((item: FetchData) => (
                 <TableRow key={item.id}>
-                  <TableCell>{item.id}</TableCell>
+                  <TableCell>
+                    {item.id}
+                  </TableCell>
                   <TableCell>{item.name}</TableCell>
                   <TableCell>{item.status === 'COMPLETED' ? (
                     <a href={`/api/processing/tasks/${item.task_id}/file`} download>
@@ -61,6 +77,13 @@ export default function SurveysPage() {
                       onClick={() => {
                         closeSurvey(item.id)
                       }}>Close</Button>
+                    <Button
+                      variant="contained"
+                      color="secondary"
+                      onClick={() => navigate(`/form/${item.id}`)} // Navigate to /form/:id
+                    >
+                      Open Form
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
