@@ -11,7 +11,7 @@ interface LayoutProps {
 export const Layout = ({ children, title, footer }: LayoutProps) => {
   return (
     <Box>
-      <AppBar position="static" title={title ?? ''} />
+      <AppBar title={title ?? ''} />
       {children}
       {footer}
     </Box>
