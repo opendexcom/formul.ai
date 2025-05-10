@@ -16,7 +16,7 @@ interface FetchData {
   name: string
   schemaJson: string
   status: string
-  taskId: string
+  task_id: string
 }
 
 export default function SurveysPage() {
@@ -45,8 +45,8 @@ export default function SurveysPage() {
                 <TableRow key={item.id}>
                   <TableCell>{item.id}</TableCell>
                   <TableCell>{item.name}</TableCell>
-                  <TableCell>{item.status === 'completed' ? (
-                    <a href={`/api/processing/tasks/${item.taskId}/file`} download>
+                  <TableCell>{item.status === 'COMPLETED' ? (
+                    <a href={`/api/processing/tasks/${item.task_id}/file`} download>
                       Download Result
                     </a>
                   ) : (
