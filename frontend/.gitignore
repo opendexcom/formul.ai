@@ -26,3 +26,4 @@ dist-ssr
 *.sw?
 
 package-lock.json
+*storybook.log
