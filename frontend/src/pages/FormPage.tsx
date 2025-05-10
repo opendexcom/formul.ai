@@ -1,7 +1,7 @@
 import { Layout } from '../components/Layout'
 import { SurveyForm } from '../components/Form/SurveyForm'
 
-function App() {
+function FormPage() {
   return (
     <>
       <Layout title="Survey">
@@ -11,4 +11,4 @@ function App() {
   )
 }
 
-export default App
+export default FormPage
