@@ -5,7 +5,7 @@ function Error404Page() {
   return (
     <>
       <Layout title="404 Not Found">
-        <Typography variant="h1" className="text-center">
+        <Typography variant="h1" align='center'>
           404 Not Found
         </Typography>
       </Layout>
