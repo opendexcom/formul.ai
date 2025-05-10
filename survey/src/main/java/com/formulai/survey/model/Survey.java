@@ -24,6 +24,9 @@ public class Survey{
 
     @OneToMany(mappedBy = "survey", cascade = CascadeType.ALL)
     private List<SurveyAnswers> answers;
+
+    @OneToMany(mappedBy = "survey")
+    private List<Task> tasks;
 }
 
 
