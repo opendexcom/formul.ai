@@ -1,0 +1,31 @@
+name: Test frontend on changes
+
+on:
+  pull_request:
+    paths:
+      - 'frontend/**'
+    branches-ignore:
+      - 'main'
+      - 'development' 
+
+jobs:
+  test-frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run tests
+        run: npm test
