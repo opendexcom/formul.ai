@@ -3,6 +3,11 @@ import { Layout } from '../components/Layout'
 import {
   Card,
   CardContent,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
 } from '@mui/material'
 import { getAllSurveys } from '../../lib/api'
 
@@ -10,13 +15,15 @@ interface FetchData {
   id: string
   name: string
   schemaJson: string
+  status: string
+  taskId: string
 }
 
 export default function SurveysPage() {
-  const [data, setData] = useState<FetchData | null>(null)
+  const [data, setData] = useState<FetchData[]>([])
   useEffect(() => {
     const handleGetAllSurveys = async () => {
-      const data = (await getAllSurveys()) as FetchData
+      const data = (await getAllSurveys()) as FetchData[]
       setData(data)
     }
     handleGetAllSurveys()
@@ -25,7 +32,30 @@ export default function SurveysPage() {
     <Layout title="Admin page">
       <Card>
         <CardContent>
-          <></>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell scope="col">ID</TableCell>
+                <TableCell scope="col">Name</TableCell>
+                <TableCell scope="col">Status</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {data.map((item: FetchData) => (
+                <TableRow key={item.id}>
+                  <TableCell>{item.id}</TableCell>
+                  <TableCell>{item.name}</TableCell>
+                  <TableCell>{item.status === 'completed' ? (
+                    <a href={`/api/processing/tasks/${item.taskId}/file`} download>
+                      Download Result
+                    </a>
+                  ) : (
+                    item.status
+                  )}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
     </Layout>
