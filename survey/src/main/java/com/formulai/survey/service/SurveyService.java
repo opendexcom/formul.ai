@@ -99,8 +99,6 @@ public class SurveyService {
                 .pathSegment("surveys", id.toString(), "start")
                 .toUriString();
         
-        log.info("Closing survey with id: {}", id);
-        log.info("Endpoint: {}", endpoint);
         var responseEntity = restTemplate.postForEntity(endpoint, null, String.class);
         return responseEntity.getBody();
     }
