@@ -1,19 +1,35 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route } from 'react-router'
-import './index.css'
-import App from './pages/App.tsx'
-import ThankYouPage from './pages/ThankYouPage.tsx'
-import SurveysPage from './pages/SurveysPage.tsx'
+import FormPage from './pages/Form.page.tsx'
+import ThankYouPage from './pages/ThankYou.page.tsx'
+import SurveysPage from './pages/Surveys.page.tsx'
+import Error404Page from './pages/Error404.page.tsx'
+import AppContainer from './components/AppContainer.tsx'
+import { GlobalStyles } from '@mui/material'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<App />} />
-        <Route path="/thank-you" element={<ThankYouPage />} />
-        <Route path="/surveys" element={<SurveysPage />} />
-      </Routes>
-    </BrowserRouter>
+    <>
+      <GlobalStyles
+        styles={{
+          body: {
+            margin: 0,
+            padding: 0,
+            boxSizing: 'border-box',
+          },
+        }}
+      />
+      <AppContainer>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/form/:id" element={<FormPage />} />
+            <Route path="/thank-you" element={<ThankYouPage />} />
+            <Route path="/surveys" element={<SurveysPage />} />
+            <Route path="*" element={<Error404Page />} />
+          </Routes>
+        </BrowserRouter>
+      </AppContainer>
+    </>
   </StrictMode>,
 )

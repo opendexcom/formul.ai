@@ -1,6 +1,6 @@
 const surveyId = '23e4693c-3975-4d91-a2f2-190993043c1c'
 
-export async function getAllSurveys() {
+export const getAllSurveys = async () => {
   const url = new URL('/api/survey/v1/surveys', import.meta.env.VITE_API)
   const response = await fetch(url)
   if (!response.ok) {
@@ -8,6 +8,26 @@ export async function getAllSurveys() {
   }
   return await response.json()
 }
+
+export const closeSurvey = async (surveyId: string) => {
+  const url = new URL(
+    `/api/survey/v1/surveys/${surveyId}/close`,
+    import.meta.env.VITE_API,
+  ).toString()
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  })
+
+  if (!response.ok) {
+    throw new Error(`Response status: ${response.status}`)
+  }
+
+  return response.json()
+}
+
 
 export const submitForm = async (formData: FormData) => {
   const url = new URL(
@@ -27,8 +47,8 @@ export const submitForm = async (formData: FormData) => {
   }
 }
 
-export const getForm = async () => {
-  const url = new URL('/api/survey/v1/surveys', import.meta.env.VITE_API).toString()
+export const getForm = async (id: string) => {
+  const url = new URL(`/api/survey/v1/surveys/${id}`, import.meta.env.VITE_API).toString()
 
   const response = await fetch(url)
 

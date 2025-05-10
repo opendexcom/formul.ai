@@ -1,14 +1,16 @@
 import { Layout } from '../components/Layout'
 import { SurveyForm } from '../components/Form/SurveyForm'
+import { useParams } from 'react-router'
 
-function App() {
+function FormPage() {
+  const { id } = useParams()
   return (
     <>
       <Layout title="Survey">
-        <SurveyForm />
+        <SurveyForm form-id={id} />
       </Layout>
     </>
   )
 }
 
-export default App
+export default FormPage

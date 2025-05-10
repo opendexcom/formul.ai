@@ -136,3 +136,5 @@ dist
 
 processing/data/
 .aider*
+
+.vscode

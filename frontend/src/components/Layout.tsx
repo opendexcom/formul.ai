@@ -1,5 +1,6 @@
 import { ReactNode } from 'react'
 import { AppBar } from './AppBar'
+import { Box } from '@mui/material'
 
 interface LayoutProps {
   title?: string
@@ -9,10 +10,10 @@ interface LayoutProps {
 
 export const Layout = ({ children, title, footer }: LayoutProps) => {
   return (
-    <>
+    <Box>
       <AppBar title={title ?? ''} />
       {children}
       {footer}
-    </>
+    </Box>
   )
 }
