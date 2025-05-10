@@ -26,6 +26,8 @@ RUN uv sync --no-dev
 # Copy the rest of the application
 ADD /app /app/app
 
+RUN curl -o wait-for-it.sh https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for-it.sh
+RUN chmod +x wait-for-it.sh
 
 # Start app with Uvicorn
-CMD ["/app/.venv/bin/uvicorn", "app.main:app", "--reload", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["/app/wait-for-it.sh", "${SURVEY_DB_HOST}:${SURVEY_DB_PORT}", "--", "/app/.venv/bin/uvicorn", "app.main:app", "--reload", "--host", "0.0.0.0", "--port", "8000"]

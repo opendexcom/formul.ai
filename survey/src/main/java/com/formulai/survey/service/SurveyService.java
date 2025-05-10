@@ -13,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.Comparator;
 import java.util.List;
@@ -55,15 +56,13 @@ public class SurveyService {
         var lastCreatedTask = tasks
                 .stream()
                 .max(Comparator.comparing(task -> task.getCreatedAt()));
-        
-        
+
         return new SurveyResponse(
                 survey.getId(),
                 survey.getName(),
                 survey.getSchemaJson(),
                 lastCreatedTask.map(task -> task.getStatus()).orElse(null),
-                lastCreatedTask.map(task -> task.getId()).orElse(null)
-                );                
+                lastCreatedTask.map(task -> task.getId()).orElse(null));
     }
 
     public List<SurveyResponse> getAllSurvey() {
@@ -96,7 +95,12 @@ public class SurveyService {
     }
 
     public String closeSurvey(UUID id) {
-        String endpoint = processingBaseUrl + "/" + id + "/start";
+        String endpoint = UriComponentsBuilder.fromUriString(processingBaseUrl)
+                .pathSegment("surveys", id.toString(), "start")
+                .toUriString();
+        
+        log.info("Closing survey with id: {}", id);
+        log.info("Endpoint: {}", endpoint);
         var responseEntity = restTemplate.postForEntity(endpoint, null, String.class);
         return responseEntity.getBody();
     }
@@ -105,7 +109,7 @@ public class SurveyService {
         return SurveyAnswers
                 .builder()
                 .survey(surveyRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException(format("Survey %s not found!", id.toString()))))
+                        .orElseThrow(() -> new IllegalArgumentException(format("Survey %s not found!", id.toString()))))
                 .answersJson(request.answersJson())
                 .build();
     }
