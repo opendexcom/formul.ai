@@ -57,6 +57,8 @@
 		<dependency>
 			<groupId>org.projectlombok</groupId>
 			<artifactId>lombok</artifactId>
+			<version>1.18.32</version>
+			<scope>provided</scope>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -69,6 +71,39 @@
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
+			</plugin>
+			<plugin>
+			  <groupId>org.jacoco</groupId>
+			  <artifactId>jacoco-maven-plugin</artifactId>
+			  <version>0.8.8</version>
+			  <executions>
+				<execution>
+				  <goals>
+					<goal>prepare-agent</goal>
+				  </goals>
+				</execution>
+				<execution>
+				  <id>report</id>
+				  <phase>verify</phase>
+				  <goals>
+					<goal>report</goal>
+				  </goals>
+				</execution>
+			  </executions>
+			  <configuration>
+				<rules>
+				  <rule>
+					<element>BUNDLE</element>
+					<limits>
+					  <limit>
+						<counter>LINE</counter>
+						<value>COVEREDRATIO</value>
+						<minimum>0.80</minimum>
+					  </limit>
+					</limits>
+				  </rule>
+				</rules>
+			  </configuration>
 			</plugin>
 		</plugins>
 	</build>
