@@ -1,4 +1,4 @@
-import { Box, Toolbar, AppBar as MuiBar, Grid, Typography } from '@mui/material'
+import { Box, Toolbar, AppBar as MuiBar, Typography } from '@mui/material'
 
 export const AppBar = ({ title }: { title: string }) => {
   return (
