@@ -20,6 +20,7 @@ class TaskStatus(StrEnum):
 
 # separate Task with answer into separate model? (AnalysisTaskCompleted with result:str + status:COMPLETED)
 class Task(SQLModel, table=True):
+    __table_args__ = {"schema": "processing"}
     id: UUID4 = Field(default_factory=uuid.uuid4, primary_key=True)
     survey_id: UUID4 = Field(index=True)
     # TODO: parametrize default_factory depending on database engine (sync/async),
@@ -30,6 +31,7 @@ class Task(SQLModel, table=True):
 
 
 class Survey(SQLModel, table=True):
+    __table_args__ = {"schema": "survey"}
     __tablename__ = "survey"  # type: ignore
     id: UUID4 = Field(default_factory=uuid.uuid4, primary_key=True)
     name: str = Field()
@@ -38,9 +40,10 @@ class Survey(SQLModel, table=True):
 
 
 class SurveyAnswer(SQLModel, table=True):
+    __table_args__ = {"schema": "survey"}
     __tablename__ = "survey_answers"  # type: ignore
     id: UUID4 = Field(default_factory=uuid.uuid4, primary_key=True)
     answers_json: str = Field(sa_column=Column("answers_json", String))
 
-    survey_id: UUID4 = Field(foreign_key="survey.id")
+    survey_id: UUID4 = Field(foreign_key="survey.survey.id")
     survey: Optional["Survey"] = Relationship(back_populates="answers")
