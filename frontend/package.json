@@ -11,7 +11,7 @@
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "generate-types": "openapi-typescript http://localhost/api/survey/v3/api-docs --output lib/schema.d.ts",
-    "test:e2e": "cypress open"
+    "test:e2e": "cypress run"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
