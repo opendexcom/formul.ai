@@ -20,6 +20,7 @@ class TaskStatus(StrEnum):
 
 # separate Task with answer into separate model? (AnalysisTaskCompleted with result:str + status:COMPLETED)
 class Task(SQLModel, table=True):
+    __table_args__ = {"schema": "processing"}
     id: UUID4 = Field(default_factory=uuid.uuid4, primary_key=True)
     survey_id: UUID4 = Field(index=True)
     # TODO: parametrize default_factory depending on database engine (sync/async),
