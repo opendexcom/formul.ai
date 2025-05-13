@@ -4,7 +4,7 @@
 
 -- DROP TABLE public.survey;
 
--- Create scheme if needed
+-- Create schema if needed
 CREATE SCHEMA IF NOT EXISTS survey AUTHORIZATION CURRENT_USER;
 
 CREATE TABLE IF NOT EXISTS survey.survey (
