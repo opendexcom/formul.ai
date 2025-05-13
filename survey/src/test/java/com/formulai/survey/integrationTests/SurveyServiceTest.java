@@ -5,199 +5,134 @@ import com.formulai.survey.dto.request.SurveySubmitRequest;
 import com.formulai.survey.dto.response.SurveyAnswerResponse;
 import com.formulai.survey.dto.response.SurveyResponse;
 import com.formulai.survey.model.Survey;
-import com.formulai.survey.model.SurveyAnswers;
-import com.formulai.survey.model.Task;
 import com.formulai.survey.repository.SurveyRepository;
-import com.formulai.survey.repository.SurveyAnswerRepository;
-
 import com.formulai.survey.service.SurveyService;
+import jakarta.transaction.Transactional;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.*;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.ResponseEntity;
-import org.springframework.test.util.ReflectionTestUtils;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.web.client.RestClientException;
 
-import java.util.*;
+import java.util.List;
+import java.util.UUID;
 
-import static org.assertj.core.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
 
-@ExtendWith(MockitoExtension.class)
-public class SurveyServiceTest {
-    @Mock
-    private SurveyRepository surveyRepository;
-    @Mock
-    private SurveyAnswerRepository surveyAnswerRepository;
-    @Mock
-    private RestTemplate restTemplate;
-
-    @InjectMocks
+@SpringBootTest
+@Transactional
+class SurveyServiceTest {
+    @Autowired
     private SurveyService surveyService;
 
-    private UUID surveyId;
-    private Survey survey;
-    private SurveyAnswers surveyAnswers;
-    private Task task;
-
-    @BeforeEach
-    void setUp() {
-        surveyId = UUID.randomUUID();
-
-        survey = Survey.builder()
-                .id(surveyId)
-                .name("Test Survey")
-                .schemaJson("{\"questions\": []}")
-                .answers(new ArrayList<>())
-                .tasks(new ArrayList<>())
-                .build();
-
-        task = Task.builder()
-                .id(UUID.randomUUID())
-                .survey(survey)
-                .createdAt(new Date())
-                .status("IN_PROGRESS")
-                .build();
-
-        List<Task> tasks = new ArrayList<>();
-        tasks.add(task);
-        survey.setTasks(tasks);
-
-        surveyAnswers = SurveyAnswers.builder()
-                .id(UUID.randomUUID())
-                .survey(survey)
-                .answersJson("{\"answers\": []}")
-                .build();
-
-        ReflectionTestUtils.setField(surveyService, "processingBaseUrl", "http://processing-service");
-        ReflectionTestUtils.setField(surveyService, "restTemplate", restTemplate);
-    }
+    @Autowired
+    private SurveyRepository surveyRepository;
 
     @Test
-    void getSurveyById_shouldReturnSurveyResponse_whenSurveyExists() {
+    void testSurveyServiceById() {
         // given
-        when(surveyRepository.findById(surveyId)).thenReturn(Optional.of(survey));
+        Survey firstSurvey = surveyRepository.findAll().stream()
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("No surveys found"));
 
         // when
-        SurveyResponse response = surveyService.getSurveyById(surveyId);
-
-        //then
-        assertNotNull(response);
-        assertEquals(surveyId, response.id());
-        assertEquals("Test Survey", response.name());
-        verify(surveyRepository).findById(surveyId);
-    }
-
-    @Test
-    void getSurveyById_shouldThrowException_whenSurveyDoesNotExist() {
-        // given
-        when(surveyRepository.findById(surveyId)).thenReturn(Optional.empty());
-
-        // when
-        IllegalArgumentException exception = assertThrows(
-                IllegalArgumentException.class,
-                () -> surveyService.getSurveyById(surveyId)
-        );
+        SurveyResponse result = surveyService.getSurveyById(firstSurvey.getId());
 
         // then
-        assertTrue(exception.getMessage().contains("not found"));
-        verify(surveyRepository).findById(surveyId);
+        assertNotNull(result);
+        assertEquals(firstSurvey.getId(), result.id());
+        assertEquals(firstSurvey.getName(), result.name());
+        assertEquals(firstSurvey.getSchemaJson(), result.schemaJson());
     }
 
     @Test
-    void getAllSurvey_shouldReturnAllSurveys() {
+    void testSurveyServiceByName() {
         // given
-        when(surveyRepository.findAll()).thenReturn(List.of(survey));
+        List<Survey> surveys = surveyRepository.findAll();
 
         // when
         List<SurveyResponse> result = surveyService.getAllSurvey();
 
-        //then
+        // then
         assertNotNull(result);
-        assertEquals(1, result.size());
-        assertEquals(surveyId, result.getFirst().id());
-        verify(surveyRepository).findAll();
+        assertEquals(surveys.size(), result.size());
     }
 
     @Test
-    void createSurvey_shouldCreateAndReturnSurvey() {
+    void testGetResponsesForSurvey() {
         // given
-        SurveyRequest request = new SurveyRequest("New Survey", "{\"questions\": []}");
-        Survey newSurvey = Survey.builder()
-                .id(UUID.randomUUID())
-                .name("New Survey")
-                .schemaJson("{\"questions\":[]}")
-                .tasks(List.of())
-                .build();
-
-        when(surveyRepository.save(any(Survey.class))).thenReturn(newSurvey);
+        Survey firstSurvey = surveyRepository.findByName("example")
+                .orElseThrow(() -> new RuntimeException("No surveys found"));
 
         // when
-        SurveyResponse result = surveyService.createSurvey(request);
+        List<SurveyAnswerResponse> result = surveyService.getResponses(firstSurvey.getId());
 
         // then
         assertNotNull(result);
-        assertEquals("New Survey", result.name());
-        assertEquals("{\"questions\":[]}", result.schemaJson());
-        verify(surveyRepository).save(any(Survey.class));
+        assertEquals(firstSurvey.getId(), result.getFirst().surveyId());
+        assertFalse(result.isEmpty());
     }
 
     @Test
-    void getResponses_shouldReturnAllResponsesForSurvey() {
+    void testGetSurveyByIdWithNonExistentId() {
         // given
-        when(surveyAnswerRepository.findAllBySurveyId(surveyId)).thenReturn(List.of(surveyAnswers));
+        UUID nonExistentId = UUID.randomUUID();
 
-        //when
-        List<SurveyAnswerResponse> result = surveyService.getResponses(surveyId);
+        // when and then
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> surveyService.getSurveyById(nonExistentId)
+        );
 
-        // then
-        assertNotNull(result);
-        assertEquals(1, result.size());
-        assertEquals(surveyId, result.getFirst().surveyId());
-        assertEquals("{\"answers\": []}", result.getFirst().answersJson());
-        verify(surveyAnswerRepository).findAllBySurveyId(surveyId);
+        assertTrue(exception.getMessage().contains("not found"));
     }
 
     @Test
-    void submitSurveyRequest_shouldSaveAndReturnSurveyAnswer() {
+    void testSubmitSurveyRequestWithNonExistentSurveyId() {
         // given
-        SurveySubmitRequest request = new SurveySubmitRequest("{\"answers\":[{\"questionId\":1,\"answer\":\"New Answer\"}]}");
+        UUID nonExistentId = UUID.randomUUID();
+        SurveySubmitRequest request = new SurveySubmitRequest("{\"answers\": []}");
 
-        when(surveyRepository.findById(surveyId)).thenReturn(Optional.of(survey));
-        when(surveyAnswerRepository.save(any(SurveyAnswers.class))).thenReturn(surveyAnswers);
+        // when and then
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> surveyService.submitSurveyRequest(nonExistentId, request)
+        );
 
-        // when
-        SurveyAnswerResponse result = surveyService.submitSurveyRequest(surveyId, request);
-
-        // then
-        assertNotNull(result);
-        assertEquals(surveyId, result.surveyId());
-        verify(surveyRepository).findById(surveyId);
-        verify(surveyAnswerRepository).save(any(SurveyAnswers.class));
+        assertTrue(exception.getMessage().contains("not found"));
     }
 
     @Test
-    void closeSurvey_shouldCallProcessingServiceAndReturnResult() {
+    void testGetResponsesForNonExistentSurvey() {
         // given
-        ResponseEntity<String> responseEntity = ResponseEntity.ok("Processing started");
+        UUID nonExistentId = UUID.randomUUID();
 
-        when(restTemplate.postForEntity(contains("/surveys/" + surveyId + "/start"),
-                                        isNull(),
-                                        eq(String.class))
-                ).thenReturn(responseEntity);
-
-        // when
-        String result = surveyService.closeSurvey(surveyId);
-
-        // then
-        assertEquals("Processing started", result);
-        verify(restTemplate).postForEntity(contains("/surveys/" + surveyId + "/start"),
-                                           isNull(),
-                                           eq(String.class));
+        // when and then
+        assertTrue(surveyService.getResponses(nonExistentId).isEmpty());
     }
 
+    @Test
+    void testCreateSurveyWithInvalidSchema() {
+        // given
+        SurveyRequest invalidRequest = new SurveyRequest("Test Survey", "invalid json {");
+
+        // when and then
+        Exception exception = assertThrows(
+                Exception.class,
+                () -> surveyService.createSurvey(invalidRequest)
+        );
+        assertNotNull(exception);
+    }
+
+    @Test
+    void testCloseSurveyWithExternalServiceUnavailable() {
+        // given
+        UUID existingId = surveyService.getAllSurvey().getFirst().id();
+
+        // when and then
+        assertThrows(
+                RestClientException.class,
+                () -> surveyService.closeSurvey(existingId)
+        );
+    }
 
 }
