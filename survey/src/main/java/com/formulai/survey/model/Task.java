@@ -19,7 +19,7 @@ import lombok.Setter;
 @Getter
 @AllArgsConstructor
 @NoArgsConstructor
-@Table(name = "task")
+@Table(name = "task",schema = "public")
 public class Task {
     @Id
     private UUID id;
