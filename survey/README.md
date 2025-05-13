@@ -58,7 +58,7 @@ java -jar target/survey-service-0.0.1-SNAPSHOT.jar
 
 This project uses **Flyway** for database schema migrations.
 
-Migrations are now automatically executed. No need to manual run.
+Migrations are now automatically executed. No need to manually run.
 
 ### Adding New Migrations
 - Place SQL files in:  
