@@ -1,0 +1,41 @@
+name: Backend Tests
+
+on:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-java@v3
+        with:
+          java-version: '21'
+          distribution: 'jdk'
+      - name: Run tests and verify coverage
+        run: mvn clean verify
+      - name: Check code coverage threshold
+        run: |
+          if [ ! -f target/site/jacoco/jacoco.xml ]; then
+            echo "Nie znaleziono raportu pokrycia JaCoCo"
+            exit 1
+          fi
+
+          # Wyświetlenie aktualnego pokrycia
+          COVERAGE_WITH_PERCENT=$(grep -Po 'Total.*?([0-9\.]+)%' target/site/jacoco/index.html | grep -Po '[0-9\.]+%')
+          COVERAGE=$(echo $COVERAGE_WITH_PERCENT | sed 's/%//')
+          echo "Aktualne pokrycie kodu: $COVERAGE_WITH_PERCENT"
+
+          # Sprawdzenie czy pokrycie spełnia wymagany próg 80%
+          if (( $(echo "$COVERAGE < 80" | bc -l) )); then
+            echo "Błąd: Pokrycie kodu jest poniżej wymaganego progu 80%"
+            exit 1
+          else
+            echo "Sukces: Pokrycie kodu spełnia wymagany próg 80%"
+          fi
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage-report
+          path: target/site/jacoco/
