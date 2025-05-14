@@ -26,7 +26,7 @@ async def create_db_and_tables(engine: AsyncEngine):
         await conn.commit()
 
     async with engine.begin() as conn:
-        # Check if the database exists        
+        # Check if the database exists
         tables_to_create = get_owned_tables()
         await conn.run_sync(SQLModel.metadata.create_all, tables=tables_to_create)
 
