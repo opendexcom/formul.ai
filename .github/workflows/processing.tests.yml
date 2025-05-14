@@ -1,0 +1,34 @@
+name: Processing Service Tests
+
+on:
+  pull_request:
+    paths:
+      - 'processing/**'
+
+jobs:
+  processing-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: processing
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install uv and ruff
+        run: |
+          pip install uv
+          pip install ruff
+
+      - name: Sync dependencies
+        run: uv sync
+
+      - name: Run lint ruff
+        run: ruff check .
+
+      - name: Run tests
+        run: uv test
