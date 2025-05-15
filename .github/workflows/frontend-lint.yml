@@ -6,7 +6,7 @@ on:
       - 'frontend/**'
 
 jobs:
-  lint:
+  frontend-lint:
     runs-on: ubuntu-latest
     defaults:
       run:
