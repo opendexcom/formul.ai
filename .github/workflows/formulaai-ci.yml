@@ -4,10 +4,32 @@ on:
   pull_request:
 
 jobs:
+  detect-changes:
+    name: Detect changed paths
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+      processing: ${{ steps.filter.outputs.processing }}
+      survey: ${{ steps.filter.outputs.survey }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            frontend:
+              - 'frontend/**'
+            processing:
+              - 'processing/**'
+            survey:
+              - 'survey/**'
+
   lint-frontend:
     name: Lint Frontend
     runs-on: ubuntu-latest
-    if: contains(join(github.event.pull_request.paths || ''), 'frontend/')
+    needs: detect-changes
+    if: needs.detect-changes.outputs.frontend == 'true'
     defaults:
       run:
         working-directory: frontend
@@ -38,7 +60,8 @@ jobs:
   processing-tests:
     name: Processing Service Tests
     runs-on: ubuntu-latest
-    if: contains(join(github.event.pull_request.paths || ''), 'processing/')
+    needs: detect-changes
+    if: needs.detect-changes.outputs.processing == 'true'
     defaults:
       run:
         working-directory: processing
@@ -62,7 +85,8 @@ jobs:
   survey-tests:
     name: Survey Service Tests
     runs-on: ubuntu-latest
-    if: contains(join(github.event.pull_request.paths || ''), 'survey/')
+    needs: detect-changes
+    if: needs.detect-changes.outputs.survey == 'true'
     defaults:
       run:
         working-directory: survey
