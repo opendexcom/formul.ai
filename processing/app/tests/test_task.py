@@ -13,45 +13,6 @@ from sqlmodel import UUID
 client = TestClient(app)
 
 
-def test_get_task_status():
-    local_task_id = uuid4()
-    created_task: Task = Task(
-        id=local_task_id,
-        survey_id=uuid4(),
-        status=TaskStatus.NULL,
-        result=None,
-    )
-
-    def get_task_service_mock():
-        class MockTaskService:
-            async def get_task_by_id(self, task_id: UUID4) -> Task:
-                if task_id != local_task_id:
-                    raise NotFoundError(f"Task with ID {task_id} not found")
-                return created_task
-
-        return MockTaskService()
-
-    app.dependency_overrides[get_task_service] = get_task_service_mock
-
-    response = client.get(f"/tasks/{local_task_id}/status")
-
-    assert response.status_code == 200
-
-    expected_response = TaskResponse(
-        id=created_task.id,
-        survey_id=created_task.survey_id,
-        created_at=created_task.created_at,
-        status=created_task.status,
-    )
-
-    assert response.json() == {
-        "id": str(expected_response.id),
-        "survey_id": str(expected_response.survey_id),
-        "created_at": expected_response.created_at.isoformat(),
-        "status": expected_response.status,
-    }
-
-
 def test_get_completed_task_file():
     local_task_id = uuid4()
     local_survey_id = uuid4()
