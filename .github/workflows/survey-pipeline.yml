@@ -1,4 +1,4 @@
-ame: Survey Service Tests
+name: Survey Service Tests
 
 on:
   pull_request:
