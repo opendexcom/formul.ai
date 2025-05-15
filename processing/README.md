@@ -93,7 +93,7 @@ All tests are located in the `app/tests` folder.
 Run all tests using `uv`:
 
 ```bash
-uv test
+uv run pytest
 ```
 
 ---
