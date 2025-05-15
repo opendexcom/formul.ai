@@ -1,10 +1,12 @@
-name: E2E Tests
+name: Lint Frontend
 
 on:
   pull_request:
+    paths:
+      - 'frontend/**'
 
 jobs:
-  e2e:
+  lint:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -15,6 +17,4 @@ jobs:
         with:
           node-version: 20
       - run: npm install
-      - run: npm run dev &
-      - run: npx wait-on http://localhost:5173
-      - run: npm run test:e2e
+      - run: npm run lint

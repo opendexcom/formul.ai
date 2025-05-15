@@ -28,4 +28,6 @@ jobs:
       - name: Run lint (Checkstyle)
         run: ./mvnw checkstyle:check
       - name: Run tests
-        run: ./mvnw test
+        run: ./mvnw clean verify jacoco:report
+      - name: Check coverage >= 80%
+        run: ./mvnw jacoco:check        
