@@ -109,7 +109,7 @@ http://localhost/swagger
 This project uses GitHub Actions for CI.  
 On every pull request that changes files in the `survey/` folder, the following checks are automatically run:
 
-- **Linting:** Runs Checkstyle via `mvn checkstyle:check`
-- **Testing:** Runs all tests via `mvn test`
+- **Linting:** Runs Checkstyle via `./mvnw checkstyle:check`
+- **Testing:** Runs all tests and checks coverage via `./mvnw clean verify jacoco:report` and `./mvnw jacoco:check`
 
-You can find the workflow configuration in `.github/workflows/survey-tests.yml`.
+You can find the workflow configuration in `.github/workflows/formulaai-ci.yml`.

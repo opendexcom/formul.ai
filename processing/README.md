@@ -105,7 +105,6 @@ On every pull request that changes files in the `processing/` folder, the follow
 
 - **Dependency Sync:** Ensures all dependencies are installed using `uv`.
 - **Linting:** Runs [ruff](https://docs.astral.sh/ruff/) to check code style and quality.
-- **Testing:** Runs all tests using `uv test`.
-- **Coverage:** (If configured) Ensures test coverage meets the required threshold.
+- **Testing:** Runs all tests using `uv run pytest`.
 
-You can find the workflow configuration in `.github/workflows/processing.tests.yml`.
+You can find the workflow configuration in `.github/workflows/formulaai-ci.yml`.
