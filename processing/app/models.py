@@ -9,7 +9,7 @@ from sqlmodel import Field
 from sqlmodel import Relationship
 from sqlmodel import SQLModel
 from sqlmodel import String
-from sqlalchemy import Column, Enum as PgEnum
+from sqlalchemy import Enum as PgEnum
 
 
 class TaskStatus(StrEnum):
