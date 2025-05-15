@@ -1,11 +1,13 @@
 package com.formulai.survey.unitTests;
 
-import com.formulai.survey.controllers.SurveyController;
-import com.formulai.survey.dto.request.SurveyRequest;
-import com.formulai.survey.dto.request.SurveySubmitRequest;
-import com.formulai.survey.dto.response.SurveyAnswerResponse;
-import com.formulai.survey.dto.response.SurveyResponse;
-import com.formulai.survey.service.SurveyService;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.util.List;
+import java.util.UUID;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -15,13 +17,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
-import java.util.List;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import com.formulai.survey.controllers.SurveyController;
+import com.formulai.survey.dto.request.SurveyRequest;
+import com.formulai.survey.dto.request.SurveySubmitRequest;
+import com.formulai.survey.dto.response.SurveyAnswerResponse;
+import com.formulai.survey.dto.response.SurveyResponse;
+import com.formulai.survey.service.SurveyService;
 
 @ExtendWith(MockitoExtension.class)
 public class SurveyControllerTest {

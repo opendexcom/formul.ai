@@ -19,18 +19,16 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.formulai.survey.BaseIntegrationTest;
 import com.formulai.survey.dto.request.SurveyRequest;
 import com.formulai.survey.dto.response.SurveyAnswerResponse;
 import com.formulai.survey.dto.response.SurveyResponse;
 import com.formulai.survey.model.Survey;
 import com.formulai.survey.repository.SurveyRepository;
 
-import jakarta.transaction.Transactional;
-
 @SpringBootTest
 @AutoConfigureMockMvc
-@Transactional
-class SurveyControllerTest {
+class SurveyControllerTest extends BaseIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
