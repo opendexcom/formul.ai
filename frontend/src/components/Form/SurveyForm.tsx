@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { getForm, submitForm } from '../../../lib/api'
 import { useNavigate } from 'react-router'
 import { Card, CardContent } from '@mui/material'
-import { withTheme } from '@rjsf/core'
+import { IChangeEvent, withTheme } from '@rjsf/core'
 import { Theme } from '@rjsf/mui'
 import validator from '@rjsf/validator-ajv8'
 
@@ -10,9 +10,15 @@ interface SurveyFormProps {
   'form-id'?: string;
 }
 
-export const SurveyForm = (props:SurveyFormProps ) => {
+export const SurveyForm = ({ 'form-id': formId }: SurveyFormProps) => {
   const navigate = useNavigate()
-  const [formData, setFormData] = useState<any>(null)
+  
+  type FormDataType = {
+    schema: object
+    uiData?: object
+  } | null
+
+  const [formData, setFormData] = useState<FormDataType>(null)
 
   const Form = withTheme(Theme)
 
@@ -22,10 +28,10 @@ export const SurveyForm = (props:SurveyFormProps ) => {
       const parsedSchema = JSON.parse(schema.schemaJson)
       setFormData(parsedSchema)
     }
-    
-    const id = props['form-id'] ? props['form-id'] : ''
+
+    const id = formId ? formId : ''
     fetchData(id)
-  }, [])
+  }, [formId])
 
   const fetchForm = async (id: string) => {
     try {
@@ -43,7 +49,10 @@ export const SurveyForm = (props:SurveyFormProps ) => {
     }
   }
 
-  const handleSubmitForm = async (formData: any, e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmitForm = async (
+    formData: IChangeEvent,
+    e: React.FormEvent<HTMLFormElement>
+  ) => {
     e.preventDefault()
 
     try {
@@ -69,6 +78,3 @@ export const SurveyForm = (props:SurveyFormProps ) => {
     </>
   )
 }
-
-// const LeftAlignedFormLabel = styled(FormLabel)({
-//   textAlign: 'left',

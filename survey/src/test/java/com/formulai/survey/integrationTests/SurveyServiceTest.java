@@ -1,5 +1,22 @@
 package com.formulai.survey.integrationTests;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.List;
+import java.util.UUID;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.web.client.RestClientException;
+
+import com.formulai.survey.BaseIntegrationTest;
+import com.formulai.survey.TestDataConfig;
 import com.formulai.survey.dto.request.SurveyRequest;
 import com.formulai.survey.dto.request.SurveySubmitRequest;
 import com.formulai.survey.dto.response.SurveyAnswerResponse;
@@ -7,20 +24,12 @@ import com.formulai.survey.dto.response.SurveyResponse;
 import com.formulai.survey.model.Survey;
 import com.formulai.survey.repository.SurveyRepository;
 import com.formulai.survey.service.SurveyService;
+
 import jakarta.transaction.Transactional;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.web.client.RestClientException;
-
-import java.util.List;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
 @Transactional
-class SurveyServiceTest {
+class SurveyServiceTest extends BaseIntegrationTest {
     @Autowired
     private SurveyService surveyService;
 

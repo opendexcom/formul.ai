@@ -1,13 +1,15 @@
 package com.formulai.survey.integrationTests;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.formulai.survey.dto.request.SurveyRequest;
-import com.formulai.survey.dto.response.SurveyAnswerResponse;
-import com.formulai.survey.dto.response.SurveyResponse;
-import com.formulai.survey.model.Survey;
-import com.formulai.survey.repository.SurveyRepository;
-import com.formulai.survey.service.SurveyService;
-import jakarta.transaction.Transactional;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.util.List;
+import java.util.UUID;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -16,17 +18,17 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
-import java.util.List;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.formulai.survey.BaseIntegrationTest;
+import com.formulai.survey.dto.request.SurveyRequest;
+import com.formulai.survey.dto.response.SurveyAnswerResponse;
+import com.formulai.survey.dto.response.SurveyResponse;
+import com.formulai.survey.model.Survey;
+import com.formulai.survey.repository.SurveyRepository;
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@Transactional
-class SurveyControllerTest {
+class SurveyControllerTest extends BaseIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
@@ -131,7 +133,7 @@ class SurveyControllerTest {
     @Test
     void createSurvey_shouldReturn400WithNullSchemaJson() throws Exception {
         // given
-        SurveyRequest invalidRequest = new SurveyRequest("Nazwa ankiety", null);
+        SurveyRequest invalidRequest = new SurveyRequest("Survey Name", null);
         String requestJson = objectMapper.writeValueAsString(invalidRequest);
 
         // when & then

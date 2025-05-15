@@ -1,11 +1,13 @@
 package com.formulai.survey.unitTests;
 
-import com.formulai.survey.controllers.SurveyController;
-import com.formulai.survey.dto.request.SurveyRequest;
-import com.formulai.survey.dto.request.SurveySubmitRequest;
-import com.formulai.survey.dto.response.SurveyAnswerResponse;
-import com.formulai.survey.dto.response.SurveyResponse;
-import com.formulai.survey.service.SurveyService;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.util.List;
+import java.util.UUID;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -15,13 +17,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
-import java.util.List;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import com.formulai.survey.controllers.SurveyController;
+import com.formulai.survey.dto.request.SurveyRequest;
+import com.formulai.survey.dto.request.SurveySubmitRequest;
+import com.formulai.survey.dto.response.SurveyAnswerResponse;
+import com.formulai.survey.dto.response.SurveyResponse;
+import com.formulai.survey.service.SurveyService;
 
 @ExtendWith(MockitoExtension.class)
 public class SurveyControllerTest {
@@ -82,7 +83,7 @@ public class SurveyControllerTest {
         assertEquals(HttpStatus.OK, result.getStatusCode());
         assertEquals(surveys, result.getBody());
         assertNotNull(result.getBody());
-        assertEquals(2, result.getBody().size());
+        assertEquals(2, result.getBody() != null ? result.getBody().size() : 0);
         verify(surveyService).getAllSurvey();
     }
 
@@ -118,7 +119,7 @@ public class SurveyControllerTest {
         assertEquals(HttpStatus.OK, result.getStatusCode());
         assertEquals(answers, result.getBody());
         assertNotNull(result.getBody());
-        assertEquals(2, result.getBody().size());
+        assertEquals(2, result.getBody() != null ? result.getBody().size() : 0);
         verify(surveyService).getResponses(surveyId);
     }
 

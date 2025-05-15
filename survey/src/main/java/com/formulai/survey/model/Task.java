@@ -17,7 +17,7 @@ import lombok.*;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-@Table(name = "task",schema = "public")
+@Table(name = "task",schema = "processing")
 public class Task {
     @Id
     private UUID id;

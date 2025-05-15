@@ -120,6 +120,15 @@ The output will be in the storybook-static/ folder.
 
 ---
 
+## 🤖 Continuous Integration (CI)
+
+On every pull request, GitHub Actions will:
+
+- Run `npm run lint` if any files in the `frontend/` directory are changed
+- Always run end-to-end tests (`npm run test:e2e`)
+
+See the root `.github/workflows/formulaai-ci.yml` for details.
+
 ## Project Structure
 
 ```

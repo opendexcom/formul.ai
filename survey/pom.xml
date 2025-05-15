@@ -72,6 +72,18 @@
 			<artifactId>flyway-database-postgresql</artifactId>
 			<version>10.15.0</version>
 		</dependency>
+		<dependency>
+    		<groupId>org.testcontainers</groupId>
+    		<artifactId>postgresql</artifactId>
+    		<version>1.21.0</version>
+    		<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.testcontainers</groupId>
+			<artifactId>junit-jupiter</artifactId>
+			<version>1.21.0</version>
+			<scope>test</scope>
+		</dependency>
 	</dependencies>
 
 	<build>
@@ -126,6 +138,14 @@
 						</rule>
 					</rules>
 				</configuration>
+			</plugin>
+			<plugin>
+    			<groupId>org.apache.maven.plugins</groupId>
+    			<artifactId>maven-checkstyle-plugin</artifactId>
+    			<version>3.3.0</version>
+    			<configuration>
+        			<configLocation>config/checkstyle.xml</configLocation>
+    			</configuration>
 			</plugin>
 		</plugins>
 	</build>

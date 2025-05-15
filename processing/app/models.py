@@ -9,6 +9,7 @@ from sqlmodel import Field
 from sqlmodel import Relationship
 from sqlmodel import SQLModel
 from sqlmodel import String
+from sqlalchemy import Enum as PgEnum
 
 
 class TaskStatus(StrEnum):
@@ -26,7 +27,14 @@ class Task(SQLModel, table=True):
     # TODO: parametrize default_factory depending on database engine (sync/async),
     # since async engine use only offset-naive datetime
     created_at: datetime = Field(default_factory=lambda: datetime.now())
-    status: TaskStatus = Field(default=TaskStatus.NULL)
+    status: TaskStatus = Field(
+        default=TaskStatus.NULL,
+        sa_column=Column(
+            PgEnum(TaskStatus, name="taskstatus", schema="processing"),
+            nullable=False,
+            default=TaskStatus.NULL,
+        )
+    )
     result: Optional[str] | None = Field(default=None)
 
 
