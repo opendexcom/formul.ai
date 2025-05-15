@@ -101,3 +101,15 @@ http://localhost/swagger
 - **Group ID:** `com.formulai`
 - **Artifact ID:** `survey-service`
 - **Version:** `0.0.1-SNAPSHOT`
+
+---
+
+## 🤖 Continuous Integration (CI)
+
+This project uses GitHub Actions for CI.  
+On every pull request that changes files in the `survey/` folder, the following checks are automatically run:
+
+- **Linting:** Runs Checkstyle via `mvn checkstyle:check`
+- **Testing:** Runs all tests via `mvn test`
+
+You can find the workflow configuration in `.github/workflows/survey-tests.yml`.
