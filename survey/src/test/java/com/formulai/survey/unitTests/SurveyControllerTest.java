@@ -82,7 +82,7 @@ public class SurveyControllerTest {
         assertEquals(HttpStatus.OK, result.getStatusCode());
         assertEquals(surveys, result.getBody());
         assertNotNull(result.getBody());
-        assertEquals(2, result.getBody().size());
+        assertEquals(2, result.getBody() != null ? result.getBody().size() : 0);
         verify(surveyService).getAllSurvey();
     }
 
@@ -118,7 +118,7 @@ public class SurveyControllerTest {
         assertEquals(HttpStatus.OK, result.getStatusCode());
         assertEquals(answers, result.getBody());
         assertNotNull(result.getBody());
-        assertEquals(2, result.getBody().size());
+        assertEquals(2, result.getBody() != null ? result.getBody().size() : 0);
         verify(surveyService).getResponses(surveyId);
     }
 

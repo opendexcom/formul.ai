@@ -9,10 +9,15 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.util.HashMap;
 
-// This class is a global exception handler that catches validation errors (e.g., invalid input in API requests) across all controllers.
-// When a `MethodArgumentNotValidException` is thrown (usually from @Valid annotated inputs), it collects all field-specific errors,
-// maps them to a custom error response, and returns a 400 Bad Request response with those validation messages.
-// This centralizes and simplifies error handling, improving API consistency and client feedback.
+
+/**
+ * Global exception handler for REST controllers.
+ * <p>
+ * Handles {@link MethodArgumentNotValidException} thrown when validation on an argument 
+ * annotated with {@code @Valid} fails.
+ * Returns a {@link ResponseEntity} containing an {@link ErrorResponse} with a map of field names to error messages.
+ * Responds with HTTP 400 Bad Request status.
+ */
 @RestControllerAdvice
 public class GlobalException {
     @ExceptionHandler(MethodArgumentNotValidException.class)
