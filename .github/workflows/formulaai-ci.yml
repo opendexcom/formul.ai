@@ -2,12 +2,20 @@ name: FormulAI CI
 
 on:
   pull_request:
+  workflow_dispatch:
+    inputs:
+      force_all:
+        description: 'Run all jobs regardless of file changes'
+        required: false
+        default: 'false'
+        type: choice
+        options: ['true', 'false']
 
 jobs:
   lint-frontend:
     name: Lint Frontend
     runs-on: ubuntu-latest
-    if: contains(join(github.event.pull_request.paths || ''), 'frontend/')
+    if: github.event_name != 'workflow_dispatch' || inputs.force_all == 'true' || contains(join(github.event.pull_request.paths || ''), 'frontend/')
     defaults:
       run:
         working-directory: frontend
@@ -22,6 +30,7 @@ jobs:
   e2e:
     name: E2E Tests
     runs-on: ubuntu-latest
+    # E2E zawsze się odpala – nie filtrujemy go
     defaults:
       run:
         working-directory: frontend
@@ -38,7 +47,7 @@ jobs:
   processing-tests:
     name: Processing Service Tests
     runs-on: ubuntu-latest
-    if: contains(join(github.event.pull_request.paths || ''), 'processing/')
+    if: github.event_name != 'workflow_dispatch' || inputs.force_all == 'true' || contains(join(github.event.pull_request.paths || ''), 'processing/')
     defaults:
       run:
         working-directory: processing
@@ -62,7 +71,7 @@ jobs:
   survey-tests:
     name: Survey Service Tests
     runs-on: ubuntu-latest
-    if: contains(join(github.event.pull_request.paths || ''), 'survey/')
+    if: github.event_name != 'workflow_dispatch' || inputs.force_all == 'true' || contains(join(github.event.pull_request.paths || ''), 'survey/')
     defaults:
       run:
         working-directory: survey
