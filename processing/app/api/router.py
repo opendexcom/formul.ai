@@ -1,5 +1,5 @@
-from app.api.routes import survey
-from app.api.routes import task
+from app.api.v1.endpoints import survey
+from app.api.v1.endpoints import task
 from fastapi import APIRouter
 
 api_router = APIRouter()

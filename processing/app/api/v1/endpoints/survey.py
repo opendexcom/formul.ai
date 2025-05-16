@@ -1,4 +1,4 @@
-from app.deps import get_processing_service
+from app.api.deps import get_processing_service
 from app.schemas.dto.task_response import TaskResponse
 from app.services.processing_service import ProcessingService
 from fastapi import APIRouter

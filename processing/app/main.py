@@ -1,14 +1,14 @@
 from contextlib import asynccontextmanager
 from uuid import UUID
 
-from app.api.main import api_router
-from app.database import create_db_and_tables
-from app.database import reset_db
+from app.api.router import api_router
+from app.db.database import create_db_and_tables
+from app.db.database import reset_db
 from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
 from pydantic import UUID4
 
-from . import deps
+from .api import deps
 from .models.survey import Survey
 from .models.survey_answer import SurveyAnswer
 from .models.task import Task

@@ -1,6 +1,6 @@
 from uuid import uuid4
 
-from app.deps import get_task_service
+from app.api.deps import get_task_service
 from app.main import app
 from app.models.task import Task
 from app.models.task_status import TaskStatus
