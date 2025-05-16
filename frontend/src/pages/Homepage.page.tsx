@@ -1,5 +1,5 @@
 import { Typography } from '@mui/material'
-import { Layout } from '../components/Layout'
+import { Layout } from '../features/shared/components/Layout'
 
 export const Homepage = () => {
   return (
