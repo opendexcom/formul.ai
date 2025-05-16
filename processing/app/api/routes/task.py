@@ -2,7 +2,7 @@ from io import BytesIO
 
 from app.core import exceptions as api_exceptions
 from app.deps import get_task_service
-from app.models import TaskStatus
+from app.models.TaskStatus import TaskStatus
 from app.schemas import TaskResponse
 from app.services.task_service import TaskService
 from fastapi import APIRouter

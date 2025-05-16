@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from app.models import TaskStatus
+from app.models.TaskStatus import TaskStatus
 from pydantic import BaseModel
 from pydantic import UUID4
 from sqlmodel import Field

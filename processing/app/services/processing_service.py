@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Callable
 
 from app.core.exceptions import NotFoundError
-from app.models import TaskStatus
+from app.models.TaskStatus import TaskStatus
 from app.schemas import AnalyzeSurveyData
 from app.schemas import TaskResponse
 from app.services.analysis_service import AnalysisService
