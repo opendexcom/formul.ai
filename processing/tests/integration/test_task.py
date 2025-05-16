@@ -33,7 +33,6 @@ def test_get_completed_task_file(client):
     assert (
         response.headers["Content-Disposition"] == f'attachment; filename="{local_survey_id}.json"'
     )
-    print(response.headers)
     assert response.headers["content-type"] == "application/json"
     assert response.content == local_task_result.encode("utf-8")
     app.dependency_overrides = {}  # Clean up after test
