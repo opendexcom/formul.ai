@@ -3,7 +3,10 @@ from sqlmodel import Column, Field, Relationship, SQLModel, String
 
 import uuid
 
-from app.models.survey_answer import SurveyAnswer
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.models.survey_answer import SurveyAnswer
 
 
 class Survey(SQLModel, table=True):
