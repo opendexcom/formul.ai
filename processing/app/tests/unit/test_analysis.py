@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 from uuid import uuid4
 
 import pytest
-from app.schemas import AnalyzeSurveyData
+from app.schemas.analyze_survey_data import AnalyzeSurveyData
 from app.services.analysis_service import AnalysisService
 
 

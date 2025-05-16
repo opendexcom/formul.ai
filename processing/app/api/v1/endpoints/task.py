@@ -1,9 +1,9 @@
 from io import BytesIO
 
-from app.core import exceptions as api_exceptions
-from app.deps import get_task_service
-from app.models import TaskStatus
-from app.schemas import TaskResponse
+from app.utils import exceptions as api_exceptions
+from app.api.deps import get_task_service
+from app.models.task_status import TaskStatus
+from app.schemas.dto.task_response import TaskResponse
 from app.services.task_service import TaskService
 from fastapi import APIRouter
 from fastapi import Depends

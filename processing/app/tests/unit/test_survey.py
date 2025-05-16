@@ -3,14 +3,14 @@ from datetime import timezone
 from typing import Optional
 from uuid import uuid4
 
-from app.core.exceptions import NotFoundError
-from app.deps import get_analysis_service
-from app.deps import get_survey_service
-from app.deps import get_task_service
+from app.utils.exceptions import NotFoundError
+from app.api.deps import get_analysis_service
+from app.api.deps import get_survey_service
+from app.api.deps import get_task_service
 from app.main import app
-from app.models import Survey
-from app.models import Task
-from app.models import TaskStatus
+from app.models.survey import Survey
+from app.models.task import Task
+from app.models.task_status import TaskStatus
 from fastapi.testclient import TestClient
 from pydantic import UUID4
 

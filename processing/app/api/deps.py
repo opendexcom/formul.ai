@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from app.config import Settings
+from app.core.config import Settings
 from app.db.sessions import AsyncSessionFactory
 from app.repository.survey_repository import SurveyRepository
 from app.repository.task_repository import TaskRepository

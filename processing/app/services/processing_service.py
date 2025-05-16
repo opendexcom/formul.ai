@@ -3,10 +3,10 @@ from datetime import timezone
 from pathlib import Path
 from typing import Callable
 
-from app.core.exceptions import NotFoundError
-from app.models import TaskStatus
-from app.schemas import AnalyzeSurveyData
-from app.schemas import TaskResponse
+from app.utils.exceptions import NotFoundError
+from app.models.task_status import TaskStatus
+from app.schemas.analyze_survey_data import AnalyzeSurveyData
+from app.schemas.dto.task_response import TaskResponse
 from app.services.analysis_service import AnalysisService
 from app.services.survey_service import SurveyService
 from app.services.task_service import TaskService
