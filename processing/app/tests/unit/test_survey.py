@@ -12,6 +12,7 @@ def test_get_start_survey_analysis(
     get_task_service_mock,
     get_analysis_service_mock,
 ):
+    app.dependency_overrides = {}  # Ensure clean state before test
     app.dependency_overrides[get_task_service] = get_task_service_mock
     app.dependency_overrides[get_analysis_service] = get_analysis_service_mock
     app.dependency_overrides[get_survey_service] = get_survey_service_mock
@@ -26,3 +27,5 @@ def test_get_start_survey_analysis(
     assert data["status"] == TaskStatus.IN_PROGRESS.value
     assert data["survey_id"] == str(local_survey_id)
     assert "created_at" in data
+
+    app.dependency_overrides = {}  # Clean up after test

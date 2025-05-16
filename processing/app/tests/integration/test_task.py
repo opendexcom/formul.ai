@@ -25,6 +25,7 @@ def test_get_completed_task_file(client):
                 status=TaskStatus.COMPLETED,
             )
 
+    app.dependency_overrides = {}  # Ensure clean state before test
     app.dependency_overrides[get_task_service] = lambda: MockTaskService()
 
     response = client.get(f"/tasks/{local_task_id}/file")
@@ -35,6 +36,7 @@ def test_get_completed_task_file(client):
     print(response.headers)
     assert response.headers["content-type"] == "application/json"
     assert response.content == local_task_result.encode("utf-8")
+    app.dependency_overrides = {}  # Clean up after test
 
 
 @pytest.mark.usefixtures("client")
@@ -52,7 +54,9 @@ def test_get_non_completed_task_file(client):
                 status=TaskStatus.NULL,
             )
 
+    app.dependency_overrides = {}  # Ensure clean state before test
     app.dependency_overrides[get_task_service] = lambda: MockTaskService()
     response = client.get(f"/tasks/{local_task_id}/file")
     assert response.status_code == 404
     print(response.json())
+    app.dependency_overrides = {}  # Clean up after test
