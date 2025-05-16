@@ -38,6 +38,42 @@ def test_get_completed_task_file(client):
     assert response.content == local_task_result.encode("utf-8")
     app.dependency_overrides = {}  # Clean up after test
 
+@pytest.mark.usefixtures("client")
+def test_get_task_file_not_found(client):
+    local_task_id = uuid4()
+
+    class MockTaskService:
+        async def get_task_by_id(self, task_id: UUID):
+            raise ValueError("Task not found")
+
+    app.dependency_overrides = {}
+    app.dependency_overrides[get_task_service] = lambda: MockTaskService()
+
+    response = client.get(f"/tasks/{local_task_id}/file")
+    assert response.status_code == 404
+    app.dependency_overrides = {}
+
+@pytest.mark.usefixtures("client")
+def test_get_completed_task_file_no_result(client):
+    local_task_id = uuid4()
+    local_survey_id = uuid4()
+
+    class MockTaskService:
+        async def get_task_by_id(self, task_id: UUID) -> Task:
+            if task_id != local_task_id:
+                raise ValueError(f"Task with ID {task_id} not found")
+            return Task(
+                result=None,
+                survey_id=local_survey_id,
+                status=TaskStatus.COMPLETED,
+            )
+
+    app.dependency_overrides = {}
+    app.dependency_overrides[get_task_service] = lambda: MockTaskService()
+    response = client.get(f"/tasks/{local_task_id}/file")
+    assert response.status_code == 404
+    assert "no result" in response.json()["detail"]
+    app.dependency_overrides = {}
 
 @pytest.mark.usefixtures("client")
 def test_get_non_completed_task_file(client):
@@ -51,12 +87,12 @@ def test_get_non_completed_task_file(client):
             return Task(
                 result=None,
                 survey_id=local_survey_id,
-                status=TaskStatus.NULL,
+                status=TaskStatus.NULL,  # Not COMPLETED
             )
 
     app.dependency_overrides = {}  # Ensure clean state before test
     app.dependency_overrides[get_task_service] = lambda: MockTaskService()
     response = client.get(f"/tasks/{local_task_id}/file")
     assert response.status_code == 404
-    print(response.json())
+    assert "not completed" in response.json()["detail"]
     app.dependency_overrides = {}  # Clean up after test
