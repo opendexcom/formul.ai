@@ -9,17 +9,15 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 
 @Entity
 @Setter
 @Getter
+@Builder
 @AllArgsConstructor
 @NoArgsConstructor
-@Table(name = "task")
+@Table(name = "task",schema = "processing")
 public class Task {
     @Id
     private UUID id;
@@ -30,8 +28,8 @@ public class Task {
 
     @Column(name = "created_at")
     private Date createdAt;
-    
+
     private String status;
-    
+
     private String result;
 }

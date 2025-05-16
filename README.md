@@ -83,6 +83,23 @@ The application will be available at `http://localhost`.
 
 GitHub: [opendexcom/formul.ai](https://github.com/opendexcom/formul.ai)
 
+## 🤖 Continuous Integration (CI)
+
+This project uses GitHub Actions for CI.  
+On every pull request, the following checks are automatically run depending on which files are changed:
+
+- **Frontend:**  
+  - Linting (`npm run lint`) if files in `frontend/` are changed  
+  - End-to-end tests (`npm run test:e2e`) always run
+
+- **Processing Service:**  
+  - Dependency sync, linting (ruff), and tests (pytest) if files in `processing/` are changed
+
+- **Survey Service:**  
+  - Linting (Checkstyle) and tests (Maven) if files in `survey/` are changed
+
+You can find the workflow configuration in `.github/workflows/formulaai-ci.yml`.
+
 ## 📜 License
 
 This project is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**. See the [LICENSE](./LICENSE) file for details.

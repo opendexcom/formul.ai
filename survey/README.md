@@ -1,8 +1,18 @@
-# survey-service
+
+# Survey Service
 
 **Survey Management Microservice** for the `formulAI` platform.  
 Built with **Spring Boot 3.4.5**, Java **21**, and Maven.  
 Includes **OpenAPI UI** support via SpringDoc.
+
+---
+
+## 🧱 Tech Stack
+
+- Spring Boot Starter
+- Spring Boot Test
+- SpringDoc OpenAPI
+- Flyway (Database Migrations)
 
 ---
 
@@ -16,16 +26,14 @@ Includes **OpenAPI UI** support via SpringDoc.
 
 ## 🚀 Getting Started
 
-### Clone the Repository
+### Running the Application
+Using Docker (on root repository folder)
 
 ```bash
-git clone https://your.repo.url/survey-service.git
-cd survey-service
+docker compose up --build survey
 ```
 
-### Run the Application
-
-Using the wrapper:
+Using Maven Wrapper:
 
 ```bash
 ./mvnw spring-boot:run
@@ -46,13 +54,29 @@ java -jar target/survey-service-0.0.1-SNAPSHOT.jar
 
 ---
 
+## 🗄️ Database Migrations
+
+This project uses **Flyway** for database schema migrations.
+
+Migrations are now automatically executed. No need to manually run.
+
+### Adding New Migrations
+- Place SQL files in:  
+  `src/main/resources/db/migration/`
+- Use this naming pattern:  
+  `V<version>__<description>.sql`  
+  Example: `V3__add_survey_table.sql`
+
+---
+
 ## ✅ Running Tests
 
 ```bash
 mvn test
+mvn verify
 ```
 
-Output:
+Expected Output:
 
 ```text
 BUILD SUCCESS
@@ -67,7 +91,7 @@ If not — fix it. No excuses.
 Access Swagger UI at:
 
 ```
-http://localhost:8080/swagger-ui.html
+http://localhost/swagger
 ```
 
 ---
@@ -80,10 +104,12 @@ http://localhost:8080/swagger-ui.html
 
 ---
 
-## 🧱 Tech Stack
+## 🤖 Continuous Integration (CI)
 
-- Spring Boot Starter
-- Spring Boot Test
-- SpringDoc OpenAPI
+This project uses GitHub Actions for CI.  
+On every pull request that changes files in the `survey/` folder, the following checks are automatically run:
 
----
+- **Linting:** Runs Checkstyle via `./mvnw checkstyle:check`
+- **Testing:** Runs all tests and checks coverage via `./mvnw clean verify jacoco:report` and `./mvnw jacoco:check`
+
+You can find the workflow configuration in `.github/workflows/formulaai-ci.yml`.

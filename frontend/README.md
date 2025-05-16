@@ -96,6 +96,39 @@ Fix any code issues for a clean and consistent codebase.
 
 ---
 
+### `npm run storybook`
+
+Runs Storybook in development mode.
+
+```bash
+npm run storybook
+```
+
+This will open Storybook in your browser, typically at http://localhost:6006.
+
+---
+
+### `npm run build-storybook`
+
+Builds a static Storybook that you can deploy.
+
+```bash
+npm run build-storybook
+```
+
+The output will be in the storybook-static/ folder.
+
+---
+
+## 🤖 Continuous Integration (CI)
+
+On every pull request, GitHub Actions will:
+
+- Run `npm run lint` if any files in the `frontend/` directory are changed
+- Always run end-to-end tests (`npm run test:e2e`)
+
+See the root `.github/workflows/formulaai-ci.yml` for details.
+
 ## Project Structure
 
 ```
