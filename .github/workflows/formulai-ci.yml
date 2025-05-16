@@ -80,7 +80,7 @@ jobs:
       - name: Run lint ruff
         run: ruff check .
       - name: Run tests
-        run: uv run pytest
+        run: uv run pytest --cov=app --cov-report=term-missing --cov-fail-under=80
 
   survey-tests:
     name: Survey Service Tests
