@@ -1,8 +1,9 @@
 from pydantic import UUID4
 from sqlmodel import Column, Field, Relationship, SQLModel, String
 
-
 import uuid
+
+from app.models.survey_answer import SurveyAnswer
 
 
 class Survey(SQLModel, table=True):
