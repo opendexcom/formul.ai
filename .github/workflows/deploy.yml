@@ -50,6 +50,9 @@ jobs:
       - name: Checkout main branch
         run: git checkout main
 
+      - name: Reset branch 
+        run: git reset --hard origin/main
+
       - name: Merge source branch into main
         run: |
           git config user.name "github-actions"
