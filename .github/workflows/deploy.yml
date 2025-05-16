@@ -57,6 +57,7 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
+          echo "merge origin/${{ github.event.inputs.source_branch }}"
           git merge origin/${{ github.event.inputs.source_branch }} --no-ff -m "Merge ${{ github.event.inputs.source_branch }} into main"
 
       - name: Push main with merge
