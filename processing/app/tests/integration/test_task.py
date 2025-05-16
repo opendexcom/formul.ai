@@ -1,16 +1,16 @@
 from uuid import uuid4
 
+import pytest
+
 from app.api.deps import get_task_service
 from app.main import app
 from app.models.task import Task
 from app.models.task_status import TaskStatus
-from fastapi.testclient import TestClient
 from sqlmodel import UUID
 
-client = TestClient(app)
 
-
-def test_get_completed_task_file():
+@pytest.mark.usefixtures("client")
+def test_get_completed_task_file(client):
     local_task_id = uuid4()
     local_survey_id = uuid4()
     local_task_result = '{"ok":"true"}'
@@ -37,7 +37,8 @@ def test_get_completed_task_file():
     assert response.content == local_task_result.encode("utf-8")
 
 
-def test_get_non_completed_task_file():
+@pytest.mark.usefixtures("client")
+def test_get_non_completed_task_file(client):
     local_task_id = uuid4()
     local_survey_id = uuid4()
 
