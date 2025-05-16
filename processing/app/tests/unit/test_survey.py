@@ -8,8 +8,8 @@ from app.api.deps import get_analysis_service
 from app.api.deps import get_survey_service
 from app.api.deps import get_task_service
 from app.main import app
-from app.models.survey_ import Survey
-from app.models.task_ import Task
+from app.models.survey import Survey
+from app.models.task import Task
 from app.models.task_status import TaskStatus
 from fastapi.testclient import TestClient
 from pydantic import UUID4
