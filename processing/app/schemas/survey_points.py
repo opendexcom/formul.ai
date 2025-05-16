@@ -1,4 +1,4 @@
-from app.schemas.SurveyPointsSentimentBucket import SurveyPointsSentimentBucket
+from app.schemas.survey_points_sentiment_bucket import SurveyPointsSentimentBucket
 
 
 from pydantic import BaseModel

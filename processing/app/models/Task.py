@@ -1,5 +1,5 @@
 from typing import Optional
-from app.models.TaskStatus import TaskStatus
+from app.models.task_status import TaskStatus
 
 
 from pydantic import UUID4

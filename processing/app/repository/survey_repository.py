@@ -4,7 +4,7 @@ from uuid import UUID
 from sqlalchemy.orm import joinedload
 
 from app.db.sessions import AsyncSessionFactory
-from app.models.Survey import Survey
+from app.models.survey import Survey
 from sqlmodel import select
 
 

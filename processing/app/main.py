@@ -9,9 +9,9 @@ from fastapi.openapi.utils import get_openapi
 from pydantic import UUID4
 
 from . import deps
-from .models.Survey import Survey
-from .models.SurveyAnswer import SurveyAnswer
-from .models.Task import Task
+from .models.survey import Survey
+from .models.survey_answer import SurveyAnswer
+from .models.task import Task
 
 
 @asynccontextmanager

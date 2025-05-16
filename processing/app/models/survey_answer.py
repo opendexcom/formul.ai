@@ -1,5 +1,5 @@
 from typing import Optional
-from app.models.Survey import Survey
+from app.models.survey import Survey
 
 
 from pydantic import UUID4

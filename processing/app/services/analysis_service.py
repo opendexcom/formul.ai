@@ -1,5 +1,5 @@
-from app.schemas.AnalyzeSurveyData import AnalyzeSurveyData
-from app.schemas.SurveyPoints import SurveyPoints
+from app.schemas.analyze_survey_data import AnalyzeSurveyData
+from app.schemas.survey_points import SurveyPoints
 from ollama import AsyncClient
 
 

@@ -1,7 +1,7 @@
 from uuid import UUID
 
-from app.models.Task import Task
-from app.models.TaskStatus import TaskStatus
+from app.models.task import Task
+from app.models.task_status import TaskStatus
 from app.repository.task_repository import TaskRepository
 
 

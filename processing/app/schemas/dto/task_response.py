@@ -1,4 +1,4 @@
-from app.models.TaskStatus import TaskStatus
+from app.models.task_status import TaskStatus
 
 
 from pydantic import UUID4, BaseModel
@@ -7,8 +7,8 @@ from pydantic import UUID4, BaseModel
 from datetime import datetime
 
 
-class SurveyStatusReponse(BaseModel):
+class TaskResponse(BaseModel):
     id: UUID4
-    survey_id: str
+    survey_id: UUID4
     created_at: datetime
     status: TaskStatus
