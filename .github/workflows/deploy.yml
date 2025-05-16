@@ -13,12 +13,21 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout source branch
+      - name: Setup SSH for GitHub and VPS
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+          ssh-keyscan ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Checkout source branch via SSH
         uses: actions/checkout@v3
         with:
+          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          repository: opendexcom/formul.ai
           ref: ${{ github.event.inputs.source_branch }}
-          fetch-depth: 0  # Fetches all history
-          fetch-tags: true
+          fetch-depth: 0  # umożliwia fetch tagów później
 
       - name: Fetch tags
         run: git fetch --tags
@@ -52,9 +61,6 @@ jobs:
       - name: Checkout main branch
         run: git checkout main
 
-      - name: Reset branch 
-        run: git reset --hard origin/main
-
       - name: Merge source branch into main
         run: |
           git config user.name "github-actions"
@@ -65,7 +71,7 @@ jobs:
       - name: Push main with merge
         run: git push origin main
 
-      - name: Create tag
+      - name: Create tag and push
         run: |
           git tag -a ${{ steps.version.outputs.next_version }} -m "Release ${{ steps.version.outputs.next_version }}"
           git push origin ${{ steps.version.outputs.next_version }}
@@ -78,13 +84,6 @@ jobs:
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Setup SSH
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
 
       - name: Deploy to VPS
         run: |
