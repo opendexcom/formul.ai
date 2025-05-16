@@ -17,8 +17,7 @@ def test_get_start_survey_analysis(
     app.dependency_overrides[get_analysis_service] = get_analysis_service_mock
     app.dependency_overrides[get_survey_service] = get_survey_service_mock
 
-    print("Starting test_start_survey_analysis")
-    sys.stdout.flush()
+# Removed unnecessary debug print statement and sys.stdout.flush()
     response = client.post(f"/surveys/{local_survey_id}/start")
 
     assert response.status_code == 200
