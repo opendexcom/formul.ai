@@ -1,5 +1,5 @@
 from app.deps import get_processing_service
-from app.schemas import TaskResponse
+from app.schemas.dto.TaskResponse import TaskResponse
 from app.services.processing_service import ProcessingService
 from fastapi import APIRouter
 from fastapi import BackgroundTasks

@@ -5,8 +5,8 @@ from typing import Callable
 
 from app.core.exceptions import NotFoundError
 from app.models.TaskStatus import TaskStatus
-from app.schemas import AnalyzeSurveyData
-from app.schemas import TaskResponse
+from app.schemas.AnalyzeSurveyData import AnalyzeSurveyData
+from app.schemas.dto.TaskResponse import TaskResponse
 from app.services.analysis_service import AnalysisService
 from app.services.survey_service import SurveyService
 from app.services.task_service import TaskService

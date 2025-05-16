@@ -1,13 +1,10 @@
 from uuid import uuid4
 
-from app.core.exceptions import NotFoundError
 from app.deps import get_task_service
 from app.main import app
 from app.models.Task import Task
 from app.models.TaskStatus import TaskStatus
-from app.schemas import TaskResponse
 from fastapi.testclient import TestClient
-from pydantic import UUID4
 from sqlmodel import UUID
 
 client = TestClient(app)
