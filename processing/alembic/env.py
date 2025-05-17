@@ -38,9 +38,7 @@ def include_object(object, name, type_, reflected, compare_to):
 
 
 def get_app_db_url() -> str:
-    settings = app_config.PostgresSettings.from_env()
-    print("Using database settings:", settings.model_dump_json(indent=3))
-    return settings.get_sync_uri()
+    return app_config.PostgresSettings.from_env().get_sync_uri()
 
 
 def run_migrations_offline() -> None:
