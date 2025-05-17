@@ -1,17 +1,17 @@
-from datetime import datetime
-from datetime import timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
 
-from app.utils.exceptions import NotFoundError
+from ollama import ResponseError
+from pydantic import UUID4
+
 from app.models.task_status import TaskStatus
 from app.schemas.analyze_survey_data import AnalyzeSurveyData
 from app.schemas.dto.task_response import TaskResponse
 from app.services.analysis_service import AnalysisService
 from app.services.survey_service import SurveyService
 from app.services.task_service import TaskService
-from ollama import ResponseError
-from pydantic import UUID4
+from app.utils.exceptions import NotFoundError
 
 
 class ProcessingService:

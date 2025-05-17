@@ -2,10 +2,10 @@ from typing import Optional
 from uuid import UUID
 
 from sqlalchemy.orm import joinedload
+from sqlmodel import select
 
 from app.db.sessions import AsyncSessionFactory
 from app.models.survey import Survey
-from sqlmodel import select
 
 
 class SurveyRepository:

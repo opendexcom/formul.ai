@@ -2,8 +2,7 @@ from functools import lru_cache
 
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncEngine
-from sqlmodel import SQLModel
-from sqlmodel import Table
+from sqlmodel import SQLModel, Table
 
 
 @lru_cache()

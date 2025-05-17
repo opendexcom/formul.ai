@@ -1,10 +1,8 @@
-from app.models.task_status import TaskStatus
-
+from datetime import datetime
 
 from pydantic import UUID4, BaseModel
 
-
-from datetime import datetime
+from app.models.task_status import TaskStatus
 
 
 class SurveyStatusResponse(BaseModel):

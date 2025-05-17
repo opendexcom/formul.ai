@@ -1,7 +1,8 @@
-from app.utils.exceptions import NotFoundError
+from pydantic import UUID4
+
 from app.db.sessions import AsyncSessionFactory
 from app.models.task import Task
-from pydantic import UUID4
+from app.utils.exceptions import NotFoundError
 
 
 class TaskRepository:

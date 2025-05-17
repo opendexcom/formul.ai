@@ -1,9 +1,8 @@
+import uuid
+from typing import TYPE_CHECKING
+
 from pydantic import UUID4
 from sqlmodel import Column, Field, Relationship, SQLModel, String
-
-import uuid
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from app.models.survey_answer import SurveyAnswer
