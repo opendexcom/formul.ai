@@ -1,4 +1,6 @@
-from fastapi import APIRouter, BackgroundTasks, Depends
+from fastapi import APIRouter
+from fastapi import BackgroundTasks
+from fastapi import Depends
 from pydantic import UUID4
 
 from app.api.deps import get_processing_service

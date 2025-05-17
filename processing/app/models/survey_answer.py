@@ -2,7 +2,11 @@ import uuid
 from typing import Optional
 
 from pydantic import UUID4
-from sqlmodel import Column, Field, Relationship, SQLModel, String
+from sqlmodel import Column
+from sqlmodel import Field
+from sqlmodel import Relationship
+from sqlmodel import SQLModel
+from sqlmodel import String
 
 from app.models.survey import Survey
 

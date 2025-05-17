@@ -1,4 +1,5 @@
-from pydantic import UUID4, BaseModel
+from pydantic import UUID4
+from pydantic import BaseModel
 
 
 class AnalyzeSurveyData(BaseModel):

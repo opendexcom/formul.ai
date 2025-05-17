@@ -1,6 +1,9 @@
-from typing import Any, Dict, Optional
+from typing import Any
+from typing import Dict
+from typing import Optional
 
-from fastapi import HTTPException, status
+from fastapi import HTTPException
+from fastapi import status
 
 
 class NotFoundError(HTTPException):

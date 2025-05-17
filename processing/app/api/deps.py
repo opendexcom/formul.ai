@@ -3,8 +3,9 @@ from functools import lru_cache
 from fastapi import Depends
 from ollama import AsyncClient
 from sqlalchemy import Engine
-from sqlalchemy.ext.asyncio import (AsyncEngine, async_sessionmaker,
-                                    create_async_engine)
+from sqlalchemy.ext.asyncio import AsyncEngine
+from sqlalchemy.ext.asyncio import async_sessionmaker
+from sqlalchemy.ext.asyncio import create_async_engine
 from sqlmodel import Session
 
 from app.core import config

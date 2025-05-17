@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import typing as t
 
-from pydantic import PostgresDsn, SecretStr
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import PostgresDsn
+from pydantic import SecretStr
+from pydantic_settings import BaseSettings
+from pydantic_settings import SettingsConfigDict
 
 
 class PostgresSettings(BaseSettings):

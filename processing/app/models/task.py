@@ -4,7 +4,9 @@ from typing import Optional
 
 from pydantic import UUID4
 from sqlalchemy import Enum as PgEnum
-from sqlmodel import Column, Field, SQLModel
+from sqlmodel import Column
+from sqlmodel import Field
+from sqlmodel import SQLModel
 
 from app.models.task_status import TaskStatus
 

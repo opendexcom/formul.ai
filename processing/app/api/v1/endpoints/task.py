@@ -1,6 +1,8 @@
 from io import BytesIO
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter
+from fastapi import Depends
+from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import UUID4
 
