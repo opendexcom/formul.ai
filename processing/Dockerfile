@@ -32,5 +32,4 @@ ADD /alembic /app/alembic
 # Copy the rest of the application
 ADD /app /app/app
 
-# Start app with Uvicorn
 CMD ./entrypoint.sh

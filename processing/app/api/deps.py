@@ -8,6 +8,8 @@ from app.core import config
 from app.db.sessions import AsyncSession
 from app.db.sessions import AsyncSessionFactory
 from app.db.sessions import AsyncSessionFactoryType
+from app.db.sessions import get_async_engine
+from app.db.sessions import get_async_session_factory
 from app.repository.survey_repository import SurveyRepository
 from app.repository.task_repository import TaskRepository
 from app.services.analysis_service import AnalysisService
@@ -21,8 +23,8 @@ def get_settings() -> config.Settings:
     return config.Settings.from_env()
 
 
-def get_db_session_factory() -> AsyncSessionFactory:
-    return AsyncSessionFactory
+def get_db_session_factory(settings: config.Settings = Depends(get_settings)) -> AsyncSessionFactory:
+    return get_async_session_factory(get_async_engine(settings.database))
 
 
 async def get_db_session(factory: AsyncSessionFactoryType = Depends(get_db_session_factory)):
