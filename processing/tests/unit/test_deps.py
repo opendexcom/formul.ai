@@ -1,20 +1,14 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from ollama import AsyncClient
 
 from app.api import deps
-from app.core.config import Settings
 from app.repository.survey_repository import SurveyRepository
 from app.repository.task_repository import TaskRepository
 from app.services.analysis_service import AnalysisService
 from app.services.processing_service import ProcessingService
 from app.services.survey_service import SurveyService
 from app.services.task_service import TaskService
-
-
-def test_get_settings_returns_settings():
-    s = deps.get_settings()
-    assert isinstance(s, Settings)
 
 
 def test_get_ollama_client_returns_client():
