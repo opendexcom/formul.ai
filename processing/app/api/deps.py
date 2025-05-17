@@ -3,7 +3,8 @@ from functools import lru_cache
 from fastapi import Depends
 from ollama import AsyncClient
 from sqlalchemy import Engine
-from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import (AsyncEngine, async_sessionmaker,
+                                    create_async_engine)
 from sqlmodel import Session
 
 from app.core import config
@@ -18,11 +19,11 @@ from app.services.task_service import TaskService
 
 @lru_cache()
 def get_settings() -> config.Settings:
-    return config.from_env()
+    return config.Settings.from_env()
 
 
 def get_db_engine(settings: config.Settings = Depends(get_settings)) -> AsyncEngine:
-    postgres_url = settings.get_database_async_uri()
+    postgres_url = settings.database.get_async_uri()
     engine = create_async_engine(postgres_url, pool_size=50, max_overflow=50, pool_pre_ping=True)
     return engine
 

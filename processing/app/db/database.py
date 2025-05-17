@@ -20,7 +20,6 @@ def get_owned_tables() -> list[Table]:
 async def create_db_and_tables(engine: AsyncEngine):
     async with engine.begin() as conn:
         await conn.execute(sa.schema.CreateSchema("processing", if_not_exists=True))
-        await conn.execute(sa.schema.CreateSchema("survey", if_not_exists=True))
         await conn.commit()
 
 

@@ -24,4 +24,4 @@ class Task(SQLModel, table=True):
             default=TaskStatus.NULL,
         ),
     )
-    result: Optional[str] | None = Field(default=None)
+    result: Optional[str] = Field(default=None)
