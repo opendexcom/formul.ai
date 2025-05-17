@@ -18,6 +18,7 @@ async def load_initial_data():
     session_factory = get_async_session_factory(get_async_engine(cfg))
 
     async with session_factory() as session:
+        session.add(task)
         try:
             # Prepare for task creation, but not commit
             await session.flush()
