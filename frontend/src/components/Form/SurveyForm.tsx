@@ -56,8 +56,11 @@ export const SurveyForm = ({ 'form-id': formId }: SurveyFormProps) => {
     e.preventDefault()
 
     try {
-      const id = formId ? formId : ''
-      await submitForm(id, formData.formData)
+      if (!formId) {
+        console.error('formId is missing or invalid. Cannot submit form.')
+        return
+      }
+      await submitForm(formId, formData.formData)
     } catch (error) {
       if (error instanceof Error) {
         console.error(error.message)
