@@ -24,11 +24,6 @@ async def create_db_and_tables(engine: AsyncEngine):
         await conn.execute(sa.schema.CreateSchema("survey", if_not_exists=True))
         await conn.commit()
 
-    async with engine.begin() as conn:
-        # Check if the database exists
-        tables_to_create = get_owned_tables()
-        await conn.run_sync(SQLModel.metadata.create_all, tables=tables_to_create)
-
 
 async def reset_db(engine: AsyncEngine):
     pass
