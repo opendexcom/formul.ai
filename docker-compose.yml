@@ -10,20 +10,21 @@ services:
     volumes:
       - ./processing/app:/app/app
       - ./processing/data:/app/data
-    environment:
-      - DB_CONNECTION_STRING=postgresql+asyncpg://${SURVEY_DB_USERNAME}:${SURVEY_DB_PASSWORD}@${SURVEY_DB_HOST}:${SURVEY_DB_PORT}/${SURVEY_DB_NAME}
-      - OLLAMA_API_URL=${OLLAMA_API_URL}
+    env_file:
+      - .env.docker
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+    restart: always
 
   survey:
     build: ./survey
-    environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://${SURVEY_DB_HOST}:${SURVEY_DB_PORT}/${SURVEY_DB_NAME}
-      - SPRING_DATASOURCE_USERNAME=${SURVEY_DB_USERNAME}
-      - SPRING_DATASOURCE_PASSWORD=${SURVEY_DB_PASSWORD}
+    env_file:
+      - .env.docker
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+    restart: always
 
   ai:
     restart: always
@@ -48,11 +49,16 @@ services:
     restart: always
     image: postgres:17-alpine
     ports:
-      - "5432:5432"
+      - "5431:5432"
     environment:
-      POSTGRES_USER: ${SURVEY_DB_USERNAME}
-      POSTGRES_PASSWORD: ${SURVEY_DB_PASSWORD}
-      POSTGRES_DB: ${SURVEY_DB_NAME}
+      POSTGRES_USER: ${POSTGRES_USERNAME}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_NAME}
+    healthcheck:
+      test: ["CMD-SHELL", "PGPASSWORD=$POSTGRES_PASSWORD pg_isready -U $POSTGRES_USERNAME -d $POSTGRES_NAME -p $POSTGRES_PORT"]
+      interval: 2s
+      timeout: 5s
+      retries: 5
     volumes:
       - db_data:/var/lib/postgresql/data
 

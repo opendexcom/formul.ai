@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Layout } from '../components/Layout'
+import { Layout } from '@/features/shared'
 import {
   Button,
   Card,
@@ -32,7 +32,6 @@ export default function SurveysPage() {
       setData(data)
     }
 
-
     // pull data from api every 3 seconds
     const interval = setInterval(() => {
       handleGetAllSurveys()
@@ -40,7 +39,7 @@ export default function SurveysPage() {
 
     handleGetAllSurveys()
     return () => {
-        clearInterval(interval)
+      clearInterval(interval)
     }
   }, [])
   return (
@@ -59,24 +58,27 @@ export default function SurveysPage() {
             <TableBody>
               {data.map((item: FetchData) => (
                 <TableRow key={item.id}>
-                  <TableCell>
-                    {item.id}
-                  </TableCell>
+                  <TableCell>{item.id}</TableCell>
                   <TableCell>{item.name}</TableCell>
-                  <TableCell>{item.status === 'COMPLETED' ? (
-                    <a href={`/api/processing/tasks/${item.task_id}/file`} download>
-                      Download Result
-                    </a>
-                  ) : (
-                    item.status
-                  )}</TableCell>
+                  <TableCell>
+                    {item.status === 'COMPLETED' ? (
+                      <a href={`/api/processing/tasks/${item.task_id}/file`} download>
+                        Download Result
+                      </a>
+                    ) : (
+                      item.status
+                    )}
+                  </TableCell>
                   <TableCell>
                     <Button
                       variant="contained"
                       color="primary"
                       onClick={() => {
                         closeSurvey(item.id)
-                      }}>Close</Button>
+                      }}
+                    >
+                      Close
+                    </Button>
                     <Button
                       variant="contained"
                       color="secondary"

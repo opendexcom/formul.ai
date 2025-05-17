@@ -1,11 +1,11 @@
-import { Layout } from '../components/Layout'
+import { Layout } from '@/features/shared'
 import { Typography } from '@mui/material'
 
 function Error404Page() {
   return (
     <>
       <Layout title="404 Not Found">
-        <Typography variant="h1" align='center'>
+        <Typography variant="h1" align="center">
           404 Not Found
         </Typography>
       </Layout>

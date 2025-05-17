@@ -11,4 +11,5 @@ export default defineConfig({
       usePolling: true,
     },
   },
+  resolve: { alias: { '@': '/src' } },
 })

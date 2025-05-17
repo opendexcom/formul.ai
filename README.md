@@ -61,7 +61,10 @@ git clone https://github.com/opendexcom/formul.ai.git
 cd formul.ai
 ```
 ### First run
-To change configuration edit `.env` file.
+To configure project run and edit `.env` file:
+```bash
+cp .env.example .env
+```
 
 ### Run the Application
 

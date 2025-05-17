@@ -13,10 +13,21 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout source branch
+      - name: Setup SSH for GitHub and VPS
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+          ssh-keyscan ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Checkout source branch via SSH
         uses: actions/checkout@v3
         with:
+          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          repository: opendexcom/formul.ai
           ref: ${{ github.event.inputs.source_branch }}
+          fetch-depth: 0  # umożliwia fetch tagów później
 
       - name: Fetch tags
         run: git fetch --tags
@@ -54,12 +65,13 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
+          echo "merge origin/${{ github.event.inputs.source_branch }}"
           git merge origin/${{ github.event.inputs.source_branch }} --no-ff -m "Merge ${{ github.event.inputs.source_branch }} into main"
 
       - name: Push main with merge
         run: git push origin main
 
-      - name: Create tag
+      - name: Create tag and push
         run: |
           git tag -a ${{ steps.version.outputs.next_version }} -m "Release ${{ steps.version.outputs.next_version }}"
           git push origin ${{ steps.version.outputs.next_version }}
@@ -71,14 +83,7 @@ jobs:
           name: Release ${{ steps.version.outputs.next_version }}
           generate_release_notes: true
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Setup SSH
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
 
       - name: Deploy to VPS
         run: |
