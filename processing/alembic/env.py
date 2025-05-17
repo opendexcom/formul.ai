@@ -1,41 +1,47 @@
+import typing as t
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
-from sqlmodel import SQLModel
+from sqlalchemy import engine_from_config, pool
 
 from alembic import context
-from app.models.task import Task
-import os
-
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
 
 section = config.config_ini_section
-config.set_section_option(section, "SURVEY_DB_USERNAME", os.environ.get("SURVEY_DB_USERNAME", "user"))
-config.set_section_option(section, "SURVEY_DB_PASSWORD", os.environ.get("SURVEY_DB_PASSWORD", "password"))
-config.set_section_option(section, "SURVEY_DB_HOST", os.environ.get("SURVEY_DB_HOST", "db"))
-config.set_section_option(section, "SURVEY_DB_PORT", os.environ.get("SURVEY_DB_PORT", "5432"))
-config.set_section_option(section, "SURVEY_DB_NAME", os.environ.get("SURVEY_DB_NAME", "survey_db"))
-
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
+
+from sqlmodel import SQLModel
+
 # add your model's MetaData object here
 # for 'autogenerate' support
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
+from app.core import config as app_config
+from app.models.task import Task
+
 target_metadata = SQLModel.metadata
 
+service_schema = "processing"
+
+
 def include_object(object, name, type_, reflected, compare_to):
-    if type_ == "table" and name in ["survey", "survey_answer"]:
+    if type_ == "table" and object.schema != service_schema:
         return False
     return True
+
+
+def get_app_db_url() -> str:
+    url = app_config.Settings().get_database_sync_uri()
+    print("POSTGRES CONFIG:", app_config.Settings().database)
+    print("DB URL:", url)
+    return url
 
 
 def run_migrations_offline() -> None:
@@ -50,9 +56,8 @@ def run_migrations_offline() -> None:
     script output.
 
     """
-    url = config.get_main_option("sqlalchemy.url")
     context.configure(
-        url=url,
+        url=get_app_db_url(),
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
@@ -70,8 +75,12 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
+    configuration = config.get_section(config.config_ini_section)
+    configuration = t.cast(t.Dict[str, str], configuration)
+    configuration["sqlalchemy.url"] = get_app_db_url()
+
     connectable = engine_from_config(
-        config.get_section(config.config_ini_section),
+        configuration,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
