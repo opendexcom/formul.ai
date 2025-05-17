@@ -19,15 +19,17 @@ WORKDIR /app
 
 # Copy pyproject.toml first to leverage Docker cache
 COPY pyproject.toml /app/
+COPY alembic.ini /app/
+COPY entrypoint.sh /app/
 
 # Install dependencies
-RUN uv sync --no-dev
+RUN uv sync
 
 # Copy the rest of the application
+ADD /alembic /app/alembic
 ADD /app /app/app
 
-RUN curl -o wait-for-it.sh https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for-it.sh
-RUN chmod +x wait-for-it.sh
+# RUN uv run alembic upgrade heads
 
 # Start app with Uvicorn
-CMD /app/wait-for-it.sh "${POSTGRES_HOST}:${POSTGRES_PORT}" -- /app/.venv/bin/uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+CMD ./entrypoint.sh
