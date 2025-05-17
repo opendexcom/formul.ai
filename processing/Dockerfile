@@ -30,4 +30,4 @@ RUN curl -o wait-for-it.sh https://raw.githubusercontent.com/vishnubob/wait-for-
 RUN chmod +x wait-for-it.sh
 
 # Start app with Uvicorn
-CMD ["/app/wait-for-it.sh", "${SURVEY_DB_HOST}:${SURVEY_DB_PORT}", "--", "/app/.venv/bin/uvicorn", "app.main:app", "--reload", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["/app/wait-for-it.sh", "${POSTGRES_HOST}:${POSTGRES_PORT}", "--", "/app/.venv/bin/uvicorn", "app.main:app", "--reload", "--host", "0.0.0.0", "--port", "8000"]
