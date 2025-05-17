@@ -1,14 +1,14 @@
-from typing import Optional
-from app.models.task_status import TaskStatus
-
-
-from pydantic import UUID4
-from sqlalchemy import Enum as PgEnum
-from sqlmodel import Column, Field, SQLModel
-
-
 import uuid
 from datetime import datetime
+from typing import Optional
+
+from pydantic import UUID4
+from sqlmodel import Column
+from sqlmodel import Field
+from sqlmodel import SQLModel
+from sqlmodel import String
+
+from .task_status import TaskStatus
 
 
 class Task(SQLModel, table=True):
@@ -21,9 +21,9 @@ class Task(SQLModel, table=True):
     status: TaskStatus = Field(
         default=TaskStatus.NULL,
         sa_column=Column(
-            PgEnum(TaskStatus, name="taskstatus", schema="processing"),
+            String,
             nullable=False,
             default=TaskStatus.NULL,
-        )
+        ),
     )
-    result: Optional[str] | None = Field(default=None)
+    result: Optional[str] = Field(default=None)

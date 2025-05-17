@@ -1,10 +1,9 @@
-from app.models.task_status import TaskStatus
-
-
-from pydantic import UUID4, BaseModel
-
-
 from datetime import datetime
+
+from pydantic import UUID4
+from pydantic import BaseModel
+
+from app.models.task_status import TaskStatus
 
 
 class TaskResponse(BaseModel):

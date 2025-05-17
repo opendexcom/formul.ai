@@ -28,6 +28,9 @@ dev = [
     "pre-commit>=4.2.0",
     "pytest-asyncio>=0.26.0",
     "riff>=0.0.287.0",
+    "psycopg2-binary==2.9.10",
+    "alembic>=1.15.2",
+    "pytest-mock>=3.14.0",
 ]
 
 [tool.riff]
@@ -37,13 +40,28 @@ checkers = [
     "mypy processing"
 ]
 
+[tool.ruff.isort]
+force-single-line = true
+
 [tool.ruff]
 target-version = "py312"
-select = ["E", "F", "W", "C", "N"]
+select = ["E", "F", "W", "C", "N", "I"]
 ignore = ["E501", "E711"]  # Example: Ignore line length errors
-exclude = ["migrations", "tests"]
+exclude = ["alembic", "tests"]
 
 line-length = 120
+
+[tool.coverage.run]
+omit = [
+    "app/fixtures.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:"
+]
 
 [tool.black]
 line-length = 120

@@ -1,58 +1,54 @@
+import typing as t
 from functools import lru_cache
 
-from app.core.config import Settings
-from app.db.sessions import AsyncSessionFactory
+from fastapi import Depends
+from ollama import AsyncClient
+
+from app.core import config
+from app.db.sessions import AsyncSession
+from app.db.sessions import AsyncSessionFactoryType
+from app.db.sessions import get_async_engine
+from app.db.sessions import get_async_session_factory
 from app.repository.survey_repository import SurveyRepository
 from app.repository.task_repository import TaskRepository
 from app.services.analysis_service import AnalysisService
 from app.services.processing_service import ProcessingService
 from app.services.survey_service import SurveyService
 from app.services.task_service import TaskService
-from fastapi import Depends
-from ollama import AsyncClient
-from sqlalchemy import Engine
-from sqlalchemy.ext.asyncio import async_sessionmaker
-from sqlalchemy.ext.asyncio import AsyncEngine
-from sqlalchemy.ext.asyncio import create_async_engine
-from sqlmodel import Session
 
 
 @lru_cache()
-def get_settings() -> Settings:
-    return Settings()
+def get_settings() -> config.Settings:
+    return config.Settings.from_env()
 
 
-def get_db_engine(settings: Settings = Depends(get_settings)) -> AsyncEngine:
-    postgres_url = str(settings.database.db_connection_url)
-    engine = create_async_engine(postgres_url, pool_size=50, max_overflow=50, pool_pre_ping=True)
-    return engine
+def get_db_session_factory(settings: config.Settings = Depends(get_settings)) -> AsyncSessionFactoryType:
+    return get_async_session_factory(get_async_engine(settings.database))
 
 
-def get_db_session_factory(
-    engine: AsyncEngine = Depends(get_db_engine),
-) -> AsyncSessionFactory:
-    session_factory = async_sessionmaker(autocommit=False, autoflush=False, bind=engine, expire_on_commit=False)
-    return session_factory
+async def get_db_session(factory: AsyncSessionFactoryType = Depends(get_db_session_factory)):
+    session: t.Optional[AsyncSession] = None
+    try:
+        session = factory()
+        yield session
+    finally:
+        if session is not None:
+            await session.close()
 
 
-def get_db_session(engine: Engine = Depends(get_db_engine)):
-    with Session(engine) as db_connection:
-        yield db_connection
-
-
-def get_ollama_client(settings: Settings = Depends(get_settings)) -> AsyncClient:
+def get_ollama_client(settings: config.Settings = Depends(get_settings)) -> AsyncClient:
     ollama_api_url = str(settings.ollama_api_url)
     return AsyncClient(host=ollama_api_url)
 
 
 def get_task_repository(
-    session_factory: AsyncSessionFactory = Depends(get_db_session_factory),
+    session_factory: AsyncSessionFactoryType = Depends(get_db_session_factory),
 ) -> TaskRepository:
     return TaskRepository(session_factory=session_factory)
 
 
 def get_survey_repository(
-    session_factory: AsyncSessionFactory = Depends(get_db_session_factory),
+    session_factory: AsyncSessionFactoryType = Depends(get_db_session_factory),
 ) -> SurveyRepository:
     return SurveyRepository(session_factory=session_factory)
 

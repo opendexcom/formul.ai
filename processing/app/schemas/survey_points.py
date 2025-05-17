@@ -1,8 +1,7 @@
-from app.schemas.survey_points_sentiment_bucket import SurveyPointsSentimentBucket
-
-
 from pydantic import BaseModel
 from sqlmodel import Field
+
+from app.schemas.survey_points_sentiment_bucket import SurveyPointsSentimentBucket
 
 
 class SurveyPoints(BaseModel):
