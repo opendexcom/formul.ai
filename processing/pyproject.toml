@@ -39,6 +39,9 @@ checkers = [
     "mypy processing"
 ]
 
+[tool.ruff.isort]
+force-single-line = true
+
 [tool.ruff]
 target-version = "py312"
 select = ["E", "F", "W", "C", "N", "I"]
