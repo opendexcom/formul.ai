@@ -51,6 +51,18 @@ exclude = ["alembic", "tests"]
 
 line-length = 120
 
+[tool.coverage.run]
+omit = [
+    "app/fixtures.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:"
+]
+
 [tool.black]
 line-length = 120
 
