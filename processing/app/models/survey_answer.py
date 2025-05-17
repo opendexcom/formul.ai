@@ -8,7 +8,7 @@ from sqlmodel import Relationship
 from sqlmodel import SQLModel
 from sqlmodel import String
 
-from app.models.survey import Survey
+from .survey import Survey
 
 
 class SurveyAnswer(SQLModel, table=True):

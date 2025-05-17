@@ -1,12 +1,12 @@
 from pydantic import UUID4
 
-from app.db.sessions import AsyncSessionFactory
+from app.db.sessions import AsyncSessionFactoryType
 from app.models.task import Task
 from app.utils.exceptions import NotFoundError
 
 
 class TaskRepository:
-    def __init__(self, session_factory: AsyncSessionFactory):
+    def __init__(self, session_factory: AsyncSessionFactoryType):
         self.session_factory = session_factory
 
     async def create(self, task: Task):
