@@ -14,7 +14,6 @@ dependencies = [
     "pydantic-settings>=2.9.1",
     "sqlmodel>=0.0.24",
     "uvicorn[standard]>=0.34.2",
-    "alembic>=1.15.2",
 ]
 
 [tool.pytest.ini_options]
@@ -29,7 +28,8 @@ dev = [
     "pre-commit>=4.2.0",
     "pytest-asyncio>=0.26.0",
     "riff>=0.0.287.0",
-    "psycopg2>=2.9.10",
+    "psycopg2-binary==2.9.10",
+    "alembic>=1.15.2",
 ]
 
 [tool.riff]
