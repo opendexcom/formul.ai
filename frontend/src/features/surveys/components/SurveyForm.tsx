@@ -1,18 +1,18 @@
 import { useEffect, useState } from 'react'
-import { getForm, submitForm } from '../../../lib/api'
 import { useNavigate } from 'react-router'
 import { Card, CardContent } from '@mui/material'
 import { IChangeEvent, withTheme } from '@rjsf/core'
 import { Theme } from '@rjsf/mui'
 import validator from '@rjsf/validator-ajv8'
+import { getForm, submitForm } from '../../../../lib/api'
 
 interface SurveyFormProps {
-  'form-id'?: string;
+  'form-id'?: string
 }
 
 export const SurveyForm = ({ 'form-id': formId }: SurveyFormProps) => {
   const navigate = useNavigate()
-  
+
   type FormDataType = {
     schema: object
     uiData?: object
@@ -49,10 +49,7 @@ export const SurveyForm = ({ 'form-id': formId }: SurveyFormProps) => {
     }
   }
 
-  const handleSubmitForm = async (
-    formData: IChangeEvent,
-    e: React.FormEvent<HTMLFormElement>
-  ) => {
+  const handleSubmitForm = async (formData: IChangeEvent, e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
 
     try {

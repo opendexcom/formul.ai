@@ -5,10 +5,10 @@ import FormPage from './pages/Form.page.tsx'
 import ThankYouPage from './pages/ThankYou.page.tsx'
 import SurveysPage from './pages/Surveys.page.tsx'
 import Error404Page from './pages/Error404.page.tsx'
-import AppContainer from './components/AppContainer.tsx'
+import { AppContainer } from './features/shared'
 import theme from './theme/index.ts'
 import { CssBaseline, GlobalStyles, ThemeProvider } from '@mui/material'
-import { Homepage } from './pages/Homepage.page.tsx'
+import { Homepage } from './pages/Home.page.js'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
