@@ -1,18 +1,23 @@
 import uuid
 
-from app.db.sessions import AsyncSessionFactory
+from app.core import config
 from app.db.sessions import IntegrityError
+from app.db.sessions import get_async_engine
+from app.db.sessions import get_async_session_factory
 from app.models.survey_answer import SurveyAnswer
 from app.models.task import Task
 
 
 async def load_initial_data():
+    cfg = config.PostgresSettings.from_env()
+
     task = Task(
         id=uuid.UUID("610c3050-0d86-4f6f-b7a6-759a42732f17"),
         survey_id=uuid.UUID("6cb2588c-a93b-41fe-a4a3-9b08280f4e97"),
     )
+    session_factory = get_async_session_factory(get_async_engine(cfg))
 
-    async with AsyncSessionFactory() as session:
+    async with session_factory() as session:
         try:
             # Prepare for task creation, but not commit
             await session.flush()

@@ -6,7 +6,6 @@ from ollama import AsyncClient
 
 from app.core import config
 from app.db.sessions import AsyncSession
-from app.db.sessions import AsyncSessionFactory
 from app.db.sessions import AsyncSessionFactoryType
 from app.db.sessions import get_async_engine
 from app.db.sessions import get_async_session_factory
@@ -23,7 +22,7 @@ def get_settings() -> config.Settings:
     return config.Settings.from_env()
 
 
-def get_db_session_factory(settings: config.Settings = Depends(get_settings)) -> AsyncSessionFactory:
+def get_db_session_factory(settings: config.Settings = Depends(get_settings)) -> AsyncSessionFactoryType:
     return get_async_session_factory(get_async_engine(settings.database))
 
 
