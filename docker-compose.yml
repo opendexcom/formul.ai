@@ -10,22 +10,15 @@ services:
     volumes:
       - ./processing/app:/app/app
       - ./processing/data:/app/data
-    environment:
-      - POSTGRES_HOST=${POSTGRES_HOST}
-      - POSTGRES_PORT=${POSTGRES_PORT}
-      - POSTGRES_NAME=${POSTGRES_NAME}
-      - POSTGRES_USERNAME=${POSTGRES_USERNAME}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - OLLAMA_API_UR=${OLLAMA_API_URL}
+    env_file:
+      - .env.docker
     depends_on:
       - db
 
   survey:
     build: ./survey
-    environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_NAME}
-      - SPRING_DATASOURCE_USERNAME=${POSTGRES_USERNAME}
-      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}
+    env_file:
+      - .env.docker
     depends_on:
       - db
 
