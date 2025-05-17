@@ -53,7 +53,6 @@ def run_migrations_offline() -> None:
     script output.
 
     """
-    print("running migrations offline")
     context.configure(
         url=get_app_db_url(),
         target_metadata=target_metadata,
