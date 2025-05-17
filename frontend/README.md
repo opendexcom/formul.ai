@@ -152,3 +152,24 @@ See the root `.github/workflows/formulaai-ci.yml` for details.
 ```
 
 ## How to add a new feature
+
+### 🛠️ Guidelines
+
+1. **Create a folder under `src/features/`** with a meaningful name (e.g. `profile`, `dashboard`, etc.).
+2. **Structure it consistently**: use `components/`, `hooks/`, and `index.ts` to organize exports.
+3. **Keep logic isolated**: reusable logic or UI should be placed in `src/features/shared/`.
+4. **Export everything through `index.ts`** to keep imports clean and consistent.
+5. **Write tests** for new logic or components if applicable.
+6. **Document components with Storybook** when relevant.
+
+### 📦 Import examples
+
+Here are a few examples of how to import shared utilities or components:
+
+```tsx
+import { AppBar } from '@/features/shared/components/AppBar'
+
+import { useAuth } from '@/features/shared/hooks/useAuth'
+
+import { formatDate } from '@/features/shared/utils/date'
+```

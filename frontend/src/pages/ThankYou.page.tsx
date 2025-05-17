@@ -1,6 +1,6 @@
 import { Card, CardContent, Typography } from '@mui/material'
 import WavingHandIcon from '@mui/icons-material/WavingHand'
-import { Layout } from '@/features/shared/components/Layout'
+import { Layout } from '@/features/shared'
 
 export default function ThankYouPage() {
   return (

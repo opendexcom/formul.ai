@@ -1,5 +1,5 @@
-import { Layout } from '../features/shared/components/Layout'
-import { SurveyForm } from '@/features/surveys/components/SurveyForm'
+import { Layout } from '@/features/shared'
+import { SurveyForm } from '@/features/surveys'
 import { useParams } from 'react-router'
 
 function FormPage() {

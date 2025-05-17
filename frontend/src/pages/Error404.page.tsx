@@ -1,4 +1,4 @@
-import { Layout } from '../features/shared/components/Layout'
+import { Layout } from '@/features/shared'
 import { Typography } from '@mui/material'
 
 function Error404Page() {

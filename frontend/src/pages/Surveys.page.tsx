@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Layout } from '../features/shared/components/Layout'
+import { Layout } from '@/features/shared'
 import {
   Button,
   Card,
