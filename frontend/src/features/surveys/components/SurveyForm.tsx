@@ -35,9 +35,10 @@ export const SurveyForm = ({ 'form-id': formId }: SurveyFormProps) => {
 
   const fetchForm = async (id: string) => {
     try {
+      const uiData = {}
       const schema = await getForm(id)
       const parsedSchema = JSON.parse(schema.schemaJson)
-      const uiData = schema.uiData ? JSON.parse(schema.uiData) : {}
+      // const uiData = schema.uiData ? JSON.parse(schema.uiData) : {}
       setFormData({ schema: parsedSchema, uiData })
       return schema
     } catch (error) {
