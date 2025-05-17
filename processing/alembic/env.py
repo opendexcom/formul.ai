@@ -1,7 +1,7 @@
 import typing as t
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import engine_from_config, pool, text
 
 from alembic import context
 
@@ -38,8 +38,9 @@ def include_object(object, name, type_, reflected, compare_to):
 
 
 def get_app_db_url() -> str:
-    url = app_config.from_env().get_database_sync_uri()
-    return url
+    settings = app_config.PostgresSettings.from_env()
+    print("Using database settings:", settings.model_dump_json(indent=3))
+    return settings.get_sync_uri()
 
 
 def run_migrations_offline() -> None:
@@ -54,6 +55,7 @@ def run_migrations_offline() -> None:
     script output.
 
     """
+    print("running migrations offline")
     context.configure(
         url=get_app_db_url(),
         target_metadata=target_metadata,
@@ -90,6 +92,8 @@ def run_migrations_online() -> None:
             include_schemas=True,
             include_object=include_object,
         )
+
+        connection.execute(text(f"CREATE SCHEMA IF NOT EXISTS {service_schema}"))
 
         with context.begin_transaction():
             context.run_migrations()
