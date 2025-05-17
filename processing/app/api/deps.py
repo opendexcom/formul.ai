@@ -6,7 +6,7 @@ from sqlalchemy import Engine
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
 from sqlmodel import Session
 
-from app.core.config import Settings
+from app.core import config
 from app.db.sessions import AsyncSessionFactory
 from app.repository.survey_repository import SurveyRepository
 from app.repository.task_repository import TaskRepository
@@ -17,11 +17,11 @@ from app.services.task_service import TaskService
 
 
 @lru_cache()
-def get_settings() -> Settings:
-    return Settings()
+def get_settings() -> config.Settings:
+    return config.from_env()
 
 
-def get_db_engine(settings: Settings = Depends(get_settings)) -> AsyncEngine:
+def get_db_engine(settings: config.Settings = Depends(get_settings)) -> AsyncEngine:
     postgres_url = settings.get_database_async_uri()
     engine = create_async_engine(postgres_url, pool_size=50, max_overflow=50, pool_pre_ping=True)
     return engine
@@ -39,7 +39,7 @@ def get_db_session(engine: Engine = Depends(get_db_engine)):
         yield db_connection
 
 
-def get_ollama_client(settings: Settings = Depends(get_settings)) -> AsyncClient:
+def get_ollama_client(settings: config.Settings = Depends(get_settings)) -> AsyncClient:
     ollama_api_url = str(settings.ollama_api_url)
     return AsyncClient(host=ollama_api_url)
 

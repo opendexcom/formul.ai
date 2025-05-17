@@ -26,7 +26,7 @@ async def create_db_and_tables(engine: AsyncEngine):
 
 async def reset_db(engine: AsyncEngine):
     pass
-    #async with engine.begin() as conn:
+    # async with engine.begin() as conn:
     #    tables_to_drop = get_owned_tables()
     #    await conn.run_sync(SQLModel.metadata.drop_all, tables=tables_to_drop)
     #    await conn.run_sync(SQLModel.metadata.create_all, tables=tables_to_drop)

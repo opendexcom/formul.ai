@@ -22,6 +22,6 @@ class Task(SQLModel, table=True):
             PgEnum(TaskStatus, name="taskstatus", schema="processing"),
             nullable=False,
             default=TaskStatus.NULL,
-        )
+        ),
     )
     result: Optional[str] | None = Field(default=None)

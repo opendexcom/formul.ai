@@ -38,9 +38,7 @@ def include_object(object, name, type_, reflected, compare_to):
 
 
 def get_app_db_url() -> str:
-    url = app_config.Settings().get_database_sync_uri()
-    print("POSTGRES CONFIG:", app_config.Settings().database)
-    print("DB URL:", url)
+    url = app_config.from_env().get_database_sync_uri()
     return url
 
 

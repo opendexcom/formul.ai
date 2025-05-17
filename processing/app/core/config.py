@@ -1,20 +1,22 @@
-from pydantic import Field, PostgresDsn, SecretStr
+import os
+
+from pydantic import PostgresDsn, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class PostgresSettings(BaseSettings):
-    host: str = Field(default="postgres", alias="SURVEY_DB_HOST")
-    username: str = Field(default="postgres", alias="SURVEY_DB_USERNAME")
-    db_name: str = Field(default="postgres", alias="SURVEY_DB_NAME")
-    port: int = Field(default=5432, alias="SURVEY_DB_PORT")
-    password: SecretStr = Field(default=SecretStr("postgres"), alias="SURVEY_DB_PASSWORD")
+    model_config = SettingsConfigDict(env_prefix="SURVEY_DB_")
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf8")
+    host: str
+    username: str
+    name: str
+    password: SecretStr
+    port: int = 5432
 
 
 class Settings(BaseSettings):
-    database: PostgresSettings = PostgresSettings()
-    ollama_api_url: str = Field(default="http://localhost:11435", alias="OLLAMA_API_URL")
+    database: PostgresSettings
+    ollama_api_url: str
 
     def get_database_async_uri(self) -> str:
         return str(
@@ -23,7 +25,7 @@ class Settings(BaseSettings):
                 username=self.database.username,
                 password=self.database.password.get_secret_value(),
                 host=self.database.host,
-                path=f"/{self.database.db_name}",
+                path=f"{self.database.name}",
             )
         )
 
@@ -37,6 +39,10 @@ class Settings(BaseSettings):
                 username=self.database.username,
                 password=self.database.password.get_secret_value(),
                 host=self.database.host,
-                path=f"/{self.database.db_name}",
+                path=f"{self.database.name}",
             )
         )
+
+
+def from_env() -> Settings:
+    return Settings.model_validate(os.environ)
