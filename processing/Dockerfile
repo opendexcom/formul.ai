@@ -13,23 +13,24 @@ ENV PATH="/root/.local/bin/:$PATH"
 
 # Add /app to PYTHONPATH
 ENV PYTHONPATH="/app"
+# Prevent __pycache__ folders from generating
+ENV PYTHONDONTWRITEBYTECODE=1
 
 # Set workdir
 WORKDIR /app
 
 # Copy pyproject.toml first to leverage Docker cache
-COPY pyproject.toml /app/
-COPY alembic.ini /app/
-COPY entrypoint.sh /app/
+COPY pyproject.toml alembic.ini entrypoint.sh /app/
 
 # Install dependencies
+# Reason why --no-dev is not used is because alembic migrations 
+# require dev dependencies and as of now are executed as part of entrypoint
 RUN uv sync
 
-# Copy the rest of the application
+# Copy migrations: ideally these would be only in the builder step
 ADD /alembic /app/alembic
+# Copy the rest of the application
 ADD /app /app/app
-
-# RUN uv run alembic upgrade heads
 
 # Start app with Uvicorn
 CMD ./entrypoint.sh
