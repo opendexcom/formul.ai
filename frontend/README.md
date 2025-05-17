@@ -132,10 +132,23 @@ See the root `.github/workflows/formulaai-ci.yml` for details.
 ## Project Structure
 
 ```
-├── public/         # Static assets
-├── src/            # Source code (components, pages, etc.)
-├── tsconfig.json   # TypeScript configuration
-├── vite.config.ts  # Vite configuration
-├── package.json    # Project metadata and scripts
-└── README.md       # This file
+│── src/                             # Source code
+├── features/                        # App features
+│   ├── auth/                        # Auth feature
+│   │   ├── components/              # Auth UI components
+│   │   └── index.ts                 # Auth module exports
+│   ├── surveys/                     # Surveys feature
+│   │   ├── components/              # Surveys UI components
+│   │   └── index.ts                 # Surveys module exports
+│   └── shared/                      # Shared code
+│       ├── components/              # Shared UI components
+│       ├── hooks/                   # Shared hooks
+│       ├── utils/                   # Shared utils
+│       └── index.ts                 # Source code (components, pages,etc.)
+├── tsconfig.json                    # TypeScript configuration
+├── vite.config.ts                   # Vite configuration
+├── package.json                     # Project metadata and scripts
+└── README.md                        # This file
 ```
+
+## How to add a new feature
