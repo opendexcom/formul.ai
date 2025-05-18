@@ -1,23 +1,40 @@
 import uuid
+import json
 
 from app.core import config
 from app.db.sessions import IntegrityError
 from app.db.sessions import get_async_engine
 from app.db.sessions import get_async_session_factory
+from app.models.survey import Survey
 from app.models.survey_answer import SurveyAnswer
 from app.models.task import Task
 
 
 async def load_initial_data():
     cfg = config.PostgresSettings.from_env()
+    example_schema = {
+        "title": "A registration form",
+        "description": "",
+        "type": "object",
+        "required": [
+            "firstName",
+        ],
+        "properties": {"firstName": {"type": "string", "title": "First name", "default": "Chuck"}},
+    }
+    survey = Survey(
+        id=uuid.UUID("610c3050-0d86-4f6f-b7a6-759a42732f17"),
+        name="example survey",
+        json_schema=json.dumps(example_schema),
+    )
 
     task = Task(
         id=uuid.UUID("610c3050-0d86-4f6f-b7a6-759a42732f17"),
-        survey_id=uuid.UUID("6cb2588c-a93b-41fe-a4a3-9b08280f4e97"),
+        survey_id=survey.id,
     )
     session_factory = get_async_session_factory(get_async_engine(cfg))
 
     async with session_factory() as session:
+        session.add(survey)
         session.add(task)
         try:
             # Prepare for task creation, but not commit
@@ -28,7 +45,7 @@ async def load_initial_data():
             return
 
         answers = [
-            SurveyAnswer(survey_id=task.survey_id, answers_json=answer)
+            SurveyAnswer(survey_id=survey.id, answers_json=answer)
             for answer in [
                 "I like that we’re using real-world tools like Docker and microservices — good exposure. But honestly, coordination’s been messy. We need clearer ownership per service.",
                 "It’s cool we’re blending multiple languages and tools, but context-switching between Java and Python is painful. Feels like overkill for a student project.",
