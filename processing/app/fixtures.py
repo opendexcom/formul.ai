@@ -1,5 +1,5 @@
-import uuid
 import json
+import uuid
 
 from app.core import config
 from app.db.sessions import IntegrityError

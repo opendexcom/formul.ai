@@ -1,4 +1,5 @@
-#!/bin/bash
+#/bin/bash
+set -e
 
 # Run migrations
 uv run alembic upgrade heads
