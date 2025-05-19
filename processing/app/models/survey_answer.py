@@ -18,4 +18,4 @@ class SurveyAnswer(SQLModel, table=True):
     answers_json: str = Field(sa_column=Column("answers_json", String))
 
     survey_id: UUID4 = Field(foreign_key="survey.survey.id")
-    survey: Optional["Survey"] = Relationship(back_populates="answers")
+    survey: Optional[Survey] = Relationship(back_populates="answers")
