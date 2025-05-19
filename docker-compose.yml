@@ -70,6 +70,7 @@ services:
       retries: 5
     volumes:
       - db_data:/var/lib/postgresql/data
+      - ./pg-healthcheck.sh:/healthcheck/pg-healthcheck.sh:ro
 
   gateway:
     restart: always
