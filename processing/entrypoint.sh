@@ -1,4 +1,4 @@
-#/bin/bash
+#!/bin/bash
 
 # Run migrations
 uv run alembic upgrade heads
