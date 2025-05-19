@@ -1,17 +1,24 @@
 services:
   frontend:
     build: ./frontend
+    environment:
+      VITE_API: ${BASE_URL:-http://localhost}
     volumes:
       - ./frontend/:/app
       - /app/node_modules
 
   processing:
     build: ./processing
+    environment:
+      POSTGRES_HOST: ${POSTGRES_HOST:-db}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_NAME: ${POSTGRES_NAME}
+      POSTGRES_USERNAME: ${POSTGRES_USERNAME}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      OLLAMA_API_URL: ${OLLAMA_API_URL}
     volumes:
       - ./processing/app:/app/app
       - ./processing/data:/app/data
-    env_file:
-      - .env.docker
     depends_on:
       db:
         condition: service_healthy
@@ -19,8 +26,10 @@ services:
 
   survey:
     build: ./survey
-    env_file:
-      - .env.docker
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${POSTGRES_HOST:-db}:${POSTGRES_PORT:-5432}/${POSTGRES_NAME}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
     depends_on:
       db:
         condition: service_healthy
@@ -55,7 +64,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_NAME}
     healthcheck:
-      test: ["CMD-SHELL", "PGPASSWORD=$POSTGRES_PASSWORD pg_isready -U $POSTGRES_USER -d $POSTGRES_DB -p 5432"]
+      test: ["CMD-SHELL", "PGPASSWORD=$POSTGRES_PASSWORD pg_isready -U $POSTGRES_USERNAME -d $POSTGRES_NAME -p 5432"]
       interval: 2s
       timeout: 5s
       retries: 5
