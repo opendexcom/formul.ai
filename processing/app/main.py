@@ -1,23 +1,10 @@
-from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
 
-from app import fixtures
 from app.api.router import api_router
 
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    await fixtures.load_initial_data()
-
-    yield  # Startup complete
-
-    # Optional: Add shutdown logic here if needed
-    print("Shutting down...")
-
-
-app = FastAPI(lifespan=lifespan)
+app = FastAPI()
 
 app.include_router(api_router)
 
