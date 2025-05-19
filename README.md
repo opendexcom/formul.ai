@@ -36,6 +36,8 @@ To run this project, you need:
    cp .env.example .env
    # Edit .env as needed
    ```
+   > **Tip:** If you want to develop services directly on your host machine (not in Docker), use the `.env.host-develop` file.  
+   > This configures connections to local PostgreSQL, Ollama, etc.
 
 3. **Run with Docker Compose:**
    ```bash
