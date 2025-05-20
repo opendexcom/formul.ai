@@ -2,7 +2,6 @@ package com.formulai.survey.unitTests;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.contains;
@@ -27,7 +26,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.client.RestTemplate;
 
-import com.formulai.survey.BaseIntegrationTest;
 import com.formulai.survey.dto.request.SurveyRequest;
 import com.formulai.survey.dto.request.SurveySubmitRequest;
 import com.formulai.survey.dto.response.SurveyAnswerResponse;
@@ -95,28 +93,27 @@ public class SurveyServiceTest {
         when(surveyRepository.findById(surveyId)).thenReturn(Optional.of(survey));
 
         // when
-        SurveyResponse response = surveyService.getSurveyById(surveyId);
+        Optional<SurveyResponse> response = surveyService.getSurveyById(surveyId);
 
         //then
-        assertNotNull(response);
-        assertEquals(surveyId, response.id());
-        assertEquals("Test Survey", response.name());
+        assertTrue(response.isPresent());
+
+        SurveyResponse assertSurvey = response.get();
+        assertEquals(surveyId, assertSurvey.id());
+        assertEquals("Test Survey", assertSurvey.name());
         verify(surveyRepository).findById(surveyId);
     }
 
     @Test
-    void getSurveyById_shouldThrowException_whenSurveyDoesNotExist() {
+    void getSurveyById_shouldReturnEmpty_whenSurveyDoesNotExist() {
         // given
         when(surveyRepository.findById(surveyId)).thenReturn(Optional.empty());
 
         // when
-        IllegalArgumentException exception = assertThrows(
-                IllegalArgumentException.class,
-                () -> surveyService.getSurveyById(surveyId)
-        );
+        Optional<SurveyResponse> result = surveyService.getSurveyById(surveyId);
 
         // then
-        assertTrue(exception.getMessage().contains("not found"));
+        assertTrue(result.isEmpty());
         verify(surveyRepository).findById(surveyId);
     }
 

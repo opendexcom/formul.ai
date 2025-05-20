@@ -6,6 +6,8 @@ import com.formulai.survey.dto.response.SurveyAnswerResponse;
 import com.formulai.survey.dto.response.SurveyResponse;
 import com.formulai.survey.service.SurveyService;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import lombok.RequiredArgsConstructor;
@@ -28,8 +30,11 @@ public class SurveyController {
      *         survey
      */
     @GetMapping("/{id}")
-    public ResponseEntity<SurveyResponse> getSurvey(@PathVariable UUID id) {
-        return ResponseEntity.ok(surveyService.getSurveyById(id));
+    public ResponseEntity<?> getSurvey(@PathVariable UUID id) {
+        return surveyService.getSurveyById(id)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.of(ProblemDetail.forStatusAndDetail(
+                    HttpStatus.NOT_FOUND, String.format("Survey with id '%s' does not exist", id))).build());
     }
 
     /**
