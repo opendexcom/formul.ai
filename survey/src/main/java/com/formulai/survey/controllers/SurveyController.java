@@ -27,7 +27,7 @@ public class SurveyController {
      *
      * @param id the UUID of the survey to retrieve
      * @return a ResponseEntity containing the SurveyResponse for the specified
-     *         survey
+     *         survey, or NotFound with ProblemDetails for non-existent survey
      */
     @GetMapping("/{id}")
     public ResponseEntity<?> getSurvey(@PathVariable UUID id) {
