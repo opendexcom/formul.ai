@@ -26,7 +26,6 @@ export const closeSurvey = async (surveyId: string) => {
   return response.json()
 }
 
-
 export const submitForm = async (surveyId: string, formData: FormData) => {
   const url = new URL(
     `/api/survey/v1/surveys/${surveyId}/submit`,
@@ -55,4 +54,20 @@ export const getForm = async (id: string) => {
   }
 
   return response.json()
+}
+
+export const addNewForm = async (name: string, formSchema: string) => {
+  const url = new URL(`/api/survey/v1/surveys`, import.meta.env.VITE_API).toString()
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ name: name, schemaJson: formSchema }),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Response status: ${response.status}`)
+  }
 }
