@@ -3,6 +3,7 @@ package com.formulai.survey.model;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -56,15 +57,10 @@ public class Survey{
     private List<SurveyAnswers> answers;
 
     @OneToMany(mappedBy = "survey")
+    @Builder.Default
     /**
      * The list of tasks associated with this survey.
      * Each {@link Task} represents an individual unit of work or question within the survey.
      */
-    private List<Task> tasks;
+    private List<Task> tasks = new ArrayList<>();
 }
-
-
-
-
-
-

@@ -5,7 +5,13 @@ import com.formulai.survey.dto.request.SurveySubmitRequest;
 import com.formulai.survey.dto.response.SurveyAnswerResponse;
 import com.formulai.survey.dto.response.SurveyResponse;
 import com.formulai.survey.service.SurveyService;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import lombok.RequiredArgsConstructor;
@@ -25,11 +31,20 @@ public class SurveyController {
      *
      * @param id the UUID of the survey to retrieve
      * @return a ResponseEntity containing the SurveyResponse for the specified
-     *         survey
+     *         survey, or NotFound with ProblemDetails for non-existent survey
      */
     @GetMapping("/{id}")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", content = @Content(mediaType = "application/json",
+                    schema = @Schema(implementation = SurveyResponse.class))),
+            @ApiResponse(responseCode = "404", content = @Content(mediaType = "application/problem+json",
+                    schema = @Schema(implementation = ProblemDetail.class)))
+    })
     public ResponseEntity<SurveyResponse> getSurvey(@PathVariable UUID id) {
-        return ResponseEntity.ok(surveyService.getSurveyById(id));
+        return surveyService.getSurveyById(id)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.of(ProblemDetail.forStatusAndDetail(
+                        HttpStatus.NOT_FOUND, String.format("Survey with id '%s' does not exist", id))).build());
     }
 
     /**
