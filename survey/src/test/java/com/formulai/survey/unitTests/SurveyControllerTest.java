@@ -6,6 +6,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -15,6 +16,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 
 import com.formulai.survey.controllers.SurveyController;
@@ -56,17 +58,33 @@ public class SurveyControllerTest {
 
 
     @Test
-    void getSurvey_shouldReturnSurveyResponse() {
+    void getSurvey_shouldReturnOKWhenSurveyResponseExists() {
         // given
-        when(surveyService.getSurveyById(surveyId)).thenReturn(expectedSurvey);
+        when(surveyService.getSurveyById(surveyId)).thenReturn(Optional.of(expectedSurvey));
 
         // when
-        ResponseEntity<SurveyResponse> result = surveyController.getSurvey(surveyId);
+        ResponseEntity<?> result = surveyController.getSurvey(surveyId);
 
         // then
         assertNotNull(result);
         assertEquals(HttpStatus.OK, result.getStatusCode());
         assertEquals(expectedSurvey, result.getBody());
+        verify(surveyService).getSurveyById(surveyId);
+    }
+
+    @Test
+    void getSurvey_shouldReturnNotFoundWithProblemDetailsWhenSurveyResponseDoesNotExist() {
+        // given
+        when(surveyService.getSurveyById(surveyId)).thenReturn(Optional.empty());
+
+        // when
+        ResponseEntity<?> result = surveyController.getSurvey(surveyId);
+
+        // then
+        assertNotNull(result);
+        assertEquals(HttpStatus.NOT_FOUND, result.getStatusCode());
+        assertEquals(ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND,
+                String.format("Survey with id '%s' does not exist", surveyId)), result.getBody());
         verify(surveyService).getSurveyById(surveyId);
     }
 

@@ -18,6 +18,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -36,13 +37,10 @@ public class SurveyService {
 
     private final RestTemplate restTemplate = new RestTemplate();
 
-    public SurveyResponse getSurveyById(UUID id) {
+    public Optional<SurveyResponse> getSurveyById(UUID id) {
         return surveyRepository
                 .findById(id)
-                .map(this::fromSurvey)
-                .orElseThrow(() -> new IllegalArgumentException(format("Survey %s not found!", id)));
-        // () and -> is a lambda. Lambda is a temporary function without a name.
-        // In our case we want just throw IllegalArgumentException if any problem exist
+                .map(this::fromSurvey);
     }
 
     public List<SurveyResponse> getAllSurvey() {
