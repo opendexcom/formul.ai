@@ -1,0 +1,31 @@
+services:
+  frontend:
+    environment:
+      VITE_API: https://app.formulai.cloud
+
+  gateway:
+    image: nginx:latest
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./gateway/nginx.conf.prod:/etc/nginx/conf.d/default.conf
+      - ./gateway/certbot/conf:/etc/letsencrypt
+      - ./gateway/certbot/www:/var/www/certbot
+      - ./gateway/swagger:/usr/share/nginx/html/swagger
+    depends_on:
+      - frontend
+      - processing
+      - survey
+
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - ./gateway/certbot/conf:/etc/letsencrypt
+      - ./gateway/certbot/www:/var/www/certbot
+    entrypoint: >
+      sh -c "trap exit TERM; while :; do
+        certbot renew --webroot -w /var/www/certbot --quiet;
+        sleep 60d;
+      done"
