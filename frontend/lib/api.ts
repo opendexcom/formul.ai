@@ -56,7 +56,7 @@ export const getForm = async (id: string) => {
   return response.json()
 }
 
-export const addNewForm = async (name: string, formSchema: string) => {
+export const addNewForm = async (name: string, formSchema: object) => {
   const url = new URL(`/api/survey/v1/surveys`, import.meta.env.VITE_API).toString()
 
   const response = await fetch(url, {

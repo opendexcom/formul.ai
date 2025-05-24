@@ -25,7 +25,7 @@ export const SurveyForm = ({ 'form-id': formId }: SurveyFormProps) => {
   useEffect(() => {
     const fetchData = async (id: string) => {
       const schema = await fetchForm(id)
-      const parsedSchema = JSON.parse(schema.schemaJson)
+      const parsedSchema = schema.schemaJson
       setFormData(parsedSchema)
     }
 
@@ -36,7 +36,7 @@ export const SurveyForm = ({ 'form-id': formId }: SurveyFormProps) => {
   const fetchForm = async (id: string) => {
     try {
       const schema = await getForm(id)
-      const parsedSchema = JSON.parse(schema.schemaJson)
+      const parsedSchema = schema.schemaJson
       const uiData = schema.uiData ? JSON.parse(schema.uiData) : {}
       setFormData({ schema: parsedSchema, uiData })
       return schema
