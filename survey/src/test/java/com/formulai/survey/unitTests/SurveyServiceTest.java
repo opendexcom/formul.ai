@@ -153,7 +153,7 @@ public class SurveyServiceTest {
         // then
         assertNotNull(result);
         assertEquals("New Survey", result.name());
-        assertEquals("{\"questions\":[]}", result.schemaJson());
+        assertEquals(schemaJson, result.schemaJson());
         verify(surveyRepository).save(any(Survey.class));
     }
 

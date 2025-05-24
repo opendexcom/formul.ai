@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.UUID;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.formulai.survey.validation.ValidJsonSchema;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -14,6 +15,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -54,6 +56,8 @@ public class Survey{
      */
     private String name;
 
+    @NotNull
+    @ValidJsonSchema // Make sure this annotation is present and points to a validator that supports JsonNode
     @Column(columnDefinition = "jsonb") // Conversion handled by JsonNodeAttributeConverter
     /**
      * A JSON string representing the schema definition for the survey.
