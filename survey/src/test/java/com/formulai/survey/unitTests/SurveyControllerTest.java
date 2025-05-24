@@ -20,6 +20,8 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.formulai.survey.controllers.SurveyController;
 import com.formulai.survey.dto.request.SurveyRequest;
 import com.formulai.survey.dto.request.SurveySubmitRequest;
@@ -35,6 +37,8 @@ public class SurveyControllerTest {
     @InjectMocks
     private SurveyController surveyController;
 
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+
     private UUID surveyId;
     private List<SurveyResponse> surveys;
     private SurveyResponse expectedSurvey;
@@ -43,10 +47,13 @@ public class SurveyControllerTest {
 
     @BeforeEach
     void setUp() {
+        JsonNode jsonSchema = objectMapper.createObjectNode().put("type", "object");
+        // Initialize surveyId and expectedSurvey
+    
         surveyId = UUID.randomUUID();
         surveys = List.of(
-                new SurveyResponse(surveyId, "Survey 1", "{}", "COMPLETED", null),
-                new SurveyResponse(UUID.randomUUID(), "Survey 2", "{}", "IN_PROGRESS", null)
+                new SurveyResponse(surveyId, "Survey 1", jsonSchema, "COMPLETED", null),
+                new SurveyResponse(UUID.randomUUID(), "Survey 2", jsonSchema, "IN_PROGRESS", null)
         );
         expectedSurvey = surveys.get(0);
 
@@ -108,10 +115,11 @@ public class SurveyControllerTest {
 
     @Test
     void createSurvey_shouldCreateAndReturnSurvey() {
+        JsonNode jsonSchema = objectMapper.createObjectNode().put("type", "object");
         // given
-        SurveyRequest request = new SurveyRequest("New Survey", "{}");
+        SurveyRequest request = new SurveyRequest("New Survey", jsonSchema);
         SurveyResponse response = new SurveyResponse(
-                UUID.randomUUID(), "New Survey", "{}", null, null);
+                UUID.randomUUID(), "New Survey", jsonSchema, null, null);
 
         when(surveyService.createSurvey(request)).thenReturn(response);
 
@@ -128,7 +136,7 @@ public class SurveyControllerTest {
     @Test
     void createSurvey_shouldReturnBadRequestForNotProperSchema() {
         // given
-        SurveyRequest notProperSchemaRequest = new SurveyRequest("Not Proper Schema", "{\"unexpected_field\":123}");
+        SurveyRequest notProperSchemaRequest = new SurveyRequest("Not Proper Schema", null);
         when(surveyService.createSurvey(notProperSchemaRequest)).thenThrow(new IllegalArgumentException("Schema is not proper"));
 
         // then
