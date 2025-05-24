@@ -14,7 +14,8 @@ import jakarta.validation.ConstraintValidatorContext;
 public class ValidJsonSchemaValidator implements ConstraintValidator<ValidJsonSchema, String> {
     private static final Logger logger = LoggerFactory.getLogger(ValidJsonSchemaValidator.class);
     private static final ObjectMapper objectMapper = new ObjectMapper();
-    private static final JsonSchemaFactory jsonSchemaFactory = JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V7);
+    private static final JsonSchemaFactory jsonSchemaFactory = 
+        JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V7);
 
     @Override
     public boolean isValid(String value, ConstraintValidatorContext context) {
