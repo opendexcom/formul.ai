@@ -21,7 +21,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 public class JwtConfigTest {
     @Mock
-    private Resource privateKeyResource;
+    private Resource privateKey;
 
     @InjectMocks
     private JwtConfig jwtConfig;
@@ -58,7 +58,7 @@ public class JwtConfigTest {
                 "8wkJ3VJI9JA66Fr3bNDHNxdNEw==\n" +
                 "-----END PRIVATE KEY-----";
 
-        when(privateKeyResource.getContentAsString(StandardCharsets.UTF_8)).thenReturn(privateKeyContent);
+        when(privateKey.getContentAsString(StandardCharsets.UTF_8)).thenReturn(privateKeyContent);
 
         // when
         PrivateKey result = jwtConfig.privateKey();
@@ -72,7 +72,7 @@ public class JwtConfigTest {
     void shouldThrowExceptionWhenKeyIsInvalid() throws IOException {
         // given
         String invalidKey = "-----BEGIN PRIVATE KEY-----\nINVALIDKEY\n-----END PRIVATE KEY-----";
-        when(privateKeyResource.getContentAsString(StandardCharsets.UTF_8)).thenReturn(invalidKey);
+        when(privateKey.getContentAsString(StandardCharsets.UTF_8)).thenReturn(invalidKey);
 
         // when & then
         assertThrows(InvalidKeySpecException.class, () -> jwtConfig.privateKey());

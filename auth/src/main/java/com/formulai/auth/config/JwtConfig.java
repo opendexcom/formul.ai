@@ -17,15 +17,17 @@ import java.util.Base64;
 @Configuration
 public class JwtConfig {
 
-    @Value("${jwt.private-key-path}")
-    private Resource privateKeyResource;
+    @Value("${AUTH_PRIVATE_KEY}")
+    private String privateKey;
 
     @Value("${jwt.expiration-hours:24}")
     private int expirationHours;
 
     @Bean
-    public PrivateKey privateKey() throws IOException, NoSuchAlgorithmException, InvalidKeySpecException {
-        String privateKeyContent = privateKeyResource.getContentAsString(StandardCharsets.UTF_8)
+    public PrivateKey privateKey() throws NoSuchAlgorithmException, InvalidKeySpecException, IOException {
+        String normalizedKey = privateKey.replace("\\n", "\n");
+
+        String privateKeyContent = normalizedKey
                 .replaceAll("\\n", "")
                 .replace("-----BEGIN PRIVATE KEY-----", "")
                 .replace("-----END PRIVATE KEY-----", "")

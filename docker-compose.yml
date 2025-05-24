@@ -37,6 +37,9 @@ services:
 
   auth:
     build: ./auth
+    environment:
+      AUTH_PRIVATE_KEY: ${AUTH_PRIVATE_KEY}
+      AUTH_PUBLIC_KEY: ${AUTH_PUBLIC_KEY}
     restart: always
 
   ai:
