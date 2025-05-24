@@ -52,7 +52,7 @@ public class Survey{
      */
     private String name;
 
-    @Column(columnDefinition = "TEXT") // To store large JSON data
+    @Column(columnDefinition = "jsonb") // To store large JSON data
     /**
      * A JSON string representing the schema definition for the survey.
      * This field stores the structure and validation rules for survey data,
