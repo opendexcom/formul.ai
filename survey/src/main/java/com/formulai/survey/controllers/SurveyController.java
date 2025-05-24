@@ -1,23 +1,31 @@
 package com.formulai.survey.controllers;
 
+import java.util.List;
+import java.util.UUID;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
+
 import com.formulai.survey.dto.request.SurveyRequest;
 import com.formulai.survey.dto.request.SurveySubmitRequest;
 import com.formulai.survey.dto.response.SurveyAnswerResponse;
 import com.formulai.survey.dto.response.SurveyResponse;
 import com.formulai.survey.service.SurveyService;
+
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.validation.Valid;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ProblemDetail;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
 import lombok.RequiredArgsConstructor;
-
-import java.util.List;
-import java.util.UUID;
 
 @RequiredArgsConstructor
 @RestController
@@ -35,10 +43,14 @@ public class SurveyController {
      */
     @GetMapping("/{id}")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", content = @Content(mediaType = "application/json",
-                    schema = @Schema(implementation = SurveyResponse.class))),
-            @ApiResponse(responseCode = "404", content = @Content(mediaType = "application/problem+json",
-                    schema = @Schema(implementation = ProblemDetail.class)))
+            @ApiResponse(
+                responseCode = "200",
+                content = @Content(mediaType = "application/json",
+                schema = @Schema(implementation = SurveyResponse.class))),
+            @ApiResponse(
+                responseCode = "404",
+                content = @Content(mediaType = "application/problem+json",
+                schema = @Schema(implementation = ProblemDetail.class)))
     })
     public ResponseEntity<SurveyResponse> getSurvey(@PathVariable UUID id) {
         return surveyService.getSurveyById(id)
@@ -66,8 +78,23 @@ public class SurveyController {
      * @return a ResponseEntity containing the created SurveyResponse
      */
     @PostMapping
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "201",
+            content = @Content(mediaType = "application/json",
+            schema = @Schema(implementation = SurveyResponse.class))),
+        @ApiResponse(
+            responseCode = "400",
+            content = @Content(mediaType = "application/problem+json",
+            schema = @Schema(implementation = ProblemDetail.class)))
+    })
     public ResponseEntity<SurveyResponse> createSurvey(@RequestBody @Valid SurveyRequest surveyRequest) {
-        return ResponseEntity.ok(surveyService.createSurvey(surveyRequest));
+        try {
+            SurveyResponse response = surveyService.createSurvey(surveyRequest);
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        }
     }
 
     /**

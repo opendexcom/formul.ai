@@ -18,6 +18,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.formulai.survey.controllers.SurveyController;
 import com.formulai.survey.dto.request.SurveyRequest;
@@ -47,13 +48,13 @@ public class SurveyControllerTest {
                 new SurveyResponse(surveyId, "Survey 1", "{}", "COMPLETED", null),
                 new SurveyResponse(UUID.randomUUID(), "Survey 2", "{}", "IN_PROGRESS", null)
         );
-        expectedSurvey = surveys.getFirst();
+        expectedSurvey = surveys.get(0);
 
         answers = List.of(
                 new SurveyAnswerResponse(surveyId, "{}"),
                 new SurveyAnswerResponse(surveyId, "{}")
         );
-        expectedAnswer = answers.getFirst();
+        expectedAnswer = answers.get(0);
     }
 
 
@@ -108,7 +109,7 @@ public class SurveyControllerTest {
     @Test
     void createSurvey_shouldCreateAndReturnSurvey() {
         // given
-        SurveyRequest request = new SurveyRequest("New Survey", "{/}");
+        SurveyRequest request = new SurveyRequest("New Survey", "{}");
         SurveyResponse response = new SurveyResponse(
                 UUID.randomUUID(), "New Survey", "{}", null, null);
 
@@ -119,9 +120,24 @@ public class SurveyControllerTest {
 
         // then
         assertNotNull(result);
-        assertEquals(HttpStatus.OK, result.getStatusCode());
+        assertEquals(HttpStatus.CREATED, result.getStatusCode());
         assertEquals(response, result.getBody());
         verify(surveyService).createSurvey(request);
+    }
+
+    @Test
+    void createSurvey_shouldReturnBadRequestForNotProperSchema() {
+        // given
+        SurveyRequest notProperSchemaRequest = new SurveyRequest("Not Proper Schema", "{\"unexpected_field\":123}");
+        when(surveyService.createSurvey(notProperSchemaRequest)).thenThrow(new IllegalArgumentException("Schema is not proper"));
+
+        // then
+        ResponseStatusException exception = org.junit.jupiter.api.Assertions.assertThrows(
+            ResponseStatusException.class,
+            () -> surveyController.createSurvey(notProperSchemaRequest)
+        );
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+        // Optionally, check error message if needed
     }
 
     @Test
