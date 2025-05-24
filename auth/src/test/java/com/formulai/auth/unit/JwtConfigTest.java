@@ -69,7 +69,7 @@ public class JwtConfigTest {
     }
 
     @Test
-    void shouldThrowExpcetionWhenKeyIsInvalid() throws IOException {
+    void shouldThrowExceptionWhenKeyIsInvalid() throws IOException {
         // given
         String invalidKey = "-----BEGIN PRIVATE KEY-----\nINVALIDKEY\n-----END PRIVATE KEY-----";
         when(privateKeyResource.getContentAsString(StandardCharsets.UTF_8)).thenReturn(invalidKey);
