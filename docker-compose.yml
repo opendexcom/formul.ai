@@ -35,6 +35,10 @@ services:
         condition: service_healthy
     restart: always
 
+  auth:
+    build: ./auth
+    restart: always
+
   ai:
     restart: always
     image: ollama/ollama:latest
@@ -84,6 +88,8 @@ services:
       - frontend
       - processing
       - survey
+      - auth
+
 volumes:
   ollama_data:
   db_data:
