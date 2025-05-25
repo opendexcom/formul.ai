@@ -58,7 +58,7 @@ export const SurveyEditor = () => {
 
     setLoading(true)
     try {
-      await addNewForm(newFormSchema.title ?? '', JSON.stringify(newFormSchema))
+      await addNewForm(newFormSchema.title ?? '', newFormSchema)
       navigate('/surveys', {
         state: {
           snackbar: { message: `Added new survey - ${newFormSchema.title}`, severity: 'success' },

@@ -4,6 +4,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+import org.hibernate.annotations.Type;
+
+import com.fasterxml.jackson.databind.JsonNode;
+
+import io.hypersistence.utils.hibernate.type.json.JsonType;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -52,13 +57,14 @@ public class Survey{
      */
     private String name;
 
-    @Column(columnDefinition = "TEXT") // To store large JSON data
+    @Type(JsonType.class)
+    @Column(columnDefinition = "jsonb", nullable = false) // Conversion handled by JsonNodeAttributeConverter
     /**
      * A JSON string representing the schema definition for the survey.
      * This field stores the structure and validation rules for survey data,
      * typically used for dynamic form generation and validation.
      */
-    private String schemaJson;
+    private JsonNode schemaJson;
 
     @OneToMany(mappedBy = "survey", cascade = CascadeType.ALL)
     /**
