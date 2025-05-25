@@ -32,7 +32,7 @@ public class JwtServiceTest {
         PrivateKey privateKey = keyPair.getPrivate();
         publicKey = keyPair.getPublic();
 
-        jwtService = new JwtService(privateKey, 24);
+        jwtService = new JwtService(privateKey, publicKey, 24);
     }
 
 
@@ -102,11 +102,34 @@ public class JwtServiceTest {
     @Test
     void shouldThrowExceptionwhenTokenGenerationFails() {
         // given
-        JwtService jwtServiceWithNullKey = new JwtService(null, 24);
+        JwtService jwtServiceWithNullKey = new JwtService(null, null,24);
 
         // when & then
         RuntimeException exception = assertThrows(RuntimeException.class,
                 () -> jwtServiceWithNullKey.generateToken("test@example.com", "AUTHOR"));
         assertEquals("Failed to generate JWT token", exception.getMessage());
     }
+
+    @Test
+    void shouldConvertPublicKeyToPEM() {
+        //when
+        String pemKey = jwtService.getPublicKeyAsPEM();
+
+        //then
+        assertNotNull(pemKey);
+        assertTrue(pemKey.startsWith("-----BEGIN PUBLIC KEY-----"));
+        assertTrue(pemKey.endsWith("-----END PUBLIC KEY-----\n"));
+    }
+
+    @Test
+    void shouldThrowExceptionWhenPublicKeyConversionFails() {
+        // given
+        JwtService jwtServiceWithNullKey = new JwtService(null, null, 24);
+
+        // when & then
+        RuntimeException exception = assertThrows(RuntimeException.class,
+                jwtServiceWithNullKey::getPublicKeyAsPEM);
+        assertEquals("Failed to convert public key to PEM format", exception.getMessage());
+    }
+
 }

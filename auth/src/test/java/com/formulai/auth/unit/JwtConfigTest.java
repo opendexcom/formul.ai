@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
+import java.security.PublicKey;
 import java.security.spec.InvalidKeySpecException;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -69,7 +70,7 @@ public class JwtConfigTest {
     }
 
     @Test
-    void shouldThrowExceptionWhenKeyIsInvalid() throws IOException {
+    void shouldThrowExceptionWhenPrivateKeyIsInvalid() throws IOException {
         // given
         String invalidKey = "-----BEGIN PRIVATE KEY-----\nINVALIDKEY\n-----END PRIVATE KEY-----";
         when(privateKey.getContentAsString(StandardCharsets.UTF_8)).thenReturn(invalidKey);
@@ -79,14 +80,47 @@ public class JwtConfigTest {
     }
 
     @Test
+    void shouldCreatePublicKeyFromValidString() throws IOException, NoSuchAlgorithmException, InvalidKeySpecException {
+        // given
+        String publicKeyContent = "-----BEGIN PUBLIC KEY-----\n" +
+                "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmZLx3JVc/93drQEAUlxp\n" +
+                "SlnZBggG7ONp9HfZtvz+s0VKaNZRW72x1DP8hLNkZEyV1xRTGwt+w0kM7WVmT8Jy\n" +
+                "8SHLmJiuVBdYdkTQbSO4r+pr9MINVVxtYxUEVsTAzX+WZIe1it8NNrs5UZC1uda/\n" +
+                "p/+jB7Tqs+xQ9JR4rqyZEoKcuWsk7iHMmW7y89MTEqL2l/N7J8Z9tsbGUni1dCbF\n" +
+                "9EtjkBZAY2JnxMRglqFtUoGysNcQzajJB6g763cUc/Pz8p7OhuNfNPLoDpJX+mGM\n" +
+                "JXegYUn/RmYuEtr6HaIQElhqeNJ7i7rc6v8uk1C/7RMvl8UvmboCrYJeXOSw64CV\n" +
+                "ewIDAQAB\n" +
+                "-----END PUBLIC KEY-----";
+
+        ReflectionTestUtils.setField(jwtConfig, "publicKey", publicKeyContent);
+
+        // when
+        PublicKey result = jwtConfig.publicKey();
+
+        // then
+        assertNotNull(result);
+        assertEquals("RSA", result.getAlgorithm());
+    }
+
+    @Test
+    void shouldThrowExceptionWhenPublicKeyIsInvalid() {
+        // given
+        String invalidKey = "-----BEGIN PUBLIC KEY-----\nINVALIDKEY\n-----END PUBLIC KEY-----";
+        ReflectionTestUtils.setField(jwtConfig, "publicKey", invalidKey);
+
+        // when & then
+        assertThrows(InvalidKeySpecException.class, () -> jwtConfig.publicKey());
+    }
+
+    @Test
     void shouldReturnConfiguredExpirationHours() {
-        // Given
+        // given
         ReflectionTestUtils.setField(jwtConfig, "expirationHours", 24);
 
-        // When
+        // when
         int result = jwtConfig.jwtExpirationHours();
 
-        // Then
+        // then
         assertEquals(24, result);
     }
 }

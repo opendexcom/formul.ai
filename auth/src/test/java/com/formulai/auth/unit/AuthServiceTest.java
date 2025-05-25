@@ -1,6 +1,7 @@
 package com.formulai.auth.unit;
 
 import com.formulai.auth.dto.request.LoginRequest;
+import com.formulai.auth.dto.response.PublicKeyResponse;
 import com.formulai.auth.service.AuthService;
 import com.formulai.auth.service.JwtService;
 import org.junit.jupiter.api.BeforeEach;
@@ -74,5 +75,20 @@ public class AuthServiceTest {
 
         // then
         assertEquals(expectedToken, actualToken);
+    }
+
+    @Test
+    void shouldReturnPublicKeyResponseWithCorrectAlgorithmAndPem() {
+        // given
+        String expectedPem = "-----BEGIN PUBLIC KEY-----\ntest-key\n-----END PUBLIC KEY-----\n";
+        when(jwtService.getPublicKeyAsPEM()).thenReturn(expectedPem);
+
+        // when
+        PublicKeyResponse response = authService.getPublicToken();
+
+        // then
+        assertNotNull(response);
+        assertEquals("RS256", response.alg());
+        assertEquals(expectedPem, response.pem());
     }
 }

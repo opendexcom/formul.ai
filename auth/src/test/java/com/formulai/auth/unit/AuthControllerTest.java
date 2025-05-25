@@ -3,6 +3,7 @@ package com.formulai.auth.unit;
 import com.formulai.auth.controller.AuthController;
 import com.formulai.auth.dto.request.LoginRequest;
 import com.formulai.auth.dto.response.LoginResponse;
+import com.formulai.auth.dto.response.PublicKeyResponse;
 import com.formulai.auth.service.AuthService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -51,6 +52,38 @@ public class AuthControllerTest {
 
         // then
         assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+        assertNull(response.getBody());
+    }
+
+    @Test
+    void shouldReturnPublicKeyWhenRequestIsSuccessful() {
+        // given
+        PublicKeyResponse publicKeyResponse = new PublicKeyResponse(
+                "RS256",
+                "-----BEGIN PUBLIC KEY-----\ntest-key\n-----END PUBLIC KEY-----\n"
+        );
+        when(authService.getPublicToken()).thenReturn(publicKeyResponse);
+
+        // when
+        ResponseEntity<PublicKeyResponse> response = authController.getPublicKey();
+
+        // then
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals("RS256", response.getBody().alg());
+        assertEquals(publicKeyResponse.pem(), response.getBody().pem());
+    }
+
+    @Test
+    void shouldReturnInternalServerErrorWhenGetPublicKeyFails() {
+        // given
+        when(authService.getPublicToken()).thenThrow(new RuntimeException("Unexpected error"));
+
+        // when
+        ResponseEntity<PublicKeyResponse> response = authController.getPublicKey();
+
+        // then
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
         assertNull(response.getBody());
     }
 }
