@@ -18,6 +18,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.formulai.survey.BaseIntegrationTest;
 import com.formulai.survey.dto.request.SurveyRequest;
@@ -107,7 +108,7 @@ class SurveyControllerTest extends BaseIntegrationTest {
     @Test
     void createSurvey_shouldReturn400WithInvalidRequest() throws Exception {
         // given
-        SurveyRequest invalidRequest = new SurveyRequest(null, "{}");
+        SurveyRequest invalidRequest = new SurveyRequest(null, null);
         String requestJson = objectMapper.writeValueAsString(invalidRequest);
 
         // when and then
@@ -120,7 +121,10 @@ class SurveyControllerTest extends BaseIntegrationTest {
     @Test
     void createSurvey_shouldReturn400WithEmptyName() throws Exception {
         // given
-        SurveyRequest invalidRequest = new SurveyRequest("", "{}");
+        JsonNode schemaJson = objectMapper.createObjectNode()
+                .put("type", "object")
+                .put("properties", "{}");
+        SurveyRequest invalidRequest = new SurveyRequest("", schemaJson);
         String requestJson = objectMapper.writeValueAsString(invalidRequest);
 
         // when and then

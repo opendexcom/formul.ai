@@ -12,7 +12,7 @@ INSERT INTO survey.survey(id, "name", schema_json)
 SELECT 
     '6cb2588c-a93b-41fe-a4a3-9b08280f4e97'::uuid, 
     'example', 
-    '{''question'':''This is question''}'
+    '{"question":"This is question"}'
 
 WHERE NOT EXISTS (SELECT 1 FROM survey.survey WHERE id = '6cb2588c-a93b-41fe-a4a3-9b08280f4e97');
 

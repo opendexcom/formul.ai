@@ -1,14 +1,8 @@
 package com.formulai.survey.unitTests;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.contains;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -26,6 +20,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.client.RestTemplate;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.formulai.survey.dto.request.SurveyRequest;
 import com.formulai.survey.dto.request.SurveySubmitRequest;
 import com.formulai.survey.dto.response.SurveyAnswerResponse;
@@ -49,6 +45,8 @@ public class SurveyServiceTest {
     @InjectMocks
     private SurveyService surveyService;
 
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+
     private UUID surveyId;
     private Survey survey;
     private SurveyAnswers surveyAnswers;
@@ -56,12 +54,14 @@ public class SurveyServiceTest {
 
     @BeforeEach
     void setUp() {
+        JsonNode jsonSchema = objectMapper.createObjectNode().put("type", "object");
+
         surveyId = UUID.randomUUID();
 
         survey = Survey.builder()
                 .id(surveyId)
                 .name("Test Survey")
-                .schemaJson("{\"questions\": []}")
+                .schemaJson(jsonSchema)
                 .answers(new ArrayList<>())
                 .tasks(new ArrayList<>())
                 .build();
@@ -133,13 +133,15 @@ public class SurveyServiceTest {
     }
 
     @Test
-    void createSurvey_shouldCreateAndReturnSurvey() {
+    void createSurvey_shouldCreateAndReturnSurvey() throws Exception {
         // given
-        SurveyRequest request = new SurveyRequest("New Survey", "{\"questions\": []}");
+        JsonNode jsonSchema = objectMapper.createObjectNode().put("type", "object").put("questions", objectMapper.createArrayNode());
+        SurveyRequest request = new SurveyRequest("New Survey", jsonSchema);
+        JsonNode schemaJson = objectMapper.readTree("{\"questions\":[]}");
         Survey newSurvey = Survey.builder()
                 .id(UUID.randomUUID())
                 .name("New Survey")
-                .schemaJson("{\"questions\":[]}")
+                .schemaJson(schemaJson)
                 .tasks(List.of())
                 .build();
 
@@ -151,7 +153,7 @@ public class SurveyServiceTest {
         // then
         assertNotNull(result);
         assertEquals("New Survey", result.name());
-        assertEquals("{\"questions\":[]}", result.schemaJson());
+        assertEquals(schemaJson, result.schemaJson());
         verify(surveyRepository).save(any(Survey.class));
     }
 

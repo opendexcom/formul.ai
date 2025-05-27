@@ -124,7 +124,7 @@ class SurveyServiceTest extends BaseIntegrationTest {
     @Disabled("For now schemaJson is not validated against JSON format")
     void testCreateSurveyWithInvalidSchema() {
         // given
-        SurveyRequest invalidRequest = new SurveyRequest("Test Survey", "invalid json {");
+        SurveyRequest invalidRequest = new SurveyRequest("Test Survey", null);
 
         // when and then
         Exception exception = assertThrows(

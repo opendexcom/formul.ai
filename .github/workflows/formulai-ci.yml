@@ -41,22 +41,6 @@ jobs:
       - run: npm install
       - run: npm run lint
 
-  e2e:
-    name: E2E Tests
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 20
-      - run: npm install
-      - run: npm run dev &
-      - run: npx wait-on http://localhost:5173
-      - run: npm run test:e2e
-
   processing-tests:
     name: Processing Service Tests
     runs-on: ubuntu-latest

@@ -84,7 +84,17 @@
 			<version>1.21.0</version>
 			<scope>test</scope>
 		</dependency>
-	</dependencies>
+		<dependency>
+			<groupId>com.networknt</groupId>
+			<artifactId>json-schema-validator</artifactId>
+			<version>1.5.6</version>
+		</dependency>
+		<dependency>
+    		<groupId>io.hypersistence</groupId>
+			<artifactId>hypersistence-utils-hibernate-60</artifactId>
+			<version>3.9.4</version>
+		</dependency>
+ </dependencies>
 
 	<build>
 		<plugins>

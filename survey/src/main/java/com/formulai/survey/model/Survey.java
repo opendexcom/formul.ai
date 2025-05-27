@@ -1,11 +1,27 @@
 package com.formulai.survey.model;
 
-import jakarta.persistence.*;
-import lombok.*;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+
+import org.hibernate.annotations.Type;
+
+import com.fasterxml.jackson.databind.JsonNode;
+
+import io.hypersistence.utils.hibernate.type.json.JsonType;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 /**
  * Represents a survey entity containing metadata and related data such as answers and tasks.
@@ -41,13 +57,14 @@ public class Survey{
      */
     private String name;
 
-    @Column(columnDefinition = "TEXT") // To store large JSON data
+    @Type(JsonType.class)
+    @Column(columnDefinition = "jsonb", nullable = false) // Conversion handled by JsonNodeAttributeConverter
     /**
      * A JSON string representing the schema definition for the survey.
      * This field stores the structure and validation rules for survey data,
      * typically used for dynamic form generation and validation.
      */
-    private String schemaJson;
+    private JsonNode schemaJson;
 
     @OneToMany(mappedBy = "survey", cascade = CascadeType.ALL)
     /**

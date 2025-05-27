@@ -32,7 +32,7 @@ createRoot(document.getElementById('root')!).render(
               <Route path="/form/:id" element={<FormPage />} />
               <Route path="/thank-you" element={<ThankYouPage />} />
               <Route path="/surveys" element={<SurveysPage />} />
-              <Route path="/editor" element={<SurveyEditor />} />
+              <Route path="/surveys/new" element={<SurveyEditor />} />
               <Route path="*" element={<Error404Page />} />
             </Routes>
           </BrowserRouter>

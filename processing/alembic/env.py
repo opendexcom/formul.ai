@@ -86,11 +86,11 @@ def run_migrations_online() -> None:
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
+            version_table_schema=service_schema,
             include_schemas=True,
             include_object=include_object,
         )
-
-        connection.execute(text(f"CREATE SCHEMA IF NOT EXISTS {service_schema}"))
+        connection.execute(text(f"CREATE SCHEMA IF NOT EXISTS {service_schema} AUTHORIZATION CURRENT_USER;"))
 
         with context.begin_transaction():
             context.run_migrations()
