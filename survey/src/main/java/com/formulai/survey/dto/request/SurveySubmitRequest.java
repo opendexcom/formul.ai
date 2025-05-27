@@ -1,4 +1,4 @@
 package com.formulai.survey.dto.request;
 
-public record SurveySubmitRequest(String answersJson) {
+public record SurveySubmitRequest(JsonNode answersJson) {
 }
