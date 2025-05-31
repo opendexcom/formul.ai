@@ -59,7 +59,9 @@ public class JwtConfigTest {
                 "8wkJ3VJI9JA66Fr3bNDHNxdNEw==\n" +
                 "-----END PRIVATE KEY-----";
 
-        when(privateKey.getContentAsString(StandardCharsets.UTF_8)).thenReturn(privateKeyContent);
+
+        ReflectionTestUtils.setField(jwtConfig, "privateKey", privateKeyContent);
+        //when(privateKey.getContentAsString(StandardCharsets.UTF_8)).thenReturn(privateKeyContent);
 
         // when
         PrivateKey result = jwtConfig.privateKey();
@@ -73,7 +75,7 @@ public class JwtConfigTest {
     void shouldThrowExceptionWhenPrivateKeyIsInvalid() throws IOException {
         // given
         String invalidKey = "-----BEGIN PRIVATE KEY-----\nINVALIDKEY\n-----END PRIVATE KEY-----";
-        when(privateKey.getContentAsString(StandardCharsets.UTF_8)).thenReturn(invalidKey);
+        ReflectionTestUtils.setField(jwtConfig, "privateKey", invalidKey);
 
         // when & then
         assertThrows(InvalidKeySpecException.class, () -> jwtConfig.privateKey());
