@@ -1,7 +1,7 @@
 # Auth Service
 
-**Authentication & Authorization Microservice** for the `formulAI` platform.  
-Built with **Spring Boot 3.5.0**, Java **21**, and Maven.  
+**Authentication & Authorization Microservice** for the `formulAI` platform.
+Built with **Spring Boot 3.5.0**, Java **21**, and Maven.
 Includes **OpenAPI UI** support via SpringDoc.
 
 ---
@@ -11,7 +11,7 @@ Includes **OpenAPI UI** support via SpringDoc.
 - Spring Boot Starter
 - Spring Boot Test
 - SpringDoc OpenAPI
-- JWT (JJWT 0.12.3) 
+- JWT (JJWT 0.12.3)
 ---
 
 ## ⚙️ Requirements
@@ -98,7 +98,7 @@ This project uses RSA keys for signing and verifying JWTs. Ensure the following 
 
 ## 🤖 Continuous Integration (CI)
 
-This project uses GitHub Actions for CI.  
+This project uses GitHub Actions for CI.
 On every pull request that changes files in the `auth/` folder, the following checks are automatically run:
 
 - **Linting:** Runs Checkstyle via `./mvnw checkstyle:check`
