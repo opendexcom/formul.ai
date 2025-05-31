@@ -61,7 +61,6 @@ public class JwtConfigTest {
 
 
         ReflectionTestUtils.setField(jwtConfig, "privateKey", privateKeyContent);
-        //when(privateKey.getContentAsString(StandardCharsets.UTF_8)).thenReturn(privateKeyContent);
 
         // when
         PrivateKey result = jwtConfig.privateKey();
