@@ -55,7 +55,7 @@ public class JwtService {
             pemBuilder.append("-----BEGIN PUBLIC KEY-----\n");
 
             int lineLength = 64;
-            for (int i = 0; i < base64Key.length(); i+=lineLength) {
+            for (int i = 0; i < base64Key.length(); i += lineLength) {
                 int endIndex = Math.min(i + lineLength, base64Key.length());
                 pemBuilder.append(base64Key, i, endIndex).append("\n");
             }
