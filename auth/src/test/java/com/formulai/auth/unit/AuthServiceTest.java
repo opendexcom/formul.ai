@@ -11,6 +11,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.Set;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
@@ -31,7 +33,7 @@ public class AuthServiceTest {
     void shouldAuthenticateValidUser() {
         // given
         String expectedToken = "jwt-token";
-        when(jwtService.generateToken("user@example.com", "AUTHOR")).thenReturn(expectedToken);
+        when(jwtService.generateToken("user@example.com", Set.of("AUTHOR"))).thenReturn(expectedToken);
 
         // when
         String accessToken = authService.authenticate(loginRequest);
@@ -49,7 +51,7 @@ public class AuthServiceTest {
         // when & then
         RuntimeException exception = assertThrows(RuntimeException.class,
                 () -> authService.authenticate(invalidEmailRequest));
-        assertEquals("Nieprawidłowe dane uwierzytelniające", exception.getMessage());
+        assertEquals("Invalid authentication credentials", exception.getMessage());
     }
 
     @Test
@@ -60,7 +62,7 @@ public class AuthServiceTest {
         // when & then
         RuntimeException exception = assertThrows(RuntimeException.class,
                 () -> authService.authenticate(invalidPasswordRequest));
-        assertEquals("Nieprawidłowe dane uwierzytelniające", exception.getMessage());
+        assertEquals("Invalid authentication credentials", exception.getMessage());
     }
 
     @Test
@@ -68,10 +70,10 @@ public class AuthServiceTest {
         // given
         String email = "test@example.com";
         String expectedToken = "generated-token";
-        when(jwtService.generateToken(email, "AUTHOR")).thenReturn(expectedToken);
+        when(jwtService.generateToken(email, Set.of("AUTHOR"))).thenReturn(expectedToken);
 
         // when
-        String actualToken = authService.generateToken(email);
+        String actualToken = authService.generateToken(email, Set.of("AUTHOR"));
 
         // then
         assertEquals(expectedToken, actualToken);

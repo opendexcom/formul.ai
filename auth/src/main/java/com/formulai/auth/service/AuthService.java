@@ -8,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.stream.Collectors;
+
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -26,7 +28,11 @@ public class AuthService {
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> new RuntimeException("Invalid authentication credentials"));
         if (passwordEncoder.matches(request.password(), user.getPassword())) {
-            return generateToken(user.getEmail());
+            // Support multiple roles
+            var roleNames = user.getRoles().stream()
+                .map(role -> role.getName())
+                .collect(Collectors.toSet());
+            return generateToken(user.getEmail(), roleNames);
         }
         throw new RuntimeException("Invalid authentication credentials");
     }
@@ -46,7 +52,7 @@ public class AuthService {
      * @param email the user's email
      * @return JWT token string
      */
-    public String generateToken(String email) {
-        return jwtService.generateToken(email, "AUTHOR");
+    public String generateToken(String email, java.util.Set<String> roles) {
+        return jwtService.generateToken(email, roles);
     }
 }

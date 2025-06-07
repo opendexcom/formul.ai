@@ -10,6 +10,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Base64;
 import java.util.Date;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -24,14 +25,14 @@ public class JwtService {
      * @param email the user's email
      * @return JWT token string
      */
-    public String generateToken(String email, String role) {
+    public String generateToken(String email, Set<String> roles) {
         try {
             Instant now = Instant.now();
             Instant expiration = now.plus(jwtExpirationHours, ChronoUnit.HOURS);
 
             return Jwts.builder()
                     .subject(email)
-                    .claim("role", role)
+                    .claim("roles", roles)
                     .issuedAt(Date.from(now))
                     .expiration(Date.from(expiration))
                     .signWith(privateKey)

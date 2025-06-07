@@ -14,6 +14,7 @@ import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -40,10 +41,10 @@ public class JwtServiceTest {
     void shouldGenerateValidJwtToken() {
         // given
         String email = "test@example.com";
-        String role = "AUTHOR";
+        Set<String> roles = Set.of("AUTHOR");
 
         // when
-        String token = jwtService.generateToken(email, role);
+        String token = jwtService.generateToken(email, roles);
 
         // then
         assertNotNull(token);
@@ -57,10 +58,10 @@ public class JwtServiceTest {
     void shouldGenerateTokenWithCorrectClaims() {
         // given
         String email = "test@example.com";
-        String role = "AUTHOR";
+        Set<String> roles = Set.of("AUTHOR");
 
         // when
-        String token = jwtService.generateToken(email, role);
+        String token = jwtService.generateToken(email, roles);
 
         // then
         Claims claims = Jwts.parser()
@@ -70,7 +71,7 @@ public class JwtServiceTest {
                 .getPayload();
 
         assertEquals(email, claims.getSubject());
-        assertEquals(role, claims.get("role"));
+        assertEquals(roles, claims.get("roles", Set.class));
         assertNotNull(claims.getIssuedAt());
         assertNotNull(claims.getExpiration());
     }
@@ -79,11 +80,11 @@ public class JwtServiceTest {
     void shouldGenerateTokenWithCorrectExpiration() {
         // given
         String email = "test@example.com";
-        String role = "AUTHOR";
+        Set<String> roles = Set.of("AUTHOR");
         Instant beforeGeneration = Instant.now();
 
         // when
-        String token = jwtService.generateToken(email, role);
+        String token = jwtService.generateToken(email, roles);
 
         // then
         Claims claims = Jwts.parser()
@@ -106,7 +107,7 @@ public class JwtServiceTest {
 
         // when & then
         RuntimeException exception = assertThrows(RuntimeException.class,
-                () -> jwtServiceWithNullKey.generateToken("test@example.com", "AUTHOR"));
+                () -> jwtServiceWithNullKey.generateToken("test@example.com", Set.of("AUTHOR")));
         assertEquals("Failed to generate JWT token", exception.getMessage());
     }
 
