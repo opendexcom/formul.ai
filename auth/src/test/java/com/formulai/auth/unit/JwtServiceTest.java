@@ -14,6 +14,7 @@ import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -71,7 +72,7 @@ public class JwtServiceTest {
                 .getPayload();
 
         assertEquals(email, claims.getSubject());
-        assertEquals(roles, claims.get("roles", Set.class));
+        assertEquals(List.copyOf(roles), claims.get("roles", List.class));
         assertNotNull(claims.getIssuedAt());
         assertNotNull(claims.getExpiration());
     }

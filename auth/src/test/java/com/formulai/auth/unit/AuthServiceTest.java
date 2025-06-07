@@ -4,14 +4,19 @@ import com.formulai.auth.dto.request.LoginRequest;
 import com.formulai.auth.dto.response.PublicKeyResponse;
 import com.formulai.auth.service.AuthService;
 import com.formulai.auth.service.JwtService;
+import com.formulai.auth.model.User;
+import com.formulai.auth.model.UserRole;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
@@ -20,6 +25,10 @@ import static org.mockito.Mockito.when;
 public class AuthServiceTest {
     @Mock
     private JwtService jwtService;
+    @Mock
+    private com.formulai.auth.repository.UserRepository userRepository;
+    @Mock
+    private PasswordEncoder passwordEncoder;
     @InjectMocks
     AuthService authService;
     private LoginRequest loginRequest;
@@ -33,7 +42,19 @@ public class AuthServiceTest {
     void shouldAuthenticateValidUser() {
         // given
         String expectedToken = "jwt-token";
-        when(jwtService.generateToken("user@example.com", Set.of("AUTHOR"))).thenReturn(expectedToken);
+        String email = "user@example.com";
+        String password = "password";
+        UserRole role = UserRole.builder().id(UUID.randomUUID()).name("AUTHOR").build();
+        User user = User.builder()
+                .id(UUID.randomUUID())
+                .email(email)
+                .password("hashed-password")
+                .roles(Set.of(role))
+                .build();
+
+        when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches(password, "hashed-password")).thenReturn(true);
+        when(jwtService.generateToken(email, Set.of("AUTHOR"))).thenReturn(expectedToken);
 
         // when
         String accessToken = authService.authenticate(loginRequest);
