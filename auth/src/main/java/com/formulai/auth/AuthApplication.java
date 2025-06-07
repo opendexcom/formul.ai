@@ -51,7 +51,7 @@ public class AuthApplication {
                 // Ensure at least one role exists
                 UserRole role = userRoleRepository.findByName("ADMIN")
                         .orElseGet(() -> userRoleRepository.save(
-                                UserRole.builder().id(UUID.randomUUID()).name("AUTHOR").build()
+                                UserRole.builder().id(UUID.randomUUID()).name("ADMIN").build()
                         ));
 
                 User user = new User();
