@@ -25,6 +25,9 @@ import com.formulai.survey.model.Survey;
 import com.formulai.survey.repository.SurveyRepository;
 import com.formulai.survey.service.SurveyService;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import jakarta.transaction.Transactional;
 
 @SpringBootTest
@@ -35,6 +38,8 @@ class SurveyServiceTest extends BaseIntegrationTest {
 
     @Autowired
     private SurveyRepository surveyRepository;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Test
     void testNonExistingSurvey() {
@@ -91,16 +96,16 @@ class SurveyServiceTest extends BaseIntegrationTest {
 
         // then
         assertNotNull(result);
-        assertEquals(firstSurvey.getId(), result.getFirst().surveyId());
+        assertEquals(firstSurvey.getId(), result.get(0).surveyId());
         assertFalse(result.isEmpty());
     }
 
     @Test
     @Disabled
-    void testSubmitSurveyRequestWithNonExistentSurveyId() {
+    void testSubmitSurveyRequestWithNonExistentSurveyId() throws Exception {
         // given
         UUID nonExistentId = UUID.randomUUID();
-        SurveySubmitRequest request = new SurveySubmitRequest("{\"answers\": []}");
+        SurveySubmitRequest request = new SurveySubmitRequest(objectMapper.readTree("{\"answers\": []}"));
 
         // when and then
         IllegalArgumentException exception = assertThrows(
@@ -137,7 +142,7 @@ class SurveyServiceTest extends BaseIntegrationTest {
     @Test
     void testCloseSurveyWithExternalServiceUnavailable() {
         // given
-        UUID existingId = surveyService.getAllSurvey().getFirst().id();
+        UUID existingId = surveyService.getAllSurvey().get(0).id();
 
         // when and then
         assertThrows(
@@ -145,5 +150,4 @@ class SurveyServiceTest extends BaseIntegrationTest {
                 () -> surveyService.closeSurvey(existingId)
         );
     }
-
 }

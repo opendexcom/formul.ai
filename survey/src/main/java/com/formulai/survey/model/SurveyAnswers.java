@@ -2,6 +2,13 @@ package com.formulai.survey.model;
 
 import java.util.UUID;
 
+import org.hibernate.annotations.Type;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.formulai.survey.model.Survey.SurveyBuilder;
+
+import io.hypersistence.utils.hibernate.type.json.JsonType;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -58,9 +65,11 @@ public class SurveyAnswers {
      */
     private Survey survey;
 
+    @Type(JsonType.class)
+    @Column(columnDefinition = "jsonb", nullable = false)
     /**
      * A JSON-formatted string representing the answers provided in the survey.
      * This field stores the serialized answers data for flexible and dynamic structure.
      */
-    private String answersJson;
+    private JsonNode answersJson;
 }

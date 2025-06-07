@@ -57,9 +57,11 @@ public class SurveyControllerTest {
         );
         expectedSurvey = surveys.get(0);
 
+        JsonNode emptyAnswers = objectMapper.createObjectNode(); // {}
+
         answers = List.of(
-                new SurveyAnswerResponse(surveyId, "{}"),
-                new SurveyAnswerResponse(surveyId, "{}")
+                new SurveyAnswerResponse(surveyId, emptyAnswers),
+                new SurveyAnswerResponse(surveyId, emptyAnswers)
         );
         expectedAnswer = answers.get(0);
     }
@@ -168,7 +170,7 @@ public class SurveyControllerTest {
     @Test
     void submitSurvey_shouldSubmitAndReturnResponse() {
         //given
-        SurveySubmitRequest request = new SurveySubmitRequest("{}");
+        SurveySubmitRequest request = new SurveySubmitRequest(objectMapper.createObjectNode());
 
         when(surveyService.submitSurveyRequest(surveyId, request)).thenReturn(expectedAnswer);
 
