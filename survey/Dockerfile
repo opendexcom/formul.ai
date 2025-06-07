@@ -22,8 +22,9 @@ COPY src ./src
 
 RUN chmod +x ./mvnw
 
-# Build the application
-RUN ./mvnw package -DskipTests
+# Build the application with Maven cache
+RUN --mount=type=cache,target=/root/.m2 \
+    ./mvnw package -DskipTests
 # Or if using Gradle
 # RUN ./gradlew build -x test
 
