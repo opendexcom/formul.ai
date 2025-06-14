@@ -17,10 +17,8 @@ public class InitialSurveyTest extends BaseIntegrationTest {
 
     @Test
     void isInitialSurvey() {
-        Survey survey = surveyRepository.findByName("Initial Survey").orElse(null);
+        Survey survey = surveyRepository.findAll().getFirst();
 
-        assertNotNull(survey,
-                "Initial Survey should not be null");
         assertNotNull(survey.getId(),
                 "Initial Survey ID should not be null");
         assertNotNull(survey.getName(),

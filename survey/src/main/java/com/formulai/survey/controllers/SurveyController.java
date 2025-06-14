@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -96,6 +97,37 @@ public class SurveyController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
         }
     }
+
+
+    /**
+     * Handles HTTP PUT requests to update an existing survey.
+     *
+     * @param id            the UUID of the survey to update
+     * @param surveyRequest the request body containing updated survey details,
+     *                      validated for correctness
+     * @return a ResponseEntity containing the updated SurveyResponse
+     */
+    @PutMapping("/{id}")
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            content = @Content(mediaType = "application/json",
+            schema = @Schema(implementation = SurveyResponse.class))),
+        @ApiResponse(
+            responseCode = "400",
+            content = @Content(mediaType = "application/problem+json",
+            schema = @Schema(implementation = ProblemDetail.class)))
+    })
+    public ResponseEntity<SurveyResponse> updateSurvey(@PathVariable UUID id,
+            @RequestBody @Valid SurveyRequest surveyRequest) {
+        try {
+            SurveyResponse response = surveyService.updateSurvey(id, surveyRequest);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        }
+    }
+
 
     /**
      * Retrieves all responses for a specific survey.

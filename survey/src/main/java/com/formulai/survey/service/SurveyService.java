@@ -55,6 +55,25 @@ public class SurveyService {
         return fromSurvey(surveyRepository.save(toSurvey(request)));
     }
 
+    public SurveyResponse updateSurvey(UUID id, SurveyRequest request) {
+        var survey = surveyRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException(format("Survey %s not found!", id)));
+
+        if (request.name() != null && !request.name().isBlank()) {
+            survey.setName(request.name());
+        }
+
+        if (request.schemaJson() != null) {
+            try {
+                survey.setSchemaJson(request.schemaJson());
+            } catch (Exception e) {
+                throw new IllegalArgumentException("Invalid JSON schema provided", e);
+            }
+        }
+
+        return fromSurvey(surveyRepository.save(survey));
+    }
+
 
     public List<SurveyAnswerResponse> getResponses(UUID surveyId) {
         return surveyAnswerRepository.findAllBySurveyId(surveyId).stream().map(this::fromSurveyAnswers)
