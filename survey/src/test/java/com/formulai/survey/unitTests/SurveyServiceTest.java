@@ -77,10 +77,12 @@ public class SurveyServiceTest {
         tasks.add(task);
         survey.setTasks(tasks);
 
+        JsonNode emptyAnswers = objectMapper.createObjectNode().putArray("answers"); // {"answers":[]}
+
         surveyAnswers = SurveyAnswers.builder()
                 .id(UUID.randomUUID())
                 .survey(survey)
-                .answersJson("{\"answers\": []}")
+                .answersJson(emptyAnswers)
                 .build();
 
         ReflectionTestUtils.setField(surveyService, "processingBaseUrl", "http://processing-service");
@@ -169,14 +171,15 @@ public class SurveyServiceTest {
         assertNotNull(result);
         assertEquals(1, result.size());
         assertEquals(surveyId, result.getFirst().surveyId());
-        assertEquals("{\"answers\": []}", result.getFirst().answersJson());
+        assertEquals(surveyAnswers.getAnswersJson(), result.getFirst().answersJson());
         verify(surveyAnswerRepository).findAllBySurveyId(surveyId);
     }
 
     @Test
-    void submitSurveyRequest_shouldSaveAndReturnSurveyAnswer() {
+    void submitSurveyRequest_shouldSaveAndReturnSurveyAnswer() throws Exception {
         // given
-        SurveySubmitRequest request = new SurveySubmitRequest("{\"answers\":[{\"questionId\":1,\"answer\":\"New Answer\"}]}");
+        JsonNode answersJson = objectMapper.readTree("{\"answers\":[{\"questionId\":1,\"answer\":\"New Answer\"}]}");
+        SurveySubmitRequest request = new SurveySubmitRequest(answersJson);
 
         when(surveyRepository.findById(surveyId)).thenReturn(Optional.of(survey));
         when(surveyAnswerRepository.save(any(SurveyAnswers.class))).thenReturn(surveyAnswers);

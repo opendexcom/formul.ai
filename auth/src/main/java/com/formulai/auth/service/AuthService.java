@@ -2,26 +2,39 @@ package com.formulai.auth.service;
 
 import com.formulai.auth.dto.request.LoginRequest;
 import com.formulai.auth.dto.response.PublicKeyResponse;
+import com.formulai.auth.model.User;
+import com.formulai.auth.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class AuthService {
     private final JwtService jwtService;
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     /**
      * Authenticates the user based on email and password.
-     * In a real application, this should check against a user database.
+     * Checks against a user database.
      *
      * @param request the login request containing email and password
      * @return JWT token if authentication is successful
      */
     public String authenticate(LoginRequest request) {
-        if ("user@example.com".equals(request.email()) && "password".equals(request.password())) {
-            return generateToken(request.email());
+        User user = userRepository.findByEmail(request.email())
+                .orElseThrow(() -> new RuntimeException("Invalid authentication credentials"));
+        if (passwordEncoder.matches(request.password(), user.getPassword())) {
+            // Support multiple roles
+            var roleNames = user.getRoles().stream()
+                .map(role -> role.getName())
+                .collect(Collectors.toSet());
+            return generateToken(user.getEmail(), roleNames);
         }
-        throw new RuntimeException("Nieprawidłowe dane uwierzytelniające");
+        throw new RuntimeException("Invalid authentication credentials");
     }
 
     /**
@@ -39,7 +52,7 @@ public class AuthService {
      * @param email the user's email
      * @return JWT token string
      */
-    public String generateToken(String email) {
-        return jwtService.generateToken(email, "AUTHOR");
+    public String generateToken(String email, java.util.Set<String> roles) {
+        return jwtService.generateToken(email, roles);
     }
 }

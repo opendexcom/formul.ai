@@ -1,4 +1,6 @@
 package com.formulai.survey.dto.request;
 
-public record SurveySubmitRequest(String answersJson) {
+import com.fasterxml.jackson.databind.JsonNode;
+
+public record SurveySubmitRequest(JsonNode answersJson) {
 }

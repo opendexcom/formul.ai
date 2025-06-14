@@ -1,4 +1,5 @@
 services:
+    
   frontend:
     build: ./frontend
     environment:
@@ -40,7 +41,15 @@ services:
     environment:
       AUTH_PRIVATE_KEY: ${AUTH_PRIVATE_KEY}
       AUTH_PUBLIC_KEY: ${AUTH_PUBLIC_KEY}
-    restart: always
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${POSTGRES_HOST:-db}:${POSTGRES_PORT:-5432}/${POSTGRES_NAME}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "8085:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    #restart: always
 
   ai:
     restart: always
