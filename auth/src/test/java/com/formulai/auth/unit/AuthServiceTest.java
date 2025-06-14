@@ -114,4 +114,52 @@ public class AuthServiceTest {
         assertEquals("RS256", response.alg());
         assertEquals(expectedPem, response.pem());
     }
+
+    @Test
+    void shouldAuthenticateUserWithNoRoles() {
+        // given
+        String email = "noroles@example.com";
+        String password = "password";
+        User user = User.builder()
+                .id(UUID.randomUUID())
+                .email(email)
+                .password("hashed-password")
+                .roles(Set.of()) // no roles
+                .build();
+
+        when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches(password, "hashed-password")).thenReturn(true);
+        when(jwtService.generateToken(email, Set.of())).thenReturn("token-without-roles");
+
+        // when
+        LoginRequest req = new LoginRequest(email, password);
+        String token = authService.authenticate(req);
+
+        // then
+        assertEquals("token-without-roles", token);
+    }
+
+    @Test
+    void shouldGenerateTokenWithEmptyRoles() {
+        // given
+        String email = "test@example.com";
+        String expectedToken = "token-empty-roles";
+        when(jwtService.generateToken(email, Set.of())).thenReturn(expectedToken);
+
+        // when
+        String token = authService.generateToken(email, Set.of());
+
+        // then
+        assertEquals(expectedToken, token);
+    }
+
+    @Test
+    void shouldPropagateExceptionWhenGetPublicTokenFails() {
+        // given
+        when(jwtService.getPublicKeyAsPEM()).thenThrow(new RuntimeException("PEM error"));
+
+        // when & then
+        RuntimeException ex = assertThrows(RuntimeException.class, () -> authService.getPublicToken());
+        assertEquals("PEM error", ex.getMessage());
+    }
 }
