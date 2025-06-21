@@ -20,7 +20,6 @@ import org.slf4j.LoggerFactory;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-import java.util.Random;
 
 @SpringBootApplication
 public class AuthApplication {
@@ -49,9 +48,9 @@ public class AuthApplication {
                 String encodedPassword = passwordEncoder.encode(rawPassword);
 
                 // Ensure at least one role exists
-                UserRole role = userRoleRepository.findByName("ADMIN")
+                UserRole role = userRoleRepository.findByName("ROLE_AUTHOR")
                         .orElseGet(() -> userRoleRepository.save(
-                                UserRole.builder().id(UUID.randomUUID()).name("ADMIN").build()
+                                UserRole.builder().id(UUID.randomUUID()).name("ROLE_AUTHOR").build()
                         ));
 
                 User user = new User();
