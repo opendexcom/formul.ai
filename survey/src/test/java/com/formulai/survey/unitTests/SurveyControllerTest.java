@@ -52,8 +52,8 @@ public class SurveyControllerTest {
     
         surveyId = UUID.randomUUID();
         surveys = List.of(
-                new SurveyResponse(surveyId, "Survey 1", jsonSchema, "COMPLETED", null),
-                new SurveyResponse(UUID.randomUUID(), "Survey 2", jsonSchema, "IN_PROGRESS", null)
+                new SurveyResponse(surveyId, "Survey 1", jsonSchema),
+                new SurveyResponse(UUID.randomUUID(), "Survey 2", jsonSchema)
         );
         expectedSurvey = surveys.get(0);
 
@@ -121,7 +121,7 @@ public class SurveyControllerTest {
         // given
         SurveyRequest request = new SurveyRequest("New Survey", jsonSchema);
         SurveyResponse response = new SurveyResponse(
-                UUID.randomUUID(), "New Survey", jsonSchema, null, null);
+                UUID.randomUUID(), "New Survey", jsonSchema);
 
         when(surveyService.createSurvey(request)).thenReturn(response);
 

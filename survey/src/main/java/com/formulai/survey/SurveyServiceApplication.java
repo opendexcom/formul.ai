@@ -28,19 +28,19 @@ public class SurveyServiceApplication {
 	@Bean
 	public OpenAPI customOpenAPI() {
 		return new OpenAPI()
-			.info(new Info().title("Survey API").version("1.0"))
-			.servers(List.of(new Server().url("http://localhost/api/survey")));
+				.info(new Info().title("Survey API").version("1.0"))
+				.servers(List.of(new Server().url("http://localhost/api/survey")));
 	}
 
 	@Bean(name = DATABASE_STARTUP_VALIDATOR)
-    public DatabaseStartupValidator databaseStartupValidator(DataSource dataSource) {
+	public DatabaseStartupValidator databaseStartupValidator(DataSource dataSource) {
 		var dsv = new DatabaseStartupValidator();
 		dsv.setDataSource(dataSource);
 		dsv.setInterval(3);
 		dsv.setTimeout(60);
 
-        return dsv;
-    }
+		return dsv;
+	}
 
 	@Bean
 	public static BeanFactoryPostProcessor dependsOnPostProcessor() {

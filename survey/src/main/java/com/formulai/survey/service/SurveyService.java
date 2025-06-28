@@ -11,8 +11,11 @@ import com.formulai.survey.dto.response.SurveyResponse;
 import com.formulai.survey.repository.SurveyAnswerRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
+import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -37,6 +40,9 @@ public class SurveyService {
 
     private final RestTemplate restTemplate = new RestTemplate();
 
+
+    @Tool(name = "Find_Survey", description = "Find survey metadata and questions by Form ID")
+    @Transactional(readOnly = true)
     public Optional<SurveyResponse> getSurveyById(UUID id) {
         return surveyRepository
                 .findById(id)
@@ -74,7 +80,7 @@ public class SurveyService {
         return fromSurvey(surveyRepository.save(survey));
     }
 
-
+    @Tool(name = "Find_All_Answers", description = "Find a complete list of Survey Answers by Form ID")
     public List<SurveyAnswerResponse> getResponses(UUID surveyId) {
         return surveyAnswerRepository.findAllBySurveyId(surveyId).stream().map(this::fromSurveyAnswers)
                 .collect(Collectors.toList());
@@ -100,17 +106,12 @@ public class SurveyService {
     }
 
     private SurveyResponse fromSurvey(Survey survey) {
-        var tasks = survey.getTasks();
-        var lastCreatedTask = tasks
-                .stream()
-                .max(Comparator.comparing(Task::getCreatedAt));
-
+        
         return new SurveyResponse(
                 survey.getId(),
                 survey.getName(),
-                survey.getSchemaJson(),
-                lastCreatedTask.map(Task::getStatus).orElse(null),
-                lastCreatedTask.map(Task::getId).orElse(null));
+                survey.getSchemaJson());
+            
     }
 
     private Survey toSurvey(SurveyRequest surveyRequest) {
