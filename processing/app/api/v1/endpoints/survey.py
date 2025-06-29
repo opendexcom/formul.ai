@@ -4,6 +4,7 @@ from fastapi import Depends
 from pydantic import UUID4
 
 from app.api.deps import get_processing_service
+from app.api.deps import get_jwt_utils
 from app.schemas.dto.task_response import TaskResponse
 from app.services.processing_service import ProcessingService
 
@@ -12,11 +13,19 @@ router = APIRouter()
 
 @router.post("/{survey_id}/start", response_model=TaskResponse)
 async def start_survey_analysis(
-    survey_id: UUID4,
-    background_tasks: BackgroundTasks,
-    processing_service: ProcessingService = Depends(get_processing_service),
+        survey_id: UUID4,
+        background_tasks: BackgroundTasks,
+        processing_service: ProcessingService = Depends(get_processing_service),
+        payload=Depends(get_jwt_utils().verify_jwt_token)
 ):
     """Start asynchronous analysis of a survey"""
     response, worker = await processing_service.start_survey_async_analysis(survey_id)
     background_tasks.add_task(worker)
     return response
+
+
+@router.get("/test")
+async def test(
+        payload=Depends(get_jwt_utils().verify_jwt_token)
+):
+    return {"message": ""}

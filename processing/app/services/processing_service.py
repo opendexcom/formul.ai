@@ -30,7 +30,7 @@ class ProcessingService:
         """Prepare survey analysis task by creating task and preparing survey data"""
         survey = await self.survey_service.get_survey_by_id(survey_id)
 
-        if survey == None:
+        if survey is None:
             raise NotFoundError()
 
         answers_jsons = [answer.answers_json for answer in survey.answers]

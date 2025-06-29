@@ -15,6 +15,7 @@ from app.services.analysis_service import AnalysisService
 from app.services.processing_service import ProcessingService
 from app.services.survey_service import SurveyService
 from app.services.task_service import TaskService
+from app.utils.jwt_utils import JwtUtils
 
 
 @lru_cache()
@@ -42,38 +43,44 @@ def get_ollama_client(settings: config.Settings = Depends(get_settings)) -> Asyn
 
 
 def get_task_repository(
-    session_factory: AsyncSessionFactoryType = Depends(get_db_session_factory),
+        session_factory: AsyncSessionFactoryType = Depends(get_db_session_factory),
 ) -> TaskRepository:
     return TaskRepository(session_factory=session_factory)
 
 
 def get_survey_repository(
-    session_factory: AsyncSessionFactoryType = Depends(get_db_session_factory),
+        session_factory: AsyncSessionFactoryType = Depends(get_db_session_factory),
 ) -> SurveyRepository:
     return SurveyRepository(session_factory=session_factory)
 
 
 def get_task_service(
-    repo: TaskRepository = Depends(get_task_repository),
+        repo: TaskRepository = Depends(get_task_repository),
 ) -> TaskService:
     return TaskService(task_repository=repo)
 
 
 def get_survey_service(
-    repo: SurveyRepository = Depends(get_survey_repository),
+        repo: SurveyRepository = Depends(get_survey_repository),
 ) -> SurveyService:
     return SurveyService(survey_repository=repo)
 
 
 def get_analysis_service(
-    ollama_client: AsyncClient = Depends(get_ollama_client),
+        ollama_client: AsyncClient = Depends(get_ollama_client),
 ) -> AnalysisService:
     return AnalysisService(ollama_client=ollama_client)
 
 
 def get_processing_service(
-    task_service: TaskService = Depends(get_task_service),
-    analysis_service: AnalysisService = Depends(get_analysis_service),
-    survey_service: SurveyService = Depends(get_survey_service),
+        task_service: TaskService = Depends(get_task_service),
+        analysis_service: AnalysisService = Depends(get_analysis_service),
+        survey_service: SurveyService = Depends(get_survey_service),
 ) -> ProcessingService:
     return ProcessingService(task_service, analysis_service, survey_service)
+
+
+def get_jwt_utils(
+
+) -> JwtUtils:
+    return JwtUtils()
