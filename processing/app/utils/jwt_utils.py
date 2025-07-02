@@ -1,9 +1,12 @@
 import os
 
-from jose import jwt, JWTError
-from fastapi import HTTPException, status, Security
-from fastapi.security import OAuth2PasswordBearer
 from dotenv import load_dotenv
+from fastapi import HTTPException
+from fastapi import Security
+from fastapi import status
+from fastapi.security import OAuth2PasswordBearer
+from jose import JWTError
+from jose import jwt
 
 
 class JwtUtils:
