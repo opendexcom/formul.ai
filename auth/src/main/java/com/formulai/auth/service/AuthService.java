@@ -4,11 +4,12 @@ import com.formulai.auth.dto.request.LoginRequest;
 import com.formulai.auth.dto.response.PublicKeyResponse;
 import com.formulai.auth.model.User;
 import com.formulai.auth.repository.UserRepository;
+import com.formulai.auth.util.RoleUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.util.stream.Collectors;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -27,11 +28,9 @@ public class AuthService {
     public String authenticate(LoginRequest request) {
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> new RuntimeException("Invalid authentication credentials"));
+
         if (passwordEncoder.matches(request.password(), user.getPassword())) {
-            // Support multiple roles
-            var roleNames = user.getRoles().stream()
-                .map(role -> role.getName())
-                .collect(Collectors.toSet());
+            Set<String> roleNames = RoleUtils.extractRoleNames(user.getRoles());
             return generateToken(user.getEmail(), roleNames);
         }
         throw new RuntimeException("Invalid authentication credentials");

@@ -13,12 +13,12 @@ CREATE TABLE IF NOT EXISTS auth.user_roles (
 
 -- Insert default roles if not exists
 INSERT INTO auth.user_roles (id, name)
-SELECT gen_random_uuid(), 'ADMIN'
-WHERE NOT EXISTS (SELECT 1 FROM auth.user_roles WHERE name = 'ADMIN');
+SELECT gen_random_uuid(), 'ROLE_AUTHOR'
+WHERE NOT EXISTS (SELECT 1 FROM auth.user_roles WHERE name = 'ROLE_AUTHOR');
 
 INSERT INTO auth.user_roles (id, name)
-SELECT gen_random_uuid(), 'USER'
-WHERE NOT EXISTS (SELECT 1 FROM auth.user_roles WHERE name = 'USER');
+SELECT gen_random_uuid(), 'ROLE_PUBLIC'
+WHERE NOT EXISTS (SELECT 1 FROM auth.user_roles WHERE name = 'ROLE_PUBLIC');
 
 CREATE TABLE IF NOT EXISTS auth.user_user_roles (
     user_id UUID NOT NULL,
