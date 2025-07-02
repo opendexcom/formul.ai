@@ -22,10 +22,3 @@ async def start_survey_analysis(
     response, worker = await processing_service.start_survey_async_analysis(survey_id)
     background_tasks.add_task(worker)
     return response
-
-
-@router.get("/test")
-async def test(
-        payload=Depends(get_jwt_utils().verify_jwt_token)
-):
-    return {"message": ""}
