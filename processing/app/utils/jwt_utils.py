@@ -17,7 +17,7 @@ class JwtUtils:
         if self.PUBLIC_KEY is None:
             raise HTTPException(500)
         else:
-            print(self.PUBLIC_KEY)
+            self.PUBLIC_KEY = self.PUBLIC_KEY.replace('\\n', '\n')
 
     async def verify_jwt_token(self, token: str = Security(OAuth2PasswordBearer(tokenUrl="token"))):
         try:
