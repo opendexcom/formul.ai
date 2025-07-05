@@ -1,0 +1,10 @@
+{
+  "properties": [
+    {
+      "name": "processing.url",
+      "type": "java.lang.String",
+      "description": "Base URL for the processing service used to start survey analysis.",
+      "defaultValue": "http://processing:8000"
+    }
+  ]
+}

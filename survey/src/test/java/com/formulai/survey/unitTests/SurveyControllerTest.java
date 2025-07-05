@@ -27,6 +27,7 @@ import com.formulai.survey.dto.request.SurveyRequest;
 import com.formulai.survey.dto.request.SurveySubmitRequest;
 import com.formulai.survey.dto.response.SurveyAnswerResponse;
 import com.formulai.survey.dto.response.SurveyResponse;
+import com.formulai.survey.model.SurveyStatus;
 import com.formulai.survey.service.SurveyService;
 
 @ExtendWith(MockitoExtension.class)
@@ -52,8 +53,8 @@ public class SurveyControllerTest {
     
         surveyId = UUID.randomUUID();
         surveys = List.of(
-                new SurveyResponse(surveyId, "Survey 1", jsonSchema),
-                new SurveyResponse(UUID.randomUUID(), "Survey 2", jsonSchema)
+                new SurveyResponse(surveyId, "Survey 1", jsonSchema, SurveyStatus.NEW),
+                new SurveyResponse(UUID.randomUUID(), "Survey 2", jsonSchema, SurveyStatus.NEW)
         );
         expectedSurvey = surveys.get(0);
 
@@ -121,7 +122,7 @@ public class SurveyControllerTest {
         // given
         SurveyRequest request = new SurveyRequest("New Survey", jsonSchema);
         SurveyResponse response = new SurveyResponse(
-                UUID.randomUUID(), "New Survey", jsonSchema);
+                UUID.randomUUID(), "New Survey", jsonSchema, SurveyStatus.NEW);
 
         when(surveyService.createSurvey(request)).thenReturn(response);
 

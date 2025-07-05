@@ -52,7 +52,8 @@ class PostgresSettings(BaseSettings):
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(extra="ignore")
     database: PostgresSettings
-    ollama_api_url: str
+    ollama_api_url: str = "http://ai:11434"
+    mcp_server_url: str = "http://survey:8080/sse"
 
     @classmethod
     def from_env(cls: t.Type[Settings]) -> Settings:

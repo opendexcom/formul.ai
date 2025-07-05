@@ -1,4 +1,5 @@
 from io import BytesIO
+import json
 
 from fastapi import APIRouter
 from fastapi import Depends
@@ -10,7 +11,6 @@ from app.api.deps import get_task_service
 from app.models.task_status import TaskStatus
 from app.schemas.dto.task_response import TaskResponse
 from app.services.task_service import TaskService
-from app.utils import exceptions as api_exceptions
 
 router = APIRouter()
 
@@ -34,15 +34,28 @@ async def get_task(
 
 
 @router.get("/{task_id}/result", response_class=StreamingResponse)
-async def get_task_file(task_id: UUID4, task_service: TaskService = Depends(get_task_service)):
+async def get_task_result(task_id: UUID4, task_service: TaskService = Depends(get_task_service)):
     try:
         task = await task_service.get_task_by_id(task_id)
         if not task.status == TaskStatus.COMPLETED:
-            raise api_exceptions.FileNotFoundError(f"Task with ID {task_id} is not completed")
+            raise HTTPException(status_code=404, detail=f"Task with ID {task_id} is not completed")
 
         if not task.result:
-            raise api_exceptions.FileNotFoundError(f"Task with ID {task_id} is completed but has no result")
+            raise HTTPException(status_code=404, detail=f"Task with ID {task_id} is completed but has no result")
 
-        return task.result        
+        # Create a BytesIO stream with the result
+        if isinstance(task.result, dict):
+            result_bytes = BytesIO(json.dumps(task.result).encode("utf-8"))
+        else:
+            result_bytes = BytesIO(task.result.encode("utf-8"))
+        
+        # Return a streaming response with proper headers
+        return StreamingResponse(
+            result_bytes,
+            media_type="application/json",
+            headers={
+                "Content-Disposition": f'attachment; filename="{task.survey_id}.json"'
+            }
+        )
     except ValueError:
         raise HTTPException(status_code=404, detail="Task not found")

@@ -1,6 +1,5 @@
 package com.formulai.survey.model;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -12,6 +11,8 @@ import io.hypersistence.utils.hibernate.type.json.JsonType;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -24,15 +25,15 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * Represents a survey entity containing metadata and related data such as answers and tasks.
+ * Represents a survey entity containing metadata and related data such as answers.
  * <p>
  * Fields:
  * <ul>
  *   <li><b>id</b>: Unique identifier for the survey (UUID).</li>
  *   <li><b>name</b>: Name of the survey.</li>
  *   <li><b>schemaJson</b>: JSON schema describing the survey structure, stored as a large text column.</li>
+ *   <li><b>status</b>: Current status of the survey (NEW, ONGOING, UNDER_ANALYSIS, ANALYSIS_DONE, ANALYSIS_ERROR).</li>
  *   <li><b>answers</b>: List of answers associated with this survey. Cascade operations are applied.</li>
- *   <li><b>tasks</b>: List of tasks related to this survey.</li>
  * </ul>
  * <p>
  * Uses Lombok annotations for boilerplate code generation and JPA annotations for ORM mapping.
@@ -66,18 +67,19 @@ public class Survey{
      */
     private JsonNode schemaJson;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
+    @Builder.Default
+    /**
+     * The current status of the survey.
+     * Represents the lifecycle stage from creation to analysis completion.
+     */
+    private SurveyStatus status = SurveyStatus.NEW;
+
     @OneToMany(mappedBy = "survey", cascade = CascadeType.ALL)
     /**
      * A list containing the answers associated with this survey.
      * Each element in the list represents a set of answers provided by a respondent.
      */
     private List<SurveyAnswers> answers;
-
-    @OneToMany(mappedBy = "survey")
-    @Builder.Default
-    /**
-     * The list of tasks associated with this survey.
-     * Each {@link Task} represents an individual unit of work or question within the survey.
-     */
-    private List<Task> tasks = new ArrayList<>();
 }

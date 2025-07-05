@@ -3,15 +3,14 @@ from datetime import datetime
 from typing import Optional
 
 from pydantic import UUID4
-from sqlmodel import Column
-from sqlmodel import Field
-from sqlmodel import SQLModel
-from sqlmodel import String
+from sqlmodel import SQLModel, Field, Column, String
+from sqlalchemy.dialects.postgresql import JSONB
 
 from .task_status import TaskStatus
 
 
 class Task(SQLModel, table=True):
+    __tablename__ = "task"
     __table_args__ = {"schema": "processing"}
     id: UUID4 = Field(default_factory=uuid.uuid4, primary_key=True)
     survey_id: UUID4 = Field(index=True)
@@ -26,4 +25,4 @@ class Task(SQLModel, table=True):
             default=TaskStatus.NULL,
         ),
     )
-    result: Optional[str] = Field(default=None)
+    result: Optional[dict] = Field(default=None, sa_column=Column(JSONB, nullable=True))

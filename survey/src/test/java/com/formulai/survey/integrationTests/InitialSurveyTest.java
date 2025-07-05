@@ -8,8 +8,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 import com.formulai.survey.BaseIntegrationTest;
 import com.formulai.survey.model.Survey;
 import com.formulai.survey.repository.SurveyRepository;
+import org.springframework.test.context.ActiveProfiles;
 
 @SpringBootTest
+@ActiveProfiles("test")
 public class InitialSurveyTest extends BaseIntegrationTest {
 
     @Autowired

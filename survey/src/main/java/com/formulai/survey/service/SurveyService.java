@@ -3,7 +3,8 @@ package com.formulai.survey.service;
 import com.formulai.survey.dto.request.SurveySubmitRequest;
 import com.formulai.survey.model.Survey;
 import com.formulai.survey.model.SurveyAnswers;
-import com.formulai.survey.model.Task;
+import com.formulai.survey.model.SurveyStatus;
+import com.formulai.survey.config.ProcessingProperties;
 import com.formulai.survey.repository.SurveyRepository;
 import com.formulai.survey.dto.request.SurveyRequest;
 import com.formulai.survey.dto.response.SurveyAnswerResponse;
@@ -13,13 +14,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.ai.tool.annotation.Tool;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -34,9 +33,7 @@ public class SurveyService {
 
     private final SurveyRepository surveyRepository;
     private final SurveyAnswerRepository surveyAnswerRepository;
-
-    @Value("${processing.url}")
-    private String processingBaseUrl;
+    private final ProcessingProperties processingProperties;
 
     private final RestTemplate restTemplate = new RestTemplate();
 
@@ -91,11 +88,17 @@ public class SurveyService {
     }
 
     public String closeSurvey(UUID id) {
-        String endpoint = UriComponentsBuilder.fromUriString(processingBaseUrl)
+        log.info("Starting survey analysis for survey ID: {}", id);
+        
+        // Then start the analysis process
+        String endpoint = UriComponentsBuilder.fromUriString(processingProperties.getUrl())
                 .pathSegment("surveys", id.toString(), "start")
                 .toUriString();
-
+        
+        log.info("Calling processing service at: {}", endpoint);
         var responseEntity = restTemplate.postForEntity(endpoint, null, String.class);
+        log.info("Processing service responded with status: {}", responseEntity.getStatusCode());
+        
         return responseEntity.getBody();
     }
 
@@ -110,7 +113,8 @@ public class SurveyService {
         return new SurveyResponse(
                 survey.getId(),
                 survey.getName(),
-                survey.getSchemaJson());
+                survey.getSchemaJson(),
+                survey.getStatus());
             
     }
 
@@ -129,5 +133,13 @@ public class SurveyService {
                         .orElseThrow(() -> new IllegalArgumentException(format("Survey %s not found!", id))))
                 .answersJson(request.answersJson())
                 .build();
+    }
+
+    @Transactional
+    public void updateSurveyStatus(UUID surveyId, SurveyStatus status) {
+        Survey survey = surveyRepository.findById(surveyId)
+            .orElseThrow(() -> new IllegalArgumentException("Survey not found: " + surveyId));
+        survey.setStatus(status);
+        surveyRepository.save(survey);
     }
 }

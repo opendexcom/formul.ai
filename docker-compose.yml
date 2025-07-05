@@ -23,6 +23,28 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_started
+    restart: always
+
+  processing_worker:
+    build: ./processing
+    environment:
+      POSTGRES_HOST: ${POSTGRES_HOST:-db}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_NAME: ${POSTGRES_NAME}
+      POSTGRES_USERNAME: ${POSTGRES_USERNAME}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      OLLAMA_API_URL: ${OLLAMA_API_URL}
+    volumes:
+      - ./processing:/app
+      - ./processing/data:/app/data
+    command: ["uv", "run", "python", "worker.py"]
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
     restart: always
 
   survey:
@@ -31,11 +53,14 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://${POSTGRES_HOST:-db}:${POSTGRES_PORT:-5432}/${POSTGRES_NAME}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USERNAME}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      PROCESSING_URL: http://processing:8000
     ports:
       - "8080:8080"
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_started
     restart: always
 
   auth:
@@ -58,12 +83,10 @@ services:
     image: ollama/ollama:latest
     ports:
       - "2137:11434"
-    profiles:
-      - ollama
+    entrypoint: ["/ai-entrypoint.sh"]
     volumes:
       - ollama_data:/root/.ollama
-    environment:
-      - OLLAMA_MODELS=mistral:latest
+      - ./ai/ai-entrypoint.sh:/ai-entrypoint.sh:ro
 
   db:
     restart: always
@@ -96,6 +119,12 @@ services:
       - processing
       - survey
       - auth
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: always
 
 volumes:
   ollama_data:

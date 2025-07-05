@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.web.client.RestClientException;
+import org.springframework.test.context.ActiveProfiles;
 
 import com.formulai.survey.BaseIntegrationTest;
 import com.formulai.survey.dto.request.SurveyRequest;
@@ -32,6 +33,7 @@ import jakarta.transaction.Transactional;
 
 @SpringBootTest
 @Transactional
+@ActiveProfiles("test")
 class SurveyServiceTest extends BaseIntegrationTest {
     @Autowired
     private SurveyService surveyService;

@@ -7,7 +7,6 @@ from fastapi.testclient import TestClient
 from pydantic import UUID4
 
 from app.main import app
-from app.models.survey import Survey
 from app.models.task import Task
 from app.models.task_status import TaskStatus
 from app.utils.exceptions import NotFoundError
@@ -29,28 +28,8 @@ def local_survey_id():
 
 
 @pytest.fixture
-def get_survey_service_mock(local_survey_id):
-    def _mock():
-        class MockSurveyService:
-            async def get_survey_by_id(self, survey_id) -> Optional[Survey]:
-                if survey_id != local_survey_id:
-                    return None
-                survey = Survey(
-                    id=survey_id,
-                    name="Test Survey",
-                    json_schema="{}",
-                    answers=[],
-                )
-                return survey
-
-        return MockSurveyService()
-
-    return _mock
-
-
-@pytest.fixture
 def get_task_service_mock(local_task_id):
-    created_task = {"task": None}
+    created_task: dict[str, Optional[Task]] = {"task": None}
 
     def _mock():
         class MockTaskService:
@@ -68,12 +47,21 @@ def get_task_service_mock(local_task_id):
                     raise NotFoundError(f"Task with ID {task_id} not found")
                 return created_task["task"]
 
-            async def complete_task(self, job: Task, result: str) -> Task:
-                if created_task["task"] is None or job.id != created_task["task"].id:
-                    raise NotFoundError(f"Task with ID {job.id} not found")
-                job.status = created_task["task"].status = TaskStatus.COMPLETED
-                job.result = created_task["task"].result = result
-                return job
+            async def complete_task(self, task_id: UUID4, result: str) -> Task:
+                if created_task["task"] is None or task_id != created_task["task"].id:
+                    raise NotFoundError(f"Task with ID {task_id} not found")
+                created_task["task"].status = TaskStatus.COMPLETED
+                created_task["task"].result = {"mocked": result}
+                return created_task["task"]
+
+            async def update_task(self, task) -> Task:
+                # Accept both Task and dict
+                if isinstance(task, dict):
+                    task = Task(**task)
+                if created_task["task"] is None or task.id != created_task["task"].id:
+                    raise NotFoundError(f"Task with ID {task.id} not found")
+                created_task["task"] = task
+                return task
 
         return MockTaskService()
 
@@ -86,9 +74,9 @@ def get_analysis_service_mock():
         class MockAnalysisService:
             async def start_survey_analysis(self, survey_data):
                 return "mocked response"
-
+            async def publish_survey_status(self, survey_id, status):
+                pass
         return MockAnalysisService()
-
     return _mock
 
 
@@ -109,4 +97,11 @@ def mock_client(mock_chat):
     mock_client = AsyncMock()
     mock_client.chat = mock_chat
     return mock_client
+
+
+@pytest.fixture(autouse=True)
+def mock_redis_publish(monkeypatch):
+    mock = AsyncMock()
+    monkeypatch.setattr('app.utils.redis_publisher.publish_survey_status', mock)
+    monkeypatch.setattr('app.services.analysis_service.publish_survey_status', mock)
 

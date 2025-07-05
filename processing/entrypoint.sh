@@ -5,4 +5,4 @@ set -e
 uv run alembic upgrade heads
 
 # Start application
-uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 --log-level debug

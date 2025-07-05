@@ -1,19 +1,18 @@
 import typing as t
 from functools import lru_cache
+import os
 
 from fastapi import Depends
 from ollama import AsyncClient
+import redis.asyncio as redis
 
 from app.core import config
 from app.db.sessions import AsyncSession
 from app.db.sessions import AsyncSessionFactoryType
 from app.db.sessions import get_async_engine
 from app.db.sessions import get_async_session_factory
-from app.repository.survey_repository import SurveyRepository
 from app.repository.task_repository import TaskRepository
 from app.services.analysis_service import AnalysisService
-from app.services.processing_service import ProcessingService
-from app.services.survey_service import SurveyService
 from app.services.task_service import TaskService
 
 
@@ -47,33 +46,26 @@ def get_task_repository(
     return TaskRepository(session_factory=session_factory)
 
 
-def get_survey_repository(
-    session_factory: AsyncSessionFactoryType = Depends(get_db_session_factory),
-) -> SurveyRepository:
-    return SurveyRepository(session_factory=session_factory)
-
-
 def get_task_service(
     repo: TaskRepository = Depends(get_task_repository),
 ) -> TaskService:
     return TaskService(task_repository=repo)
 
 
-def get_survey_service(
-    repo: SurveyRepository = Depends(get_survey_repository),
-) -> SurveyService:
-    return SurveyService(survey_repository=repo)
-
-
 def get_analysis_service(
     ollama_client: AsyncClient = Depends(get_ollama_client),
+    settings: config.Settings = Depends(get_settings),
 ) -> AnalysisService:
-    return AnalysisService(ollama_client=ollama_client)
+    return AnalysisService(ollama_client=ollama_client, mcp_server_url=settings.mcp_server_url)
 
 
-def get_processing_service(
-    task_service: TaskService = Depends(get_task_service),
-    analysis_service: AnalysisService = Depends(get_analysis_service),
-    survey_service: SurveyService = Depends(get_survey_service),
-) -> ProcessingService:
-    return ProcessingService(task_service, analysis_service, survey_service)
+async def get_redis() -> redis.Redis:
+    host = os.getenv("REDIS_HOST", "redis")
+    port = int(os.getenv("REDIS_PORT", "6379"))
+    db = int(os.getenv("REDIS_DB", "0"))
+    redis_client = redis.Redis(host=host, port=port, db=db)
+    try:
+        await redis_client.ping()
+        return redis_client
+    except Exception as e:
+        raise Exception(f"Redis connection failed: {e}")

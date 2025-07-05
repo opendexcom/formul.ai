@@ -3,8 +3,16 @@ package com.formulai.survey;
 import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.support.DatabaseStartupValidator;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.listener.PatternTopic;
+import org.springframework.data.redis.listener.RedisMessageListenerContainer;
+
+import com.formulai.survey.config.ProcessingProperties;
+import com.formulai.survey.service.SurveyStatusRedisListener;
 
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
@@ -17,6 +25,7 @@ import java.util.stream.Stream;
 import javax.sql.DataSource;
 
 @SpringBootApplication
+@EnableConfigurationProperties(ProcessingProperties.class)
 public class SurveyServiceApplication {
 
 	public static final String DATABASE_STARTUP_VALIDATOR = "databaseStartupValidator";
@@ -50,5 +59,14 @@ public class SurveyServiceApplication {
 					.map(bf::getBeanDefinition)
 					.forEach(it -> it.setDependsOn(DATABASE_STARTUP_VALIDATOR));
 		};
+	}
+
+	@Bean
+	@Profile("!test")
+	public RedisMessageListenerContainer redisContainer(RedisConnectionFactory connectionFactory, SurveyStatusRedisListener listener) {
+		RedisMessageListenerContainer container = new RedisMessageListenerContainer();
+		container.setConnectionFactory(connectionFactory);
+		container.addMessageListener(listener, new PatternTopic("survey-status-update"));
+		return container;
 	}
 }

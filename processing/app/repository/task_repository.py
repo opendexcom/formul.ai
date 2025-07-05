@@ -16,9 +16,9 @@ class TaskRepository:
 
     async def update(self, task: Task) -> Task:
         async with self.session_factory() as session:
-            session.add(task)
+            merged_task = await session.merge(task)
             await session.commit()
-        return task
+        return merged_task
 
     async def get_by_id(self, task_id: UUID4) -> Task:
         async with self.session_factory() as session:

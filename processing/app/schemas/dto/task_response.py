@@ -11,3 +11,4 @@ class TaskResponse(BaseModel):
     survey_id: UUID4
     created_at: datetime
     status: TaskStatus
+    result: dict | None = None
