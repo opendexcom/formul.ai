@@ -23,7 +23,7 @@ WORKDIR /app
 COPY pyproject.toml alembic.ini entrypoint.sh /app/
 
 # Install dependencies
-# Reason why --no-dev is not used is because alembic migrations 
+# Reason why --no-dev is not used is because alembic migrations
 # require dev dependencies and as of now are executed as part of entrypoint
 RUN uv sync
 

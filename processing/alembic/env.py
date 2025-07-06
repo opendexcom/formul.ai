@@ -1,7 +1,9 @@
 import typing as t
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config, pool, text
+from sqlalchemy import engine_from_config
+from sqlalchemy import pool
+from sqlalchemy import text
 
 from alembic import context
 
@@ -24,7 +26,6 @@ from sqlmodel import SQLModel
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
 from app.core import config as app_config
-from app.models.task import Task
 
 target_metadata = SQLModel.metadata
 

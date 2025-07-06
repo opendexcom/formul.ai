@@ -100,7 +100,7 @@ uv run pytest
 
 ## Continuous Integration (CI)
 
-This project uses GitHub Actions for continuous integration.  
+This project uses GitHub Actions for continuous integration.
 On every pull request that changes files in the `processing/` folder, the following checks are automatically run:
 
 - **Dependency Sync:** Ensures all dependencies are installed using `uv`.

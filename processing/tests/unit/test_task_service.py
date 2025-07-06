@@ -1,10 +1,13 @@
-import pytest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
+from unittest.mock import MagicMock
 from uuid import uuid4
 
-from app.services.task_service import TaskService
+import pytest
+
 from app.models.task import Task
 from app.models.task_status import TaskStatus
+from app.services.task_service import TaskService
+
 
 @pytest.mark.asyncio
 async def test_create_task_calls_repo_create():

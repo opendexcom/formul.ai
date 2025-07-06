@@ -1,7 +1,8 @@
 
 from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
-
+import contextvars
+print(contextvars)
 from app.api.router import api_router
 
 app = FastAPI()

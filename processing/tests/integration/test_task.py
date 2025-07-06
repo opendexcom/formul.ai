@@ -1,12 +1,12 @@
 from uuid import uuid4
 
 import pytest
+from sqlmodel import UUID
 
 from app.api.deps import get_task_service
 from app.main import app
 from app.models.task import Task
 from app.models.task_status import TaskStatus
-from sqlmodel import UUID
 
 
 @pytest.mark.usefixtures("client")
