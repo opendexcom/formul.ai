@@ -1,4 +1,5 @@
 from app.api.deps import get_analysis_service
+from app.api.deps import get_jwt_utils
 from app.api.deps import get_survey_service
 from app.api.deps import get_task_service
 from app.main import app
@@ -19,7 +20,8 @@ def test_get_start_survey_analysis(
     app.dependency_overrides[get_survey_service] = get_survey_service_mock
 
 # Removed unnecessary debug print statement and sys.stdout.flush()
-    response = client.post(f"/surveys/{local_survey_id}/start")
+    response = client.post(f"/surveys/{local_survey_id}/start",
+                           headers={"Authorization": "Bearer "+get_jwt_utils().generate_jwt_token()})
 
     assert response.status_code == 200
     data = response.json()
