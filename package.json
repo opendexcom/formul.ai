@@ -1,0 +1,40 @@
+{
+  "name": "formulai",
+  "version": "1.0.0",
+  "description": "A Google Forms-like application for creating and managing forms",
+  "private": true,
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev": "concurrently \"pnpm --filter server start:dev\" \"pnpm --filter client dev\"",
+    "dev:client": "pnpm --filter client dev",
+    "dev:server": "pnpm --filter server start:dev",
+    "dev:worker": "pnpm --filter server start:worker:dev",
+    "build": "pnpm run build:client && pnpm run build:server",
+    "build:client": "pnpm --filter client build",
+    "build:server": "pnpm --filter server build",
+    "install:all": "pnpm install -w",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "db:start": "docker-compose up -d mongodb",
+    "db:stop": "docker-compose stop mongodb",
+    "db:admin": "echo MongoDB Admin: http://localhost:8081"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "keywords": [
+    "forms",
+    "nestjs",
+    "react",
+    "typescript",
+    "mongodb"
+  ],
+  "author": "",
+  "license": "MIT"
+  ,
+  "packageManager": "pnpm@9.12.0"
+}
