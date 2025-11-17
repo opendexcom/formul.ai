@@ -1,7 +1,7 @@
 {
   "name": "formulai",
-  "version": "1.0.0",
-  "description": "A Google Forms-like application for creating and managing forms",
+  "version": "0.4.0",
+  "description": "AI-powered survey analytics platform for building forms, collecting responses, and generating actionable insights.",
   "private": true,
   "workspaces": [
     "client",
