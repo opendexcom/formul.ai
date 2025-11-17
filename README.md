@@ -1,112 +1,91 @@
-# 🧠 formul.ai
 
-**Code of forms. Powered by AI. Open source project.**
+# 🧠 FormulAI
 
-formul.ai is a platform for building and analyzing dynamic forms powered by local AI models. Users can create surveys with conditional logic, collect responses, and provide instant analysis of AI-driven responses — all with full data privacy.
+**AI-Powered Survey Analytics Platform**
 
-## ✨ Features
+FormulAI is an intelligent survey platform that combines intuitive form building with advanced AI-powered analytics. It automatically analyzes open-ended responses using research-grade qualitative methods, delivering actionable insights in minutes.
 
-- Dynamic forms that adapt to user input
-- Local AI-based analysis and instant analysis of collected form's responses 
-- Admin panel for managing forms and results
-- Full control over data privacy (on-premise processing)
+## ✨ Key Features
 
-## 👥 Roles
+- AI-assisted form builder (10+ question types, conditional logic)
+- Real-time analytics: sentiment, topic extraction, theme clustering
+- Executive summary, findings, recommendations (LLM-powered)
+- Interactive dashboard with 13 analytics cards
+- Export to CSV and analytics reports
+- JWT authentication, role-based access
+- Scalable queue-based architecture (Bull + Redis)
 
-- **Administrators**: manage forms and results
-- **Respondents**: fill out forms and receive feedback
+## 🛠️ Technology Stack
 
-## 🛠️ Required Tools
+- **Frontend**: React 19, TypeScript 5, Vite, Tailwind CSS
+- **Backend**: NestJS 10, TypeScript 5, Node.js 18+
+- **Database**: MongoDB 5.0+
+- **Queue System**: Bull (Redis-backed)
+- **AI Integration**: OpenAI GPT-4o
+- **Authentication**: JWT
+- **Containerization**: Docker, Docker Compose
 
-To run this project, you need:
+## 🏗️ Architecture Overview
 
-- [Docker](https://www.docker.com/) and Docker Compose
-- [Git](https://git-scm.com/)
+Layered architecture:
+
+1. **Client Layer**: React 19, Tailwind CSS
+2. **API Layer**: NestJS REST controllers, JWT guards, Swagger docs
+3. **Service Layer**: Business logic (Forms, Auth, Analytics, AI)
+4. **Queue Layer**: Bull queues for async analytics (orchestration, response processing, topic clustering, aggregation, AI generation)
+5. **Data Layer**: MongoDB with Mongoose ODM
+
+See `docs/ARCHITECTURE.md` for details.
+
+## 📦 Environment Setup
+
+1. Copy and configure environment files:
+   - `server/.env.example` → `server/.env`
+   - `client/.env.example` → `client/.env`
+2. Fill in required variables (see example files for details)
+3. Start MongoDB and Redis:
+   ```bash
+   docker compose up -d
+   ```
+4. Install dependencies:
+   ```bash
+   pnpm install
+   ```
+5. Start dev servers:
+   ```bash
+   pnpm run dev
+   ```
+6. Access frontend: http://localhost:3000
+7. Access API docs: http://localhost:3001/api/docs
 
 ## 🚀 Quick Start
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/opendexcom/formul.ai.git
-   cd formul.ai
-   ```
-
-2. **Configure environment:**
-   ```bash
-   cp .env.example .env
-   # Edit .env as needed
-   ```
-   > **Tip:** If you want to develop services directly on your host machine (not in Docker), use the `.env.host-develop` file.  
-   > This configures connections to local PostgreSQL, Ollama, etc.
-
-   **To check out the `develop` branch from the remote repository:**
-   ```bash
-   git fetch origin
-   git checkout develop
-   # If the branch does not exist locally, use:
-   # git checkout -b develop origin/develop
-   ```
-
-3. **Run with Docker Compose:**
-   ```bash
-   docker-compose up -d
-   # Or to rebuild:
-   docker-compose up --build -d
-   ```
-
-The app will be available at [http://localhost](http://localhost).
-
-## 📚 Documentation
-
-- [Technology Stack & Tools](./docs/technology.md)
-- [Privacy & Security](./docs/privacy.md)
-- [Troubleshooting](./docs/troubleshooting.md)
-- [Continuous Integration](./docs/ci.md)
-- [Contributing](./docs/contributing.md)
-
-## 🐳 Docker Architecture
-
-Below is a high-level and container-level architecture diagram for the Dockerized Formul.ai platform:
-
-```mermaid
-graph TD
-  User[User]
-  Admin[Administrator]
-  Gateway[Gateway_nginx]
-  Frontend[Frontend_Vite_React]
-  Processing[Processing_Service_Python]
-  Survey[Survey_Service_Java_Spring]
-  AI[AI_Service_Ollama]
-  DB[(PostgreSQL_Database)]
-  ollama_data[(ollama_data_volume)]
-  db_data[(db_data_volume)]
-
-  User -->|HTTP| Gateway
-  Admin -->|HTTP| Gateway
-  Gateway -->|HTTP| Frontend
-  Gateway -->|REST| Processing
-  Gateway -->|REST| Survey
-  Processing -->|REST| AI
-  Processing -->|SQL| DB
-  Survey -->|SQL| DB
-  AI -->|Model_Data| ollama_data
-  DB -->|Data| db_data
+```bash
+git clone https://github.com/opendexcom/formul.ai.git
+cd formul.ai
+pnpm install
+docker compose up -d
+cp server/.env.example server/.env
+cp client/.env.example client/.env
+pnpm run dev
 ```
-
-**Description:**  
-- Users and administrators access the system via the nginx gateway.
-- nginx routes requests to the frontend, processing, and survey containers.
-- The processing service communicates with the AI (Ollama) and the PostgreSQL database.
-- Data and models are persisted in Docker volumes.
-
-## 📜 License
-
-Licensed under the **GNU AGPL-3.0**. See [LICENSE](./LICENSE).
 
 ## 📁 Repository
 
 GitHub: [opendexcom/formul.ai](https://github.com/opendexcom/formul.ai)
 
+## 🤖 Continuous Integration (CI)
+
+GitHub Actions run lint, tests, and build checks for both frontend and backend. See `.github/workflows/` for details.
+
+## 📜 License
+
+This project is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**. See the [LICENSE](./LICENSE) file for details.
+
+## 🤝 Contributing
+
+Contributions are welcome! See [CONTRIBUTING.md](./CONTRIBUTING.md).
+
 ---
 
-_See [docs/](./docs/) for more details._
+_This README will be updated as the project evolves._

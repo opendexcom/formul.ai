@@ -1,107 +1,92 @@
+version: '3.8'
+
 services:
-    
-  frontend:
-    build: ./frontend
-    environment:
-      VITE_API: ${BASE_URL:-http://localhost}
-    volumes:
-      - ./frontend/:/app
-      - /app/node_modules
-
-  processing:
-    build: ./processing
-    environment:
-      POSTGRES_HOST: ${POSTGRES_HOST:-db}
-      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
-      POSTGRES_NAME: ${POSTGRES_NAME}
-      POSTGRES_USERNAME: ${POSTGRES_USERNAME}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      OLLAMA_API_URL: ${OLLAMA_API_URL}
-    volumes:
-      - ./processing/app:/app/app
-      - ./processing/data:/app/data
-    depends_on:
-      db:
-        condition: service_healthy
-    restart: always
-
-  survey:
-    build: ./survey
-    environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://${POSTGRES_HOST:-db}:${POSTGRES_PORT:-5432}/${POSTGRES_NAME}
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USERNAME}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
-    depends_on:
-      db:
-        condition: service_healthy
-    restart: always
-
-  auth:
-    build: ./auth
-    environment:
-      AUTH_PRIVATE_KEY: ${AUTH_PRIVATE_KEY}
-      AUTH_PUBLIC_KEY: ${AUTH_PUBLIC_KEY}
-      SPRING_DATASOURCE_URL: jdbc:postgresql://${POSTGRES_HOST:-db}:${POSTGRES_PORT:-5432}/${POSTGRES_NAME}
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USERNAME}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+  mongodb:
+    image: mongo:7.0
+    container_name: formulai-mongodb
+    restart: unless-stopped
     ports:
-      - "8085:8080"
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: formulai
+    volumes:
+      - mongodb_data:/data/db
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    networks:
+      - formulai-network
+
+  mongo-express:
+    image: mongo-express:1.0.2
+    container_name: formulai-mongo-express
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      ME_CONFIG_MONGODB_URL: mongodb://mongodb:27017/
+      ME_CONFIG_BASICAUTH: false
     depends_on:
-      db:
-        condition: service_healthy
-    #restart: always
+      - mongodb
+    networks:
+      - formulai-network
 
-  ai:
-    restart: always
-    image: ollama/ollama:latest
+  redis:
+    image: redis:7-alpine
+    container_name: formulai-redis
+    restart: unless-stopped
     ports:
-      - "2137:11434"
-    profiles:
-      - ollama
+      - "6379:6379"
     volumes:
-      - ollama_data:/root/.ollama
-    environment:
-      - OLLAMA_MODELS=mistral:latest
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-
-  db:
-    restart: always
-    image: postgres:17-alpine
+      - redis_data:/data
+    networks:
+      - formulai-network
+    command: redis-server --appendonly yes
+  mailhog:
+    image: mailhog/mailhog
     ports:
-      - "${POSTGRES_PORT_EXTERNAL:-5432}:5432"
-    environment:
-      POSTGRES_USER: ${POSTGRES_USERNAME}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_NAME}
-    healthcheck:
-      test: ["CMD-SHELL", "PGPASSWORD=$POSTGRES_PASSWORD pg_isready -U $POSTGRES_USERNAME -d $POSTGRES_NAME -p 5432"]
-      interval: 2s
-      timeout: 5s
-      retries: 5
-    volumes:
-      - db_data:/var/lib/postgresql/data
-      - ./pg-healthcheck.sh:/healthcheck/pg-healthcheck.sh:ro
+      - 1025:1025
+      - 8025:8025
 
-  gateway:
-    restart: always
-    image: nginx:latest
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: formulai-backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      MONGO_URI: mongodb://mongodb:27017/formulai
+      REDIS_HOST: redis
+      JWT_SECRET: ${JWT_SECRET}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - formulai-network
+    ports:
+      - "3001:3001"
+
+  nginx:
+    image: nginx:stable-alpine
+    container_name: formulai-nginx
+    restart: unless-stopped
+    volumes:
+      - ./gateway/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./client/dist:/usr/share/nginx/html:ro
     ports:
       - "80:80"
-    volumes:
-      - ./gateway/nginx.conf:/etc/nginx/conf.d/default.conf
-      - ./gateway/swagger:/usr/share/nginx/html/swagger # Add this line to serve Swagger UI
     depends_on:
-      - frontend
-      - processing
-      - survey
-      - auth
+      - backend
+    networks:
+      - formulai-network
+  
 
 volumes:
-  ollama_data:
-  db_data:
+  mongodb_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  formulai-network:
+    driver: bridge
