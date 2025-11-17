@@ -21,6 +21,8 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest"
+    ,
+    "build:prod": "cp .env.production .env && tsc && vite build"
   },
   "browserslist": {
     "production": [

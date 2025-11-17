@@ -43,8 +43,42 @@ services:
   mailhog:
     image: mailhog/mailhog
     ports:
-    - 1025:1025
-    - 8025:8025
+      - 1025:1025
+      - 8025:8025
+
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: formulai-backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      MONGO_URI: mongodb://mongodb:27017/formulai
+      REDIS_HOST: redis
+      JWT_SECRET: ${JWT_SECRET}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - formulai-network
+    ports:
+      - "3001:3001"
+
+  nginx:
+    image: nginx:stable-alpine
+    container_name: formulai-nginx
+    restart: unless-stopped
+    volumes:
+      - ./gateway/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./client/dist:/usr/share/nginx/html:ro
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - formulai-network
   
 
 volumes:
