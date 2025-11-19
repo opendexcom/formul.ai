@@ -1,0 +1,16 @@
+{
+  "servers": {
+     "MongoDB": {
+      "type": "stdio",
+      "command": "pnpm",
+      "args": [
+        "dlx",
+        "mongodb-mcp-server@latest",
+        "--readOnly"
+      ],
+      "env": {
+        "MDB_MCP_CONNECTION_STRING": "mongodb://localhost:27017/formulai"
+      }
+    }
+  }
+}

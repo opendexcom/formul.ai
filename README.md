@@ -1,86 +1,111 @@
-# 🧠 formul.ai
 
-**Code of forms. Powered by AI. Open source project.**
+# 🧠 FormulAI
 
-**formul.ai** is a system for creating and analyzing dynamic forms powered by local AI models. The platform enables users to build surveys or questionnaires with conditional logic, collect responses, and provide immediate, AI-driven results — all without sending data to external cloud services.
+**AI-Powered Survey Analytics Platform**
+
+FormulAI is an intelligent survey platform that combines intuitive form building with advanced AI-powered analytics. It automatically analyzes open-ended responses using research-grade qualitative methods, delivering actionable insights in minutes.
 
 ## ✨ Key Features
 
-- Dynamic forms that adapt to user input
-- Local AI-based analysis of responses
-- Instant feedback and recommendations for respondents
-- Admin panel for managing forms and results
-- Full control over data privacy (on-premise processing)
-
-## 👥 User Roles
-
-- **Administrators**: create and manage forms, configure results, and access aggregated data.
-- **Respondents**: fill out forms and receive personalized feedback instantly.
-
-## 🚀 Project Goals
-
-- Streamline data collection and interpretation using local AI
-- Provide fast, personalized insight to users
-- Ensure data privacy and compliance with regulations
-- Encourage collaboration through open-source development
-
-## 🔐 Privacy & Security
-
-All processing, including AI analysis, is performed locally. This approach ensures user data remains private and compliant with data protection standards like GDPR.
+- AI-assisted form builder (10+ question types, conditional logic)
+- Real-time analytics: sentiment, topic extraction, theme clustering
+- Executive summary, findings, recommendations (LLM-powered)
+- Interactive dashboard with 13 analytics cards
+- Export to CSV and analytics reports
+- JWT authentication, role-based access
+- Scalable queue-based architecture (Bull + Redis)
 
 ## 🛠️ Technology Stack
 
-- **Frontend**: React.js (v19), TypeScript, Tailwind CSS
-- **Backend**:
-  - Java Spring Boot (v3.4.5) for Survey Service
-  - Python FastAPI for Processing Service
-- **Database**: PostgreSQL (planned)
-- **AI Integration**: Local AI models (planned)
+- **Frontend**: React 19, TypeScript 5, Vite, Tailwind CSS
+- **Backend**: NestJS 10, TypeScript 5, Node.js 18+
+- **Database**: MongoDB 5.0+
+- **Queue System**: Bull (Redis-backed)
+- **AI Integration**: OpenAI GPT-4o
+- **Authentication**: JWT
 - **Containerization**: Docker, Docker Compose
-- **Testing**:
-  - JUnit for Java
-  - pytest for Python
-  - React Testing Library (planned)
 
-## 🧰 Required Tools
+## 🏗️ Architecture Overview
 
-- [Node.js](https://nodejs.org/) (v18+)
-- [npm](https://www.npmjs.com/) (v9+) or [Yarn](https://yarnpkg.com/) (v1.22+)
-- [Docker](https://www.docker.com/) and Docker Compose
-- [Git](https://git-scm.com/)
-- [PostgreSQL](https://www.postgresql.org/) (v14+)
+Layered architecture:
 
-## 🚀 Getting Started
+1. **Client Layer**: React 19, Tailwind CSS
+2. **API Layer**: NestJS REST controllers, JWT guards, Swagger docs
+3. **Service Layer**: Business logic (Forms, Auth, Analytics, AI)
+4. **Queue Layer**: Bull queues for async analytics (orchestration, response processing, topic clustering, aggregation, AI generation)
+5. **Data Layer**: MongoDB with Mongoose ODM
 
-### Installation
+See `docs/ARCHITECTURE.md` for details.
 
-Clone the repository:
+
+## 🚀 Quick Start
+
+### Option 1: Full Docker Deployment (Recommended)
+
+Run the entire system (Frontend, Backend, Database, Redis, Mailhog) with Docker.
 
 ```bash
+# 1. Clone the repository
 git clone https://github.com/opendexcom/formul.ai.git
 cd formul.ai
+
+# 2. Configure environment variables
+cp server/.env.example server/.env
+# Edit server/.env as needed (see Configuration section below)
+
+# 3. Start the system
+docker compose up -d
 ```
-### First run
-To configure project run and edit `.env` file:
+
+Access the services:
+- **Frontend**: http://localhost (via Nginx Gateway)
+- **Backend API**: http://localhost:3001
+- **Mongo Express**: http://localhost:8081
+- **Mailhog** (Email Testing): http://localhost:8025
+
+### Option 2: Local Development
+
+Run infrastructure in Docker, but application code locally for development.
+
 ```bash
-cp .env.example .env
+# 1. Install dependencies
+pnpm install
+
+# 2. Start Infrastructure (MongoDB, Redis, Mailhog)
+docker compose up -d mongodb redis mailhog mongo-express
+
+# 3. Start Development Servers
+pnpm run dev
 ```
 
-### Run the Application
+Access the frontend at http://localhost:3000.
 
-Run entire application using Docker Compose:
+## ⚙️ Configuration
 
-```bash
-docker-compose up -d
-```
+The application is configured via environment variables in `server/.env` and `client/.env`.
 
-Run docker with rebuilding:
+### OpenAI Configuration (Required for AI features)
 
-```bash
-docker-compose up --build -d
-```
+To enable AI-powered summaries and insights, you must provide an OpenAI API key.
 
-The application will be available at `http://localhost`.
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `OPENAI_API_KEY` | Your OpenAI API Key | (Required) |
+| `OPENAI_MODEL` | Model to use for generation | `gpt-4o-mini` |
+
+### SMTP / Email Configuration
+
+Configure email delivery settings. For local development, **Mailhog** is pre-configured to capture emails.
+
+| Variable | Description | Default (Local) |
+|----------|-------------|-----------------|
+| `SMTP_HOST` | SMTP Server Host | `localhost` (or `mailhog` in Docker) |
+| `SMTP_PORT` | SMTP Server Port | `1025` |
+| `SMTP_USER` | SMTP Username | `user` |
+| `SMTP_PASS` | SMTP Password | `pass` |
+| `FROM_EMAIL` | Sender address | `FormulAI <noreply@formulai.com>` |
+
+> **Note:** When running via `docker compose up`, the backend automatically connects to the `mailhog` service. If running the backend locally, use `localhost`.
 
 ## 📁 Repository
 
@@ -88,28 +113,18 @@ GitHub: [opendexcom/formul.ai](https://github.com/opendexcom/formul.ai)
 
 ## 🤖 Continuous Integration (CI)
 
-This project uses GitHub Actions for CI.  
-On every pull request, the following checks are automatically run depending on which files are changed:
-
-- **Frontend:**  
-  - Linting (`npm run lint`) if files in `frontend/` are changed  
-  - End-to-end tests (`npm run test:e2e`) always run
-
-- **Processing Service:**  
-  - Dependency sync, linting (ruff), and tests (pytest) if files in `processing/` are changed
-
-- **Survey Service:**  
-  - Linting (Checkstyle) and tests (Maven) if files in `survey/` are changed
-
-You can find the workflow configuration in `.github/workflows/formulaai-ci.yml`.
+GitHub Actions run lint, tests, and build checks for both frontend and backend. See `.github/workflows/` for details.
 
 ## 📜 License
 
-This project is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**. See the [LICENSE](./LICENSE) file for details.
+This project is dual-licensed:
+
+1.  **Open Source**: Licensed under the **GNU Affero General Public License v3.0 (AGPLv3)**. See the [LICENSE](./LICENSE) file for details.
+2.  **Enterprise**: For commercial use without the obligations of AGPLv3, please contact us for an enterprise license.
 
 ## 🤝 Contributing
 
-We welcome contributions! Stay tuned for the upcoming [CONTRIBUTING.md](./CONTRIBUTING.md), or star the repo to follow the project’s development.
+Contributions are welcome! See [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ---
 

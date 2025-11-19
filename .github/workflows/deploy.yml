@@ -90,6 +90,6 @@ jobs:
           ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'EOF'
             cd /home/deploy/myapp
             git pull origin main
-            docker compose down
             docker compose up -d --build
+            docker image prune -f
           EOF
