@@ -80,7 +80,10 @@ GitHub Actions run lint, tests, and build checks for both frontend and backend. 
 
 ## 📜 License
 
-This project is licensed under the **MIT License**. See the [LICENSE](./LICENSE) file for details.
+This project is dual-licensed:
+
+1.  **Open Source**: Licensed under the **GNU Affero General Public License v3.0 (AGPLv3)**. See the [LICENSE](./LICENSE) file for details.
+2.  **Enterprise**: For commercial use without the obligations of AGPLv3, please contact us for an enterprise license.
 
 ## 🤝 Contributing
 
