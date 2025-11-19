@@ -37,38 +37,75 @@ Layered architecture:
 
 See `docs/ARCHITECTURE.md` for details.
 
-## 📦 Environment Setup
-
-1. Copy and configure environment files:
-   - `server/.env.example` → `server/.env`
-   - `client/.env.example` → `client/.env`
-2. Fill in required variables (see example files for details)
-3. Start MongoDB and Redis:
-   ```bash
-   docker compose up -d
-   ```
-4. Install dependencies:
-   ```bash
-   pnpm install
-   ```
-5. Start dev servers:
-   ```bash
-   pnpm run dev
-   ```
-6. Access frontend: http://localhost:3000
-7. Access API docs: http://localhost:3001/api/docs
 
 ## 🚀 Quick Start
 
+### Option 1: Full Docker Deployment (Recommended)
+
+Run the entire system (Frontend, Backend, Database, Redis, Mailhog) with Docker.
+
 ```bash
+# 1. Clone the repository
 git clone https://github.com/opendexcom/formul.ai.git
 cd formul.ai
-pnpm install
-docker compose up -d
+
+# 2. Configure environment variables
 cp server/.env.example server/.env
-cp client/.env.example client/.env
+# Edit server/.env as needed (see Configuration section below)
+
+# 3. Start the system
+docker compose up -d
+```
+
+Access the services:
+- **Frontend**: http://localhost (via Nginx Gateway)
+- **Backend API**: http://localhost:3001
+- **Mongo Express**: http://localhost:8081
+- **Mailhog** (Email Testing): http://localhost:8025
+
+### Option 2: Local Development
+
+Run infrastructure in Docker, but application code locally for development.
+
+```bash
+# 1. Install dependencies
+pnpm install
+
+# 2. Start Infrastructure (MongoDB, Redis, Mailhog)
+docker compose up -d mongodb redis mailhog mongo-express
+
+# 3. Start Development Servers
 pnpm run dev
 ```
+
+Access the frontend at http://localhost:3000.
+
+## ⚙️ Configuration
+
+The application is configured via environment variables in `server/.env` and `client/.env`.
+
+### OpenAI Configuration (Required for AI features)
+
+To enable AI-powered summaries and insights, you must provide an OpenAI API key.
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `OPENAI_API_KEY` | Your OpenAI API Key | (Required) |
+| `OPENAI_MODEL` | Model to use for generation | `gpt-4o-mini` |
+
+### SMTP / Email Configuration
+
+Configure email delivery settings. For local development, **Mailhog** is pre-configured to capture emails.
+
+| Variable | Description | Default (Local) |
+|----------|-------------|-----------------|
+| `SMTP_HOST` | SMTP Server Host | `localhost` (or `mailhog` in Docker) |
+| `SMTP_PORT` | SMTP Server Port | `1025` |
+| `SMTP_USER` | SMTP Username | `user` |
+| `SMTP_PASS` | SMTP Password | `pass` |
+| `FROM_EMAIL` | Sender address | `FormulAI <noreply@formulai.com>` |
+
+> **Note:** When running via `docker compose up`, the backend automatically connects to the `mailhog` service. If running the backend locally, use `localhost`.
 
 ## 📁 Repository
 
