@@ -3,15 +3,15 @@ import { FormData } from '../../services/formsService';
 
 interface ResponseData {
   _id: string;
-  answers: { questionId: string; value: any }[];
-  submittedAt: string;
+  answers: { questionId: string; value: string | number | string[] | boolean | null }[];
+  submittedAt: Date | string;
   respondentEmail?: string;
   ipAddress?: string;
   metadata?: {
     processedForAnalytics?: boolean;
     processingTaskId?: string;
     hasTextContent?: boolean;
-    lastAnalyzed?: string;
+    lastAnalyzed?: Date | string;
     overallSentiment?: {
       label?: string;
       score?: number;
@@ -84,7 +84,7 @@ export const RawResponsesTable: React.FC<RawResponsesTableProps> = ({
           )}
         </div>
       </div>
-      
+
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
@@ -114,7 +114,7 @@ export const RawResponsesTable: React.FC<RawResponsesTableProps> = ({
               const isProcessed = response.metadata?.processedForAnalytics === true;
               const isPending = response.metadata?.processingTaskId && !isProcessed;
               const hasText = response.metadata?.hasTextContent === true;
-              
+
               return (
                 <tr key={response._id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                   {showAnalyticsStatus && (

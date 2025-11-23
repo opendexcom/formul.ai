@@ -5,7 +5,7 @@ import { FormData, Question, QuestionType } from '../services/formsService';
 import { Button, LoadingSpinner, Alert } from '../components/ui';
 
 interface FormResponse {
-  [questionId: string]: any;
+  [questionId: string]: string | number | string[] | boolean | null;
 }
 
 const PublicFormView: React.FC = () => {
@@ -29,9 +29,9 @@ const PublicFormView: React.FC = () => {
     try {
       setLoading(true);
       setError('');
-      
+
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api'}/public/forms/${id}`);
-      
+
       if (!response.ok) {
         if (response.status === 404) {
           throw new Error('Form not found');
@@ -41,23 +41,23 @@ const PublicFormView: React.FC = () => {
           throw new Error('Failed to load form');
         }
       }
-      
+
       const formData = await response.json();
       setForm(formData);
-    } catch (error: any) {
-      setError(error.message);
-      console.error('Error loading public form:', error);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load form';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleInputChange = (questionId: string, value: any) => {
+  const handleInputChange = (questionId: string, value: string | number | string[] | boolean) => {
     setResponses(prev => ({
       ...prev,
       [questionId]: value
     }));
-    
+
     // Clear validation error when user starts typing
     if (validationErrors[questionId]) {
       setValidationErrors(prev => {
@@ -69,20 +69,20 @@ const PublicFormView: React.FC = () => {
 
   const validateForm = (): boolean => {
     if (!form) return false;
-    
+
     const errors: Record<string, string> = {};
-    
+
     form.questions.forEach(question => {
       if (question.required && (!responses[question.id] || responses[question.id] === '')) {
         errors[question.id] = 'This field is required';
       }
-      
+
       // Add specific validation based on question type
       if (responses[question.id]) {
         switch (question.type) {
           case QuestionType.EMAIL:
             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (!emailRegex.test(responses[question.id])) {
+            if (typeof responses[question.id] === 'string' && !emailRegex.test(responses[question.id] as string)) {
               errors[question.id] = 'Please enter a valid email address';
             }
             break;
@@ -94,24 +94,22 @@ const PublicFormView: React.FC = () => {
         }
       }
     });
-    
+
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!form || !validateForm()) {
       return;
     }
-    
+
     try {
       setSubmitting(true);
       setError('');
-      
-      console.log('Submitting form response:', { formId, responses });
-      
+
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api'}/public/forms/${formId}/responses`, {
         method: 'POST',
         headers: {
@@ -123,38 +121,33 @@ const PublicFormView: React.FC = () => {
           submittedAt: new Date().toISOString(),
         }),
       });
-      
-      console.log('Response status:', response.status);
-      
+
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Response error:', errorText);
-        throw new Error('Failed to submit response');
+        throw new Error(`Failed to submit response: ${errorText}`);
       }
-      
-      const result = await response.json();
-      console.log('Response result:', result);
-      
+
+      await response.json();
+
       if (!response.ok) {
         throw new Error('Failed to submit response');
       }
-      
+
       setSubmitted(true);
-    } catch (error: any) {
-      setError(error.message);
-      console.error('Error submitting form:', error);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to submit response';
+      setError(errorMessage);
     } finally {
       setSubmitting(false);
     }
   };
 
   const renderQuestion = (question: Question) => {
-    const value = responses[question.id] || '';
+    const value = responses[question.id] ?? '';
     const hasError = validationErrors[question.id];
-    
-    const inputClasses = `w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-      hasError ? 'border-red-300' : 'border-gray-300'
-    }`;
+
+    const inputClasses = `w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${hasError ? 'border-red-300' : 'border-gray-300'
+      }`;
 
     switch (question.type) {
       case QuestionType.TEXT:
@@ -162,7 +155,7 @@ const PublicFormView: React.FC = () => {
           <input
             type="text"
             className={inputClasses}
-            value={value}
+            value={value as string}
             onChange={(e) => handleInputChange(question.id, e.target.value)}
             placeholder="Enter your answer"
           />
@@ -173,7 +166,7 @@ const PublicFormView: React.FC = () => {
           <textarea
             className={inputClasses}
             rows={4}
-            value={value}
+            value={value as string}
             onChange={(e) => handleInputChange(question.id, e.target.value)}
             placeholder="Enter your answer"
           />
@@ -184,7 +177,7 @@ const PublicFormView: React.FC = () => {
           <input
             type="email"
             className={inputClasses}
-            value={value}
+            value={value as string}
             onChange={(e) => handleInputChange(question.id, e.target.value)}
             placeholder="Enter your email address"
           />
@@ -195,7 +188,7 @@ const PublicFormView: React.FC = () => {
           <input
             type="number"
             className={inputClasses}
-            value={value}
+            value={value as string | number}
             onChange={(e) => handleInputChange(question.id, e.target.value)}
             placeholder="Enter a number"
           />
@@ -206,7 +199,7 @@ const PublicFormView: React.FC = () => {
           <input
             type="date"
             className={inputClasses}
-            value={value}
+            value={value as string}
             onChange={(e) => handleInputChange(question.id, e.target.value)}
           />
         );
@@ -216,7 +209,7 @@ const PublicFormView: React.FC = () => {
           <input
             type="time"
             className={inputClasses}
-            value={value}
+            value={value as string}
             onChange={(e) => handleInputChange(question.id, e.target.value)}
           />
         );
@@ -269,7 +262,7 @@ const PublicFormView: React.FC = () => {
         return (
           <select
             className={inputClasses}
-            value={value}
+            value={value as string}
             onChange={(e) => handleInputChange(question.id, e.target.value)}
           >
             <option value="">Select an option</option>
@@ -290,11 +283,10 @@ const PublicFormView: React.FC = () => {
                 key={index}
                 type="button"
                 onClick={() => handleInputChange(question.id, index + 1)}
-                className={`w-8 h-8 rounded-full border-2 ${
-                  value > index
-                    ? 'bg-blue-600 border-blue-600 text-white'
-                    : 'border-gray-300 text-gray-400'
-                } hover:border-blue-400 transition-colors`}
+                className={`w-8 h-8 rounded-full border-2 ${Number(value) > index
+                  ? 'bg-blue-600 border-blue-600 text-white'
+                  : 'border-gray-300 text-gray-400'
+                  } hover:border-blue-400 transition-colors`}
               >
                 {index + 1}
               </button>
@@ -307,7 +299,7 @@ const PublicFormView: React.FC = () => {
           <input
             type="text"
             className={inputClasses}
-            value={value}
+            value={value as string}
             onChange={(e) => handleInputChange(question.id, e.target.value)}
             placeholder="Enter your answer"
           />
