@@ -1,18 +1,19 @@
-import { 
-  Controller, 
-  Get, 
-  Post, 
-  Body, 
-  Patch, 
-  Param, 
-  Delete, 
-  UseGuards, 
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
   Request,
   HttpCode,
   HttpStatus,
   Req,
   Query,
   Res,
+  Logger,
 } from '@nestjs/common';
 import type { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
@@ -31,6 +32,8 @@ import { ProgressService } from '../analytics/queues/progress.service';
 @UseGuards(JwtAuthGuard)
 @Controller('forms')
 export class FormsController {
+  private readonly logger = new Logger(FormsController.name);
+
   constructor(
     private readonly formsService: FormsService,
     private readonly emailService: EmailService,
@@ -38,7 +41,7 @@ export class FormsController {
     private readonly jwtService: JwtService,
     private readonly orchestrationProducer: OrchestrationProducer,
     private readonly progressService: ProgressService,
-  ) {}
+  ) { }
 
   @Post()
   @ApiOperation({ summary: 'Create a new form' })
@@ -46,7 +49,8 @@ export class FormsController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   create(@Body() createFormDto: CreateFormDto, @Request() req) {
     const userId = req.user._id || req.user.id;
-    console.log('CREATE FORM REQUEST - Method: POST, User:', req.user.email, 'Data:', createFormDto);
+    this.logger.log(`CREATE FORM REQUEST - Method: POST, User: ${req.user.email}`);
+    this.logger.debug(`Data: ${JSON.stringify(createFormDto)}`);
     return this.formsService.create(createFormDto, userId);
   }
 
@@ -56,7 +60,7 @@ export class FormsController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   findAll(@Request() req) {
     const userId = req.user._id || req.user.id;
-    console.log('GET ALL FORMS REQUEST - Method: GET, User:', req.user.email, 'UserId:', userId);
+    this.logger.log(`GET ALL FORMS REQUEST - Method: GET, User: ${req.user.email}, UserId: ${userId}`);
     return this.formsService.findAllByUser(userId);
   }
 
@@ -67,7 +71,7 @@ export class FormsController {
   @ApiResponse({ status: 403, description: 'Access denied' })
   findOne(@Param('id') id: string, @Request() req) {
     const userId = req.user._id || req.user.id;
-    console.log('GET FORM REQUEST - Form ID:', id, 'User:', req.user.email, 'UserId:', userId);
+    this.logger.log(`GET FORM REQUEST - Form ID: ${id}, User: ${req.user.email}, UserId: ${userId}`);
     return this.formsService.findOne(id, userId);
   }
 
@@ -79,7 +83,7 @@ export class FormsController {
   update(@Param('id') id: string, @Body() updateFormDto: UpdateFormDto, @Request() req) {
     // Extract user ID - try both _id and id properties
     const userId = req.user._id || req.user.id;
-    console.log('Update form request - User:', req.user, 'UserId:', userId);
+    this.logger.log(`Update form request - User: ${JSON.stringify(req.user)}, UserId: ${userId}`);
     return this.formsService.update(id, updateFormDto, userId);
   }
 
@@ -137,13 +141,13 @@ export class FormsController {
     const userId = req.user._id || req.user.id;
     // Verify user owns the form
     await this.formsService.findOne(id, userId);
-    
+
     // Build query filters
     const filters: any = {};
     if (sentiment) {
       // Case-insensitive sentiment filter using MongoDB $regex syntax
       filters['metadata.overallSentiment.label'] = { $regex: `^${sentiment}$`, $options: 'i' };
-      console.log('[getFormResponses] Sentiment filter applied:', { sentiment, filter: filters['metadata.overallSentiment.label'] });
+      this.logger.debug(`[getFormResponses] Sentiment filter applied: ${JSON.stringify({ sentiment, filter: filters['metadata.overallSentiment.label'] })}`);
     }
     if (topics) {
       const topicArray = topics.split(',').map(t => t.trim());
@@ -158,8 +162,8 @@ export class FormsController {
       // Case-insensitive depth filter
       filters['metadata.quotes.responseQuality.depth'] = { $regex: `^${depth}$`, $options: 'i' };
     }
-    
-    console.log('[getFormResponses] Complete filters object:', JSON.stringify(filters, null, 2));
+
+    this.logger.debug(`[getFormResponses] Complete filters object: ${JSON.stringify(filters, null, 2)}`);
     return this.formsService.getFormResponses(id, filters);
   }
 
@@ -173,7 +177,7 @@ export class FormsController {
     const userId = req.user._id || req.user.id;
     // Verify user owns the form
     await this.formsService.findOne(id, userId);
-    
+
     // Always return cached analytics, never regenerate
     return this.analyticsService.getFormAnalytics(id);
   }
@@ -193,33 +197,33 @@ export class FormsController {
   ) {
     const reprocessBool = reprocess === 'true';
     const onlyFailedBool = onlyFailed === 'true';
-    
-    console.log('[SSE] Analytics stream requested for form:', id, {
+
+    this.logger.log(`[SSE] Analytics stream requested for form: ${id}`, {
       existingTaskId,
       reprocess: reprocessBool,
       onlyFailed: onlyFailedBool
     });
-    
+
     // Extract token from Authorization header
     const authHeader = reqExpress.headers.authorization;
-    
+
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.log('[SSE] No authorization header found');
+      this.logger.warn('[SSE] No authorization header found');
       res.status(401).json({ message: 'Authentication required. Please provide Bearer token in Authorization header.' });
       return;
     }
-    
+
     const token = authHeader.substring(7);
 
     // Manually verify JWT and get user (since we can't use guards with @Res())
     try {
       const payload = await this.jwtService.verifyAsync(token);
       const userId = payload.sub;
-      console.log('[SSE] User authenticated:', userId);
+      this.logger.debug(`[SSE] User authenticated: ${userId}`);
 
       // Verify user owns the form
       const form = await this.formsService.findOne(id, userId);
-      console.log('[SSE] User owns form, processing request...');
+      this.logger.debug('[SSE] User owns form, processing request...');
 
       // Use provided taskId or generate a new one
       const taskId = existingTaskId || randomUUID();
@@ -232,13 +236,13 @@ export class FormsController {
       res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
 
       // Send initial connection message with taskId
-      const connectMsg = JSON.stringify({ 
-        type: 'connected', 
+      const connectMsg = JSON.stringify({
+        type: 'connected',
         message: existing ? 'Reconnected to existing analytics task' : 'Started new analytics task',
         taskId,
         existing,
       });
-      console.log('[SSE] Sending:', connectMsg);
+      this.logger.debug(`[SSE] Sending: ${connectMsg}`);
       res.write(`data: ${connectMsg}\n\n`);
 
       try {
@@ -254,7 +258,7 @@ export class FormsController {
               unsubscribed = true;
               unsubscribe().finally(() => {
                 res.end();
-                console.log('[SSE] Stream ended and cleaned up');
+                this.logger.log('[SSE] Stream ended and cleaned up');
               });
             }
           }
@@ -262,19 +266,19 @@ export class FormsController {
 
         // If reprocessing is requested, do that first
         if (!existing && reprocessBool) {
-          console.log('[SSE] Reprocessing responses before generation...');
-          const reprocessMsg = JSON.stringify({ 
-            type: 'progress', 
-            message: 'Reprocessing responses...', 
+          this.logger.log('[SSE] Reprocessing responses before generation...');
+          const reprocessMsg = JSON.stringify({
+            type: 'progress',
+            message: 'Reprocessing responses...',
             progress: 0,
-            taskId 
+            taskId
           });
           res.write(`data: ${reprocessMsg}\n\n`);
           const reprocessResult = await this.analyticsService.reprocessAllResponses(id, onlyFailedBool);
           const modified = (reprocessResult?.modifiedCount ?? reprocessResult?.totalReprocessed ?? 0) as number;
-          const reprocessedMsg = JSON.stringify({ 
-            type: 'reprocessed', 
-            message: `${modified} responses marked for reprocessing`, 
+          const reprocessedMsg = JSON.stringify({
+            type: 'reprocessed',
+            message: `${modified} responses marked for reprocessing`,
             progress: 2,
             taskId,
             modifiedCount: modified
@@ -283,27 +287,27 @@ export class FormsController {
         }
 
         // Enqueue orchestration job (don't await)
-        console.log('[SSE] Enqueuing orchestration job with taskId:', taskId);
+        this.logger.log(`[SSE] Enqueuing orchestration job with taskId: ${taskId}`);
         await this.orchestrationProducer.enqueueOrchestration(id, taskId, true);
 
         // Cleanup on client disconnect (only if not already unsubscribed)
         reqExpress.on('close', () => {
           if (!unsubscribed) {
             unsubscribed = true;
-            console.log('[SSE] Client disconnected, cleaning up...');
+            this.logger.log('[SSE] Client disconnected, cleaning up...');
             unsubscribe().catch(err => {
-              console.error('[SSE] Error during disconnect cleanup:', err);
+              this.logger.error('[SSE] Error during disconnect cleanup:', err);
             });
           }
         });
       } catch (error) {
         const errorMsg = JSON.stringify({ type: 'error', message: error.message, taskId });
-        console.log('[SSE] Error:', errorMsg);
+        this.logger.error(`[SSE] Error: ${errorMsg}`);
         res.write(`data: ${errorMsg}\n\n`);
         res.end();
       }
     } catch (authError) {
-      console.log('[SSE] Authentication failed:', authError.message);
+      this.logger.error(`[SSE] Authentication failed: ${authError.message}`);
       res.status(401).json({ message: 'Authentication failed', error: authError.message });
     }
   }
@@ -316,15 +320,15 @@ export class FormsController {
     @Request() req,
   ) {
     const userId = req.user._id || req.user.id;
-    
+
     // Verify user owns the form
     await this.formsService.findOne(id, userId);
-    
-    const task = this.analyticsService.getTaskStatus(taskId);
+
+    const task = await this.analyticsService.getTaskStatus(taskId);
     if (!task) {
       return { found: false, message: 'Task not found or expired' };
     }
-    
+
     return {
       found: true,
       task,
@@ -341,10 +345,10 @@ export class FormsController {
     @Request() req,
   ) {
     const userId = req.user._id || req.user.id;
-    
+
     // Verify user owns the form
     await this.formsService.findOne(formId, userId);
-    
+
     return this.analyticsService.reprocessSingleResponse(formId, responseId);
   }
 
@@ -358,10 +362,10 @@ export class FormsController {
     @Query('onlyFailed') onlyFailed?: string,
   ) {
     const userId = req.user._id || req.user.id;
-    
+
     // Verify user owns the form
     await this.formsService.findOne(formId, userId);
-    
+
     const onlyFailedBool = onlyFailed === 'true';
     return this.analyticsService.reprocessAllResponses(formId, onlyFailedBool);
   }
@@ -372,10 +376,10 @@ export class FormsController {
   @ApiResponse({ status: 400, description: 'Invalid invitation data' })
   async sendInvitations(@Param('id') id: string, @Body() invitationData: any, @Request() req) {
     const userId = req.user._id || req.user.id;
-    
+
     // Verify user owns the form and get form details
     const form = await this.formsService.findOne(id, userId);
-    
+
     if (!form.isPublic) {
       throw new Error('Form must be public to send invitations');
     }
@@ -393,7 +397,7 @@ export class FormsController {
     };
 
     const results = await this.emailService.sendFormInvitation(emailData);
-    
+
     return {
       success: true,
       message: 'Invitations processed',
@@ -416,7 +420,9 @@ export class FormsController {
 @ApiTags('Public Forms')
 @Controller('public/forms')
 export class PublicFormsController {
-  constructor(private readonly formsService: FormsService) {}
+  private readonly logger = new Logger(PublicFormsController.name);
+
+  constructor(private readonly formsService: FormsService) { }
 
   @Get('test')
   @ApiOperation({ summary: 'Test endpoint to verify public access' })
@@ -451,7 +457,7 @@ export class PublicFormsController {
   @ApiResponse({ status: 404, description: 'Form not found or not public' })
   @ApiResponse({ status: 403, description: 'Form is not public' })
   async getPublicForm(@Param('id') id: string) {
-    console.log('Public form request for ID:', id);
+    this.logger.log(`Public form request for ID: ${id}`);
     return this.formsService.findPublicForm(id);
   }
 

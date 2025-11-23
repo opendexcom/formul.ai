@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Form, FormDocument } from '../../schemas/form.schema';
@@ -37,6 +37,8 @@ import { LockToken } from '../stores/form-lock.store';
  */
 @Injectable()
 export class AnalyticsOrchestrator {
+  private readonly logger = new Logger(AnalyticsOrchestrator.name);
+
   constructor(
     private readonly taskManager: TaskManager,
     private readonly responseProcessor: ResponseProcessor,
@@ -49,7 +51,7 @@ export class AnalyticsOrchestrator {
     private readonly recommendationsGenerator: RecommendationsGenerator,
     @InjectModel(Form.name) private readonly formModel: Model<FormDocument>,
     @InjectModel(Response.name) private readonly responseModel: Model<ResponseDocument>,
-  ) {}
+  ) { }
 
   /**
    * Generate analytics with SSE progress streaming
@@ -65,7 +67,7 @@ export class AnalyticsOrchestrator {
     try {
       // 1. Create task
       taskId = await this.taskManager.createTask(formId);
-      
+
       progressCallback({
         type: 'start',
         message: 'Starting analytics generation...',
@@ -109,7 +111,7 @@ export class AnalyticsOrchestrator {
         }
       );
 
-      console.log(`[AnalyticsOrchestrator][${taskId}] Processed ${processingResult.processedCount} responses`);
+      this.logger.log(`[${taskId}] Processed ${processingResult.processedCount} responses`);
 
       // 5. Cluster topics (45-55%)
       progressCallback({
@@ -128,7 +130,7 @@ export class AnalyticsOrchestrator {
         }
       );
 
-      console.log(`[AnalyticsOrchestrator][${taskId}] Created ${clusteringResult.canonicalTopics.length} canonical topics`);
+      this.logger.log(`[${taskId}] Created ${clusteringResult.canonicalTopics.length} canonical topics`);
 
       // 5.5 Mark responses as processed before aggregate calculations
       progressCallback({
@@ -182,19 +184,19 @@ export class AnalyticsOrchestrator {
       });
 
     } catch (error) {
-      console.error(`[AnalyticsOrchestrator] Error:`, error);
+      this.logger.error(`Error:`, error);
 
       // Mark responses as processed before cleanup (best effort)
       if (taskId) {
         try {
-          console.log(`[AnalyticsOrchestrator][${taskId}] Releasing task claim and marking responses as processed (cleanup)`);
+          this.logger.log(`[${taskId}] Releasing task claim and marking responses as processed (cleanup)`);
           const form = await this.formModel.findById(formId).exec();
           if (form) {
             await this.responseProcessor.releaseTaskClaim(taskId, form._id as Types.ObjectId);
-            console.log(`[AnalyticsOrchestrator][${taskId}] Responses marked as processed during cleanup`);
+            this.logger.log(`[${taskId}] Responses marked as processed during cleanup`);
           }
         } catch (releaseError) {
-          console.error(`[AnalyticsOrchestrator][${taskId}] Failed to release task claim during cleanup:`, releaseError);
+          this.logger.error(`[${taskId}] Failed to release task claim during cleanup:`, releaseError);
         }
       }
 
@@ -479,7 +481,7 @@ export class AnalyticsOrchestrator {
    */
   private collectQuotesFromResponses(responses: ResponseDocument[]): any[] {
     const allQuotes: any[] = [];
-    
+
     responses.forEach(r => {
       if (r.metadata?.quotes?.keyQuotes && Array.isArray(r.metadata.quotes.keyQuotes)) {
         r.metadata.quotes.keyQuotes.forEach((quote: any) => {
@@ -507,14 +509,14 @@ export class AnalyticsOrchestrator {
     const tones = responses
       .map(r => r.metadata?.overallSentiment?.emotionalTone)
       .filter((tone): tone is string => typeof tone === 'string');
-    
+
     const toneCounts = tones.reduce((acc, tone) => {
       acc[tone] = (acc[tone] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
 
     const totalTones = tones.length;
-    
+
     return Object.entries(toneCounts)
       .sort(([, a], [, b]) => b - a)
       .slice(0, 5)

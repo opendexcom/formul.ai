@@ -8,6 +8,9 @@ import { TaskManager } from '../analytics/core/task.manager';
 import { randomUUID } from 'crypto';
 import { OrchestrationProducer } from '../analytics/queues/orchestration.producer';
 import { ProgressService } from '../analytics/queues/progress.service';
+import { InjectQueue } from '@nestjs/bull';
+import type { Queue } from 'bull';
+import { QueueName } from '../analytics/queues/queue.names';
 
 export interface AnalyticsTask {
   taskId: string;
@@ -22,9 +25,6 @@ export interface AnalyticsTask {
 
 @Injectable()
 export class AnalyticsService {
-  // In-memory task tracking for backward compatibility with existing controller code
-  private activeTasks: Map<string, AnalyticsTask> = new Map();
-
   constructor(
     @InjectModel(Response.name) private responseModel: Model<ResponseDocument>,
     @InjectModel(Form.name) private formModel: Model<FormDocument>,
@@ -32,29 +32,36 @@ export class AnalyticsService {
     private taskManager: TaskManager,
     private readonly orchestrationProducer: OrchestrationProducer,
     private readonly progressService: ProgressService,
-  ) {
-    // Start cleanup job for stale in-memory tasks (every 5 minutes)
-    setInterval(() => this.cleanupStaleInMemoryTasks(), 5 * 60 * 1000);
+    @InjectQueue(QueueName.ORCHESTRATION) private orchestrationQueue: Queue,
+  ) { }
+
+  private getTaskKey(taskId: string): string {
+    return `analytics:task:${taskId}`;
   }
 
-  /**
-   * Clean up stale in-memory task entries (older than 1 hour)
-   */
-  private cleanupStaleInMemoryTasks(): void {
-    const staleThreshold = new Date(Date.now() - 60 * 60 * 1000); // 1 hour ago
-    
-    for (const [taskId, task] of this.activeTasks.entries()) {
-      if (task.startedAt < staleThreshold && task.status !== 'running') {
-        this.activeTasks.delete(taskId);
-      }
-    }
+  private async saveTaskState(task: AnalyticsTask): Promise<void> {
+    await this.orchestrationQueue.client.set(
+      this.getTaskKey(task.taskId),
+      JSON.stringify(task),
+      'EX',
+      3600 // 1 hour expiration
+    );
+  }
+
+  private async getTaskState(taskId: string): Promise<AnalyticsTask | null> {
+    const data = await this.orchestrationQueue.client.get(this.getTaskKey(taskId));
+    return data ? JSON.parse(data) : null;
   }
 
   /**
    * Get or create analytics task for a form
    * Creates a NEW task every time to allow parallel processing
    */
-  getOrCreateAnalyticsTask(formId: string, forceNew: boolean = false): { taskId: string; existing: boolean; task?: AnalyticsTask } {
+  /**
+   * Get or create analytics task for a form
+   * Creates a NEW task every time to allow parallel processing
+   */
+  async getOrCreateAnalyticsTask(formId: string, forceNew: boolean = false): Promise<{ taskId: string; existing: boolean; task?: AnalyticsTask }> {
     // Always create a new task for parallel processing
     const taskId = randomUUID();
     const task: AnalyticsTask = {
@@ -65,9 +72,9 @@ export class AnalyticsService {
       message: 'Initializing...',
       startedAt: new Date(),
     };
-    
-    this.activeTasks.set(taskId, task);
-    
+
+    await this.saveTaskState(task);
+
     return {
       taskId,
       existing: false,
@@ -78,18 +85,25 @@ export class AnalyticsService {
   /**
    * Get task status
    */
-  getTaskStatus(taskId: string): AnalyticsTask | null {
-    return this.activeTasks.get(taskId) || null;
+  /**
+   * Get task status
+   */
+  async getTaskStatus(taskId: string): Promise<AnalyticsTask | null> {
+    return this.getTaskState(taskId);
   }
 
   /**
    * Update task progress
    */
-  private updateTaskProgress(taskId: string, progress: number, message: string): void {
-    const task = this.activeTasks.get(taskId);
+  /**
+   * Update task progress
+   */
+  private async updateTaskProgress(taskId: string, progress: number, message: string): Promise<void> {
+    const task = await this.getTaskState(taskId);
     if (task) {
       task.progress = progress;
       task.message = message;
+      await this.saveTaskState(task);
     }
   }
 
@@ -97,7 +111,7 @@ export class AnalyticsService {
    * Complete task
    */
   private async completeTask(taskId: string, success: boolean, error?: string): Promise<void> {
-    const task = this.activeTasks.get(taskId);
+    const task = await this.getTaskState(taskId);
     if (task) {
       task.status = success ? 'completed' : 'failed';
       task.completedAt = new Date();
@@ -105,6 +119,7 @@ export class AnalyticsService {
       if (error) {
         task.error = error;
       }
+      await this.saveTaskState(task);
     }
   }
 
@@ -117,8 +132,8 @@ export class AnalyticsService {
       throw new Error('Form not found');
     }
 
-    const totalResponses = await this.responseModel.countDocuments({ 
-      formId: new Types.ObjectId(formId) 
+    const totalResponses = await this.responseModel.countDocuments({
+      formId: new Types.ObjectId(formId)
     }).exec();
 
     return {
@@ -148,29 +163,29 @@ export class AnalyticsService {
     }
 
     console.log(`[Analytics][${taskId}] Starting analytics generation for form: ${formId}`);
-    
+
     const form = await this.formModel.findById(formId).exec();
     if (!form) {
       throw new Error('Form not found');
     }
 
-    const totalResponses = await this.responseModel.countDocuments({ 
-      formId: new Types.ObjectId(formId) 
+    const totalResponses = await this.responseModel.countDocuments({
+      formId: new Types.ObjectId(formId)
     }).exec();
-    
+
     console.log(`[Analytics][${taskId}] Total responses found: ${totalResponses}`);
 
     if (totalResponses < 10) {
       throw new Error('At least 10 responses required to generate analytics');
     }
 
-    // Update in-memory task for backward compatibility
-    this.updateTaskProgress(taskId, 0, 'Starting analytics generation...');
-    progressCallback({ 
-      type: 'start', 
-      message: 'Starting analytics generation...', 
-      progress: 0, 
-      taskId 
+    // Update task in Redis for backward compatibility
+    await this.updateTaskProgress(taskId, 0, 'Starting analytics generation...');
+    progressCallback({
+      type: 'start',
+      message: 'Starting analytics generation...',
+      progress: 0,
+      taskId
     });
 
     try {
@@ -183,7 +198,7 @@ export class AnalyticsService {
       const result = await new Promise<any>((resolve, reject) => {
         const onUpdate = (update: any) => {
           if (update.taskId !== taskId) return; // filter other tasks
-          // Update in-memory task progress
+          // Update task progress in Redis
           if (update.type === 'progress' || update.type === 'start') {
             this.updateTaskProgress(taskId, update.progress ?? 0, update.message ?? '');
           }
@@ -194,7 +209,7 @@ export class AnalyticsService {
             const processingTime = Date.now() - startTime;
             this.updateTaskProgress(taskId, 100, 'Analytics generation complete!');
             this.completeTask(taskId, true);
-            this.progressService.onProgress(() => {}); // no-op to keep subscriber active
+            this.progressService.onProgress(() => { }); // no-op to keep subscriber active
             resolve({ processingTime });
           } else if (update.type === 'error') {
             this.completeTask(taskId, false, update.message);
@@ -298,7 +313,7 @@ export class AnalyticsService {
 
     // Filter to only responses that have text content
     const responsesWithText = responses.filter(response => {
-      return response.answers.some(answer => 
+      return response.answers.some(answer =>
         answer.value && typeof answer.value === 'string' && answer.value.trim().length > 0
       );
     });

@@ -113,6 +113,6 @@ import { DeadLetterConsumer } from './dead-letter.consumer';
     BatchProcessor,
     PromptBuilder,
   ],
-  exports: [OrchestrationProducer, ProgressService],
+  exports: [OrchestrationProducer, ProgressService, BullModule],
 })
-export class AnalyticsQueueModule {}
+export class AnalyticsQueueModule { }
