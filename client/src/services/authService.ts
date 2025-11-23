@@ -1,7 +1,6 @@
-import axios from 'axios';
 import { getUserIdFromToken, isTokenExpired } from '../utils/jwtUtils';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
+import { apiClient } from './apiClient';
+import { getErrorMessage } from '../utils/errorHandling';
 
 export interface LoginRequest {
   email: string;
@@ -26,44 +25,36 @@ export interface AuthResponse {
 }
 
 class AuthService {
-  private api = axios.create({
-    baseURL: API_BASE_URL,
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  });
-
-  constructor() {
-    // Add token to requests if available
-    this.api.interceptors.request.use((config) => {
-      const token = localStorage.getItem('token');
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
-      return config;
-    });
-  }
+  private api = apiClient;
 
   async login(credentials: LoginRequest): Promise<AuthResponse> {
-    const response = await this.api.post('/auth/login', credentials);
-    const { user, token } = response.data;
-    
-    // Store token in localStorage
-    localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(user));
-    
-    return response.data;
+    try {
+      const response = await this.api.post<AuthResponse>('/auth/login', credentials);
+      const { user, token } = response.data;
+      
+      // Store token in localStorage
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(user));
+      
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
   }
 
   async register(userData: RegisterRequest): Promise<AuthResponse> {
-    const response = await this.api.post('/auth/register', userData);
-    const { user, token } = response.data;
-    
-    // Store token in localStorage
-    localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(user));
-    
-    return response.data;
+    try {
+      const response = await this.api.post<AuthResponse>('/auth/register', userData);
+      const { user, token } = response.data;
+      
+      // Store token in localStorage
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(user));
+      
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
   }
 
   logout(): void {

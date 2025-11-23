@@ -36,8 +36,9 @@ const LandingPage: React.FC = () => {
       } else {
         await login(formData.email, formData.password);
       }
-    } catch (error: any) {
-      setError(error.response?.data?.message || 'An error occurred');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'An error occurred';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

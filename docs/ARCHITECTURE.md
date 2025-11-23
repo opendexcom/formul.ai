@@ -413,6 +413,24 @@ User → Analytics Dashboard → GET /forms/:id/analytics
   → Render 13 analytics cards
 ```
 
+## Updated Client‑Side Infrastructure
+
+### Shared API Client (`apiClient.ts`)
+- Provides a single Axios instance with request and response interceptors.
+- Handles JWT attachment, global 401 response handling (clears auth state and redirects to login), and centralized error handling.
+
+### Error Handling Utilities (`errorHandling.ts`)
+- Centralized functions to extract user‑friendly error messages from Axios errors and generic errors.
+- Used across services and components to ensure consistent error display.
+
+### Logger (`logger.ts`)
+- Simple wrapper around `console` with log levels (`debug`, `info`, `warn`, `error`).
+- Allows easy replacement with a more sophisticated logging library in the future.
+
+### Global Error Boundary (`ErrorBoundary.tsx`)
+- React error boundary component that catches rendering errors in the component tree.
+- Displays a fallback UI and logs the error via the logger utility.
+
 ## Technology Stack
 
 ### Frontend
@@ -424,7 +442,7 @@ User → Analytics Dashboard → GET /forms/:id/analytics
 - **Routing**: React Router 6
 - **HTTP Client**: Axios
 - **UI Components**: Custom components with Lucide icons
-
+- **See detailed client utilities in** [architecture_overview.md](architecture_overview.md)
 ### Backend
 - **Framework**: NestJS 10
 - **Language**: TypeScript 5

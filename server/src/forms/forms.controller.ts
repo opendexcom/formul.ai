@@ -1,18 +1,19 @@
-import { 
-  Controller, 
-  Get, 
-  Post, 
-  Body, 
-  Patch, 
-  Param, 
-  Delete, 
-  UseGuards, 
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
   Request,
   HttpCode,
   HttpStatus,
   Req,
   Query,
   Res,
+  BadRequestException,
 } from '@nestjs/common';
 import type { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
@@ -38,7 +39,7 @@ export class FormsController {
     private readonly jwtService: JwtService,
     private readonly orchestrationProducer: OrchestrationProducer,
     private readonly progressService: ProgressService,
-  ) {}
+  ) { }
 
   @Post()
   @ApiOperation({ summary: 'Create a new form' })
@@ -135,9 +136,25 @@ export class FormsController {
     @Query('depth') depth?: string,
   ) {
     const userId = req.user._id || req.user.id;
+
+    // Validate enum values to prevent XSS through exception text
+    const validSentiments = ['positive', 'neutral', 'negative', 'ambivalent'];
+    const validRepresentativeness = ['typical', 'deviant', 'mixed'];
+    const validDepth = ['superficial', 'moderate', 'deep'];
+
+    if (sentiment && !validSentiments.includes(sentiment.toLowerCase())) {
+      throw new BadRequestException('Invalid sentiment value');
+    }
+    if (representativeness && !validRepresentativeness.includes(representativeness.toLowerCase())) {
+      throw new BadRequestException('Invalid representativeness value');
+    }
+    if (depth && !validDepth.includes(depth.toLowerCase())) {
+      throw new BadRequestException('Invalid depth value');
+    }
+
     // Verify user owns the form
     await this.formsService.findOne(id, userId);
-    
+
     // Build query filters
     const filters: any = {};
     if (sentiment) {
@@ -158,7 +175,7 @@ export class FormsController {
       // Case-insensitive depth filter
       filters['metadata.quotes.responseQuality.depth'] = { $regex: `^${depth}$`, $options: 'i' };
     }
-    
+
     console.log('[getFormResponses] Complete filters object:', JSON.stringify(filters, null, 2));
     return this.formsService.getFormResponses(id, filters);
   }
@@ -173,7 +190,7 @@ export class FormsController {
     const userId = req.user._id || req.user.id;
     // Verify user owns the form
     await this.formsService.findOne(id, userId);
-    
+
     // Always return cached analytics, never regenerate
     return this.analyticsService.getFormAnalytics(id);
   }
@@ -193,22 +210,22 @@ export class FormsController {
   ) {
     const reprocessBool = reprocess === 'true';
     const onlyFailedBool = onlyFailed === 'true';
-    
+
     console.log('[SSE] Analytics stream requested for form:', id, {
       existingTaskId,
       reprocess: reprocessBool,
       onlyFailed: onlyFailedBool
     });
-    
+
     // Extract token from Authorization header
     const authHeader = reqExpress.headers.authorization;
-    
+
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       console.log('[SSE] No authorization header found');
       res.status(401).json({ message: 'Authentication required. Please provide Bearer token in Authorization header.' });
       return;
     }
-    
+
     const token = authHeader.substring(7);
 
     // Manually verify JWT and get user (since we can't use guards with @Res())
@@ -222,7 +239,19 @@ export class FormsController {
       console.log('[SSE] User owns form, processing request...');
 
       // Use provided taskId or generate a new one
-      const taskId = existingTaskId || randomUUID();
+      // Validate taskId format to prevent XSS (must be UUID format)
+      let taskId: string;
+      if (existingTaskId) {
+        // Validate UUID format (8-4-4-4-12 hex digits)
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!uuidRegex.test(existingTaskId)) {
+          res.status(400).json({ message: 'Invalid taskId format' });
+          return;
+        }
+        taskId = existingTaskId;
+      } else {
+        taskId = randomUUID();
+      }
       const existing = Boolean(existingTaskId);
 
       // Set SSE headers
@@ -232,8 +261,8 @@ export class FormsController {
       res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
 
       // Send initial connection message with taskId
-      const connectMsg = JSON.stringify({ 
-        type: 'connected', 
+      const connectMsg = JSON.stringify({
+        type: 'connected',
         message: existing ? 'Reconnected to existing analytics task' : 'Started new analytics task',
         taskId,
         existing,
@@ -263,18 +292,18 @@ export class FormsController {
         // If reprocessing is requested, do that first
         if (!existing && reprocessBool) {
           console.log('[SSE] Reprocessing responses before generation...');
-          const reprocessMsg = JSON.stringify({ 
-            type: 'progress', 
-            message: 'Reprocessing responses...', 
+          const reprocessMsg = JSON.stringify({
+            type: 'progress',
+            message: 'Reprocessing responses...',
             progress: 0,
-            taskId 
+            taskId
           });
           res.write(`data: ${reprocessMsg}\n\n`);
           const reprocessResult = await this.analyticsService.reprocessAllResponses(id, onlyFailedBool);
           const modified = (reprocessResult?.modifiedCount ?? reprocessResult?.totalReprocessed ?? 0) as number;
-          const reprocessedMsg = JSON.stringify({ 
-            type: 'reprocessed', 
-            message: `${modified} responses marked for reprocessing`, 
+          const reprocessedMsg = JSON.stringify({
+            type: 'reprocessed',
+            message: `${modified} responses marked for reprocessing`,
             progress: 2,
             taskId,
             modifiedCount: modified
@@ -297,14 +326,16 @@ export class FormsController {
           }
         });
       } catch (error) {
-        const errorMsg = JSON.stringify({ type: 'error', message: error.message, taskId });
-        console.log('[SSE] Error:', errorMsg);
+        // Sanitize error message to prevent XSS - don't include user-controlled data
+        const safeErrorMsg = 'An error occurred during analytics generation';
+        const errorMsg = JSON.stringify({ type: 'error', message: safeErrorMsg, taskId });
+        console.error('[SSE] Error during analytics generation:', error);
         res.write(`data: ${errorMsg}\n\n`);
         res.end();
       }
     } catch (authError) {
-      console.log('[SSE] Authentication failed:', authError.message);
-      res.status(401).json({ message: 'Authentication failed', error: authError.message });
+      console.error('[SSE] Authentication failed:', authError);
+      res.status(401).json({ message: 'Authentication failed' });
     }
   }
 
@@ -316,15 +347,15 @@ export class FormsController {
     @Request() req,
   ) {
     const userId = req.user._id || req.user.id;
-    
+
     // Verify user owns the form
     await this.formsService.findOne(id, userId);
-    
+
     const task = this.analyticsService.getTaskStatus(taskId);
     if (!task) {
       return { found: false, message: 'Task not found or expired' };
     }
-    
+
     return {
       found: true,
       task,
@@ -341,10 +372,10 @@ export class FormsController {
     @Request() req,
   ) {
     const userId = req.user._id || req.user.id;
-    
+
     // Verify user owns the form
     await this.formsService.findOne(formId, userId);
-    
+
     return this.analyticsService.reprocessSingleResponse(formId, responseId);
   }
 
@@ -358,10 +389,10 @@ export class FormsController {
     @Query('onlyFailed') onlyFailed?: string,
   ) {
     const userId = req.user._id || req.user.id;
-    
+
     // Verify user owns the form
     await this.formsService.findOne(formId, userId);
-    
+
     const onlyFailedBool = onlyFailed === 'true';
     return this.analyticsService.reprocessAllResponses(formId, onlyFailedBool);
   }
@@ -372,10 +403,10 @@ export class FormsController {
   @ApiResponse({ status: 400, description: 'Invalid invitation data' })
   async sendInvitations(@Param('id') id: string, @Body() invitationData: any, @Request() req) {
     const userId = req.user._id || req.user.id;
-    
+
     // Verify user owns the form and get form details
     const form = await this.formsService.findOne(id, userId);
-    
+
     if (!form.isPublic) {
       throw new Error('Form must be public to send invitations');
     }
@@ -393,7 +424,7 @@ export class FormsController {
     };
 
     const results = await this.emailService.sendFormInvitation(emailData);
-    
+
     return {
       success: true,
       message: 'Invitations processed',
@@ -416,7 +447,7 @@ export class FormsController {
 @ApiTags('Public Forms')
 @Controller('public/forms')
 export class PublicFormsController {
-  constructor(private readonly formsService: FormsService) {}
+  constructor(private readonly formsService: FormsService) { }
 
   @Get('test')
   @ApiOperation({ summary: 'Test endpoint to verify public access' })

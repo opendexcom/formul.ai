@@ -15,18 +15,18 @@ export interface SendInvitationDto {
 @Injectable()
 export class EmailService {
   constructor() {
-    
+
   }
 
   async sendFormInvitation(invitationData: SendInvitationDto): Promise<any[]> {
     const { emails, subject, message, formUrl, formTitle } = invitationData;
-    
+
     const results: any[] = [];
 
     for (const email of emails) {
       try {
         const personalizedMessage = message.replace(/\{formUrl\}/g, formUrl);
-        
+
         const mailOptions = {
           from: process.env.FROM_EMAIL || '"FormulAI" <noreply@formulai.com>',
           to: email.trim(),
@@ -46,7 +46,7 @@ export class EmailService {
         });
 
         const info = await transporter.sendMail(mailOptions);
-        
+
         results.push({
           email: email.trim(),
           success: true,
@@ -59,7 +59,7 @@ export class EmailService {
         console.log(`Email would be sent to ${email}: ${info.messageId}`);
 
       } catch (error: any) {
-        console.error(`Failed to send email to ${email}:`, error);
+        console.error('Failed to send email to %s:', email, error);
         results.push({
           email: email.trim(),
           success: false,
@@ -71,6 +71,15 @@ export class EmailService {
     return results;
   }
 
+  private escapeHtml(unsafe: string): string {
+    return unsafe
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
   private generateHtmlEmail(formTitle: string, message: string, formUrl: string): string {
     return `
       <!DOCTYPE html>
@@ -78,7 +87,7 @@ export class EmailService {
       <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Form Invitation - ${formTitle}</title>
+        <title>Form Invitation - ${this.escapeHtml(formTitle)}</title>
         <style>
           body {
             font-family: Arial, sans-serif;
@@ -136,18 +145,18 @@ export class EmailService {
         </div>
         
         <div class="content">
-          <h2>${formTitle}</h2>
+          <h2>${this.escapeHtml(formTitle)}</h2>
           
-          <div class="message">${message.replace(/\n/g, '<br>')}</div>
+          <div class="message">${this.escapeHtml(message).replace(/\n/g, '<br>')}</div>
           
           <div style="text-align: center;">
-            <a href="${formUrl}" class="cta-button">Fill Out Form</a>
+            <a href="${this.escapeHtml(formUrl)}" class="cta-button">Fill Out Form</a>
           </div>
           
           <p style="margin-top: 30px; color: #6b7280; font-size: 14px;">
             If the button doesn't work, you can also copy and paste this link into your browser:
             <br>
-            <a href="${formUrl}" style="color: #3b82f6;">${formUrl}</a>
+            <a href="${this.escapeHtml(formUrl)}" style="color: #3b82f6;">${this.escapeHtml(formUrl)}</a>
           </p>
         </div>
         
