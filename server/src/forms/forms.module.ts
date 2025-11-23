@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { JwtModule } from '@nestjs/jwt';
 import { FormsService } from './forms.service';
@@ -38,9 +39,15 @@ import { FormLockStore } from '../analytics/stores/form-lock.store';
       { name: 'AnalyticsTask', schema: AnalyticsTaskSchema },
       { name: 'FormLock', schema: FormLockSchema },
     ]),
-    JwtModule.register({
-      secret: process.env.JWT_SECRET || 'your-secret-key',
-      signOptions: { expiresIn: (process.env.JWT_EXPIRES_IN as any) || '7d' },
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      useFactory: async (configService: ConfigService) => ({
+        secret: configService.get<string>('JWT_SECRET') || 'your-secret-key',
+        signOptions: {
+          expiresIn: (configService.get<string>('JWT_EXPIRES_IN') || '7d') as any,
+        },
+      }),
+      inject: [ConfigService],
     }),
     AiModule,
     BullConfigModule,
@@ -48,9 +55,9 @@ import { FormLockStore } from '../analytics/stores/form-lock.store';
   ],
   controllers: [FormsController, PublicFormsController],
   providers: [
-    FormsService, 
-    ResponseService, 
-    EmailService, 
+    FormsService,
+    ResponseService,
+    EmailService,
     AnalyticsService,
     // Analytics core
     AnalyticsOrchestrator,
@@ -75,4 +82,4 @@ import { FormLockStore } from '../analytics/stores/form-lock.store';
   ],
   exports: [FormsService, ResponseService, EmailService, AnalyticsService],
 })
-export class FormsModule {}
+export class FormsModule { }

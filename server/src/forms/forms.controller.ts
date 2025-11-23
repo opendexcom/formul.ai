@@ -26,6 +26,7 @@ import { CreateFormDto, UpdateFormDto } from './dto/form.dto';
 import { randomUUID } from 'crypto';
 import { OrchestrationProducer } from '../analytics/queues/orchestration.producer';
 import { ProgressService } from '../analytics/queues/progress.service';
+import { FormOwnerGuard } from './guards/form-owner.guard';
 
 @ApiTags('Forms')
 @ApiBearerAuth()
@@ -65,6 +66,7 @@ export class FormsController {
   }
 
   @Get(':id')
+  @UseGuards(FormOwnerGuard)
   @ApiOperation({ summary: 'Get a specific form by ID' })
   @ApiResponse({ status: 200, description: 'Form retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Form not found' })
@@ -76,6 +78,7 @@ export class FormsController {
   }
 
   @Patch(':id')
+  @UseGuards(FormOwnerGuard)
   @ApiOperation({ summary: 'Update a form' })
   @ApiResponse({ status: 200, description: 'Form updated successfully' })
   @ApiResponse({ status: 404, description: 'Form not found' })
@@ -88,6 +91,7 @@ export class FormsController {
   }
 
   @Delete(':id')
+  @UseGuards(FormOwnerGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a form' })
   @ApiResponse({ status: 204, description: 'Form deleted successfully' })
@@ -106,6 +110,7 @@ export class FormsController {
   }
 
   @Get(':id/stats')
+  @UseGuards(FormOwnerGuard)
   @ApiOperation({ summary: 'Get form statistics' })
   @ApiResponse({ status: 200, description: 'Form statistics retrieved successfully' })
   getStats(@Param('id') id: string, @Request() req) {
@@ -114,16 +119,15 @@ export class FormsController {
   }
 
   @Get(':id/response-count')
+  @UseGuards(FormOwnerGuard)
   @ApiOperation({ summary: 'Get response count for a form' })
   @ApiResponse({ status: 200, description: 'Response count retrieved successfully' })
   async getResponseCount(@Param('id') id: string, @Request() req) {
-    const userId = req.user._id || req.user.id;
-    // Verify user owns the form
-    await this.formsService.findOne(id, userId);
     return { count: await this.formsService.getResponseCount(id) };
   }
 
   @Get(':id/responses')
+  @UseGuards(FormOwnerGuard)
   @ApiOperation({ summary: 'Get all responses for a form with optional filtering' })
   @ApiResponse({ status: 200, description: 'Responses retrieved successfully' })
   @ApiQuery({ name: 'sentiment', required: false, enum: ['positive', 'neutral', 'negative', 'ambivalent'] })
@@ -138,10 +142,6 @@ export class FormsController {
     @Query('representativeness') representativeness?: string,
     @Query('depth') depth?: string,
   ) {
-    const userId = req.user._id || req.user.id;
-    // Verify user owns the form
-    await this.formsService.findOne(id, userId);
-
     // Build query filters
     const filters: any = {};
     if (sentiment) {
@@ -168,21 +168,19 @@ export class FormsController {
   }
 
   @Get(':id/analytics')
+  @UseGuards(FormOwnerGuard)
   @ApiOperation({ summary: 'Get cached analytics for a form (read-only)' })
   @ApiResponse({ status: 200, description: 'Analytics retrieved successfully' })
   async getAnalytics(
     @Param('id') id: string,
     @Request() req,
   ) {
-    const userId = req.user._id || req.user.id;
-    // Verify user owns the form
-    await this.formsService.findOne(id, userId);
-
     // Always return cached analytics, never regenerate
     return this.analyticsService.getFormAnalytics(id);
   }
 
   @Get(':id/analytics/stream')
+  @UseGuards(FormOwnerGuard)
   @ApiOperation({ summary: 'Generate or regenerate analytics with SSE progress streaming' })
   @ApiQuery({ name: 'taskId', required: false, description: 'Existing task ID to reconnect to' })
   @ApiQuery({ name: 'reprocess', required: false, type: Boolean, description: 'Whether to reprocess all responses before generating analytics' })
@@ -204,126 +202,105 @@ export class FormsController {
       onlyFailed: onlyFailedBool
     });
 
-    // Extract token from Authorization header
-    const authHeader = reqExpress.headers.authorization;
+    // User is already authenticated and authorized via Guards
+    // We can get the user from the request object attached by Passport
+    // Note: In Express, req.user is populated by Passport
+    const req = reqExpress as any;
+    const userId = req.user?._id || req.user?.id;
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      this.logger.warn('[SSE] No authorization header found');
-      res.status(401).json({ message: 'Authentication required. Please provide Bearer token in Authorization header.' });
-      return;
-    }
+    this.logger.debug(`[SSE] User authenticated via Guard: ${userId}`);
 
-    const token = authHeader.substring(7);
+    // Use provided taskId or generate a new one
+    const taskId = existingTaskId || randomUUID();
+    const existing = Boolean(existingTaskId);
 
-    // Manually verify JWT and get user (since we can't use guards with @Res())
+    // Set SSE headers
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
+
+    // Send initial connection message with taskId
+    const connectMsg = JSON.stringify({
+      type: 'connected',
+      message: existing ? 'Reconnected to existing analytics task' : 'Started new analytics task',
+      taskId,
+      existing,
+    });
+    this.logger.debug(`[SSE] Sending: ${connectMsg}`);
+    res.write(`data: ${connectMsg}\n\n`);
+
     try {
-      const payload = await this.jwtService.verifyAsync(token);
-      const userId = payload.sub;
-      this.logger.debug(`[SSE] User authenticated: ${userId}`);
-
-      // Verify user owns the form
-      const form = await this.formsService.findOne(id, userId);
-      this.logger.debug('[SSE] User owns form, processing request...');
-
-      // Use provided taskId or generate a new one
-      const taskId = existingTaskId || randomUUID();
-      const existing = Boolean(existingTaskId);
-
-      // Set SSE headers
-      res.setHeader('Content-Type', 'text/event-stream');
-      res.setHeader('Cache-Control', 'no-cache');
-      res.setHeader('Connection', 'keep-alive');
-      res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
-
-      // Send initial connection message with taskId
-      const connectMsg = JSON.stringify({
-        type: 'connected',
-        message: existing ? 'Reconnected to existing analytics task' : 'Started new analytics task',
-        taskId,
-        existing,
-      });
-      this.logger.debug(`[SSE] Sending: ${connectMsg}`);
-      res.write(`data: ${connectMsg}\n\n`);
-
-      try {
-        // Subscribe to progress events from Redis via Bull-managed client
-        let unsubscribed = false;
-        const unsubscribe = await this.progressService.onProgress((update) => {
-          if (update.taskId !== taskId) return;
-          const msg = JSON.stringify(update);
-          res.write(`data: ${msg}\n\n`);
-          if (update.type === 'complete' || update.type === 'error') {
-            // End stream and cleanup (only once)
-            if (!unsubscribed) {
-              unsubscribed = true;
-              unsubscribe().finally(() => {
-                res.end();
-                this.logger.log('[SSE] Stream ended and cleaned up');
-              });
-            }
-          }
-        });
-
-        // If reprocessing is requested, do that first
-        if (!existing && reprocessBool) {
-          this.logger.log('[SSE] Reprocessing responses before generation...');
-          const reprocessMsg = JSON.stringify({
-            type: 'progress',
-            message: 'Reprocessing responses...',
-            progress: 0,
-            taskId
-          });
-          res.write(`data: ${reprocessMsg}\n\n`);
-          const reprocessResult = await this.analyticsService.reprocessAllResponses(id, onlyFailedBool);
-          const modified = (reprocessResult?.modifiedCount ?? reprocessResult?.totalReprocessed ?? 0) as number;
-          const reprocessedMsg = JSON.stringify({
-            type: 'reprocessed',
-            message: `${modified} responses marked for reprocessing`,
-            progress: 2,
-            taskId,
-            modifiedCount: modified
-          });
-          res.write(`data: ${reprocessedMsg}\n\n`);
-        }
-
-        // Enqueue orchestration job (don't await)
-        this.logger.log(`[SSE] Enqueuing orchestration job with taskId: ${taskId}`);
-        await this.orchestrationProducer.enqueueOrchestration(id, taskId, true);
-
-        // Cleanup on client disconnect (only if not already unsubscribed)
-        reqExpress.on('close', () => {
+      // Subscribe to progress events from Redis via Bull-managed client
+      let unsubscribed = false;
+      const unsubscribe = await this.progressService.onProgress((update) => {
+        if (update.taskId !== taskId) return;
+        const msg = JSON.stringify(update);
+        res.write(`data: ${msg}\n\n`);
+        if (update.type === 'complete' || update.type === 'error') {
+          // End stream and cleanup (only once)
           if (!unsubscribed) {
             unsubscribed = true;
-            this.logger.log('[SSE] Client disconnected, cleaning up...');
-            unsubscribe().catch(err => {
-              this.logger.error('[SSE] Error during disconnect cleanup:', err);
+            unsubscribe().finally(() => {
+              res.end();
+              this.logger.log('[SSE] Stream ended and cleaned up');
             });
           }
+        }
+      });
+
+      // If reprocessing is requested, do that first
+      if (!existing && reprocessBool) {
+        this.logger.log('[SSE] Reprocessing responses before generation...');
+        const reprocessMsg = JSON.stringify({
+          type: 'progress',
+          message: 'Reprocessing responses...',
+          progress: 0,
+          taskId
         });
-      } catch (error) {
-        const errorMsg = JSON.stringify({ type: 'error', message: error.message, taskId });
-        this.logger.error(`[SSE] Error: ${errorMsg}`);
-        res.write(`data: ${errorMsg}\n\n`);
-        res.end();
+        res.write(`data: ${reprocessMsg}\n\n`);
+        const reprocessResult = await this.analyticsService.reprocessAllResponses(id, onlyFailedBool);
+        const modified = (reprocessResult?.modifiedCount ?? reprocessResult?.totalReprocessed ?? 0) as number;
+        const reprocessedMsg = JSON.stringify({
+          type: 'reprocessed',
+          message: `${modified} responses marked for reprocessing`,
+          progress: 2,
+          taskId,
+          modifiedCount: modified
+        });
+        res.write(`data: ${reprocessedMsg}\n\n`);
       }
-    } catch (authError) {
-      this.logger.error(`[SSE] Authentication failed: ${authError.message}`);
-      res.status(401).json({ message: 'Authentication failed', error: authError.message });
+
+      // Enqueue orchestration job (don't await)
+      this.logger.log(`[SSE] Enqueuing orchestration job with taskId: ${taskId}`);
+      await this.orchestrationProducer.enqueueOrchestration(id, taskId, true);
+
+      // Cleanup on client disconnect (only if not already unsubscribed)
+      reqExpress.on('close', () => {
+        if (!unsubscribed) {
+          unsubscribed = true;
+          this.logger.log('[SSE] Client disconnected, cleaning up...');
+          unsubscribe().catch(err => {
+            this.logger.error('[SSE] Error during disconnect cleanup:', err);
+          });
+        }
+      });
+    } catch (error) {
+      const errorMsg = JSON.stringify({ type: 'error', message: error.message, taskId });
+      this.logger.error(`[SSE] Error: ${errorMsg}`);
+      res.write(`data: ${errorMsg}\n\n`);
+      res.end();
     }
   }
 
   @Get(':id/analytics/task/:taskId')
+  @UseGuards(FormOwnerGuard)
   @ApiOperation({ summary: 'Get analytics task status' })
   async getAnalyticsTaskStatus(
     @Param('id') id: string,
     @Param('taskId') taskId: string,
     @Request() req,
   ) {
-    const userId = req.user._id || req.user.id;
-
-    // Verify user owns the form
-    await this.formsService.findOne(id, userId);
-
     const task = await this.analyticsService.getTaskStatus(taskId);
     if (!task) {
       return { found: false, message: 'Task not found or expired' };
@@ -336,6 +313,7 @@ export class FormsController {
   }
 
   @Post(':id/responses/:responseId/reprocess')
+  @UseGuards(FormOwnerGuard)
   @ApiOperation({ summary: 'Reprocess a single response to regenerate analytics metadata' })
   @ApiResponse({ status: 200, description: 'Response reprocessed successfully' })
   @ApiResponse({ status: 404, description: 'Response not found' })
@@ -344,15 +322,11 @@ export class FormsController {
     @Param('responseId') responseId: string,
     @Request() req,
   ) {
-    const userId = req.user._id || req.user.id;
-
-    // Verify user owns the form
-    await this.formsService.findOne(formId, userId);
-
     return this.analyticsService.reprocessSingleResponse(formId, responseId);
   }
 
   @Post(':id/responses/reprocess-all')
+  @UseGuards(FormOwnerGuard)
   @ApiOperation({ summary: 'Reprocess all responses for a form to regenerate analytics metadata' })
   @ApiResponse({ status: 200, description: 'All responses queued for reprocessing' })
   @ApiQuery({ name: 'onlyFailed', required: false, type: Boolean, description: 'Only reprocess responses that failed or were not processed' })
@@ -361,16 +335,12 @@ export class FormsController {
     @Request() req,
     @Query('onlyFailed') onlyFailed?: string,
   ) {
-    const userId = req.user._id || req.user.id;
-
-    // Verify user owns the form
-    await this.formsService.findOne(formId, userId);
-
     const onlyFailedBool = onlyFailed === 'true';
     return this.analyticsService.reprocessAllResponses(formId, onlyFailedBool);
   }
 
   @Post(':id/send-invitations')
+  @UseGuards(FormOwnerGuard)
   @ApiOperation({ summary: 'Send email invitations for a form' })
   @ApiResponse({ status: 200, description: 'Invitations sent successfully' })
   @ApiResponse({ status: 400, description: 'Invalid invitation data' })
@@ -378,6 +348,8 @@ export class FormsController {
     const userId = req.user._id || req.user.id;
 
     // Verify user owns the form and get form details
+    // Note: FormOwnerGuard ensures ownership, but we need form details here.
+    // Since we need details, we call findOne.
     const form = await this.formsService.findOne(id, userId);
 
     if (!form.isPublic) {
@@ -408,6 +380,7 @@ export class FormsController {
   }
 
   @Patch(':id/toggle-active')
+  @UseGuards(FormOwnerGuard)
   @ApiOperation({ summary: 'Toggle form active status' })
   @ApiResponse({ status: 200, description: 'Form status toggled successfully' })
   toggleActive(@Param('id') id: string, @Request() req) {
