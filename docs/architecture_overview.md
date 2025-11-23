@@ -26,7 +26,7 @@ The backend is built with **NestJS**, a progressive Node.js framework, ensuring 
 *   **Worker Module:** A dedicated entry point (`worker.ts`) for processing background jobs, ensuring heavy AI tasks don't block the main API.
 
 ### Key Technologies
-*   **Framework:** NestJS v11
+*   **Framework:** NestJS v10
 *   **ODM:** Mongoose (MongoDB)
 *   **Queues:** Bull (Redis-based) for asynchronous task processing.
 *   **Validation:** `class-validator` and `class-transformer`.
@@ -84,6 +84,10 @@ A modern, responsive interface built for speed and interactivity.
 *   **Interactivity:** `react-dnd` for Drag-and-Drop form building.
 *   **Routing:** `react-router-dom`.
 *   **HTTP Client:** `Axios`.
+*   **Shared API Client (`apiClient.ts`):** Centralized Axios instance with interceptors for JWT and error handling.
+*   **Error Handling Utilities (`errorHandling.ts`):** Functions to extract user‑friendly messages from errors.
+*   **Logger (`logger.ts`):** Wrapper around console with log levels.
+*   **Global Error Boundary (`ErrorBoundary.tsx`):** React error boundary component for catching rendering errors.
 
 ## 6. Infrastructure & DevOps
 
