@@ -34,7 +34,16 @@
     "mongodb"
   ],
   "author": "",
-  "license": "MIT"
-  ,
-  "packageManager": "pnpm@9.12.0"
+  "license": "MIT",
+  "packageManager": "pnpm@10.23.0",
+  "pnpm": {
+    "overrides": {
+      "nth-check": "^2.1.1",
+      "glob": "^10.5.0",
+      "webpack-dev-server": "^4.15.2",
+      "postcss": "^8.4.31",
+      "js-yaml": "^4.1.1",
+      "esbuild": "^0.25.0"
+    }
+  }
 }
