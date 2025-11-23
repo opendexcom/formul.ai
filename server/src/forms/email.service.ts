@@ -59,7 +59,7 @@ export class EmailService {
         console.log(`Email would be sent to ${email}: ${info.messageId}`);
 
       } catch (error: any) {
-        console.error(`Failed to send email to ${email}:`, error);
+        console.error('Failed to send email to %s:', email, error);
         results.push({
           email: email.trim(),
           success: false,
