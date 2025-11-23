@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { 
-  ArrowLeft, 
-  Users, 
-  Calendar, 
-  Download, 
+import {
+  ArrowLeft,
+  Users,
+  Calendar,
+  Download,
   BarChart3,
   PieChart,
   TrendingUp,
@@ -18,7 +18,7 @@ import { computeOverallClimate } from '../utils/analysis';
 import {
   AnalyticsSummaryCard,
   OverallClimateCard,
-  
+
   FilterPanel,
   TopicsThemesCard,
   RefreshAnalyticsModal,
@@ -37,14 +37,14 @@ import { logger } from '../utils/logger';
 interface ResponseData {
   _id: string;
   answers: { questionId: string; value: any }[];
-  submittedAt: string;
+  submittedAt: Date | string;
   respondentEmail?: string;
   ipAddress?: string;
   metadata?: {
     processedForAnalytics?: boolean;
     processingTaskId?: string; // Task ID if currently being processed
     hasTextContent?: boolean;
-    lastAnalyzed?: string;
+    lastAnalyzed?: Date | string;
     overallSentiment?: {
       label?: string;
       score?: number;
@@ -57,7 +57,7 @@ const FormAnalytics: React.FC = () => {
   const { formId } = useParams<{ formId: string }>();
   const navigate = useNavigate();
   const [form, setForm] = useState<FormData | null>(null);
-  const [responses, setResponses] = useState<ResponseData[]>([]); 
+  const [responses, setResponses] = useState<ResponseData[]>([]);
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -66,7 +66,7 @@ const FormAnalytics: React.FC = () => {
   const [progressPercent, setProgressPercent] = useState<number>(0);
   const [showRefreshModal, setShowRefreshModal] = useState(false);
   const [, setCurrentTaskId] = useState<string | null>(null);
-  
+
   // Detailed progress stats
   const [progressStats, setProgressStats] = useState<{
     stage?: string;
@@ -77,17 +77,17 @@ const FormAnalytics: React.FC = () => {
     substage?: string;
     uniqueTopics?: number;
   } | null>(null);
-  
+
   // Filters state
   const [filters, setFilters] = useState<AnalyticsFilters>({});
-  
+
   // Track if filters are active to differentiate empty states
   const hasActiveFilters = Object.keys(filters).length > 0;
 
   useEffect(() => {
     if (formId) {
       loadFormAnalytics(formId);
-      
+
       // Check if there's an ongoing task from session storage
       const existingTaskId = sessionStorage.getItem(`analytics-task-${formId}`);
       if (existingTaskId) {
@@ -123,8 +123,8 @@ const FormAnalytics: React.FC = () => {
       try {
         const analyticsData = await formsService.getFormAnalytics(id, forceRefresh);
         // Only set analytics if we got actual data (cache hit)
-        if (analyticsData?.analytics) {
-          setAnalytics(analyticsData.analytics);
+        if (analyticsData) {
+          setAnalytics(analyticsData);
         }
       } catch (analyticsError) {
         // Don't fail the whole page if analytics fail
@@ -143,15 +143,15 @@ const FormAnalytics: React.FC = () => {
 
   const handleRefreshAnalytics = async (options: RefreshOptions) => {
     if (!formId) return;
-    
+
     logger.debug('[Frontend] Starting analytics refresh with options:', options);
-    
+
     try {
       setRefreshingAnalytics(true);
       setError('');
       setProgressMessage('Connecting...');
       setProgressPercent(0);
-      
+
       // Get JWT token from localStorage
       const token = localStorage.getItem('token');
       if (!token) {
@@ -165,15 +165,15 @@ const FormAnalytics: React.FC = () => {
         sessionStorage.removeItem(`analytics-task-${formId}`);
         logger.debug('[Frontend] Cleared existing taskId for fresh start with reprocessing');
       }
-      
+
       logger.debug('[Frontend] Starting SSE connection to:', `/api/forms/${formId}/analytics/stream`);
-      
+
       // Use fetch with streaming for SSE with proper Authorization header
       const controller = new AbortController();
-      
+
       // Check if there's an existing taskId to reconnect to (unless we're reprocessing)
       const existingTaskId = options.reprocessResponses ? null : sessionStorage.getItem(`analytics-task-${formId}`);
-      
+
       // Build URL with query parameters
       const params = new URLSearchParams();
       if (existingTaskId) {
@@ -185,11 +185,11 @@ const FormAnalytics: React.FC = () => {
           params.append('onlyFailed', 'true');
         }
       }
-      
+
       const url = `/api/forms/${formId}/analytics/stream${params.toString() ? '?' + params.toString() : ''}`;
-      
+
       logger.debug('[Frontend] SSE URL:', url, existingTaskId ? `(reconnecting to taskId: ${existingTaskId})` : '(new task)');
-      
+
       try {
         const response = await fetch(url, {
           method: 'GET',
@@ -219,7 +219,7 @@ const FormAnalytics: React.FC = () => {
           try {
             while (true) {
               const { done, value } = await reader.read();
-              
+
               if (done) {
                 logger.debug('[Frontend] Stream done');
                 break;
@@ -234,14 +234,14 @@ const FormAnalytics: React.FC = () => {
                   try {
                     const data = JSON.parse(line.substring(6));
                     logger.debug('[Frontend] Parsed SSE data:', data);
-                    
+
                     // Store taskId for reconnection
                     if (data.taskId) {
                       setCurrentTaskId(data.taskId);
                       // Store in sessionStorage for page refresh
                       sessionStorage.setItem(`analytics-task-${formId}`, data.taskId);
                     }
-                    
+
                     if (data.type === 'connected') {
                       setProgressMessage(data.message);
                       // If reconnecting to existing task, restore progress
@@ -266,8 +266,8 @@ const FormAnalytics: React.FC = () => {
                     } else if (data.type === 'responses_claimed') {
                       // Ensure responses are in "Not started" state (clear any stale processingTaskId)
                       if (data.processedResponseIds && Array.isArray(data.processedResponseIds)) {
-                        setResponses(prevResponses => 
-                          prevResponses.map(r => 
+                        setResponses(prevResponses =>
+                          prevResponses.map(r =>
                             data.processedResponseIds.includes(r._id)
                               ? { ...r, metadata: { ...r.metadata, processingTaskId: undefined, processedForAnalytics: false } }
                               : r
@@ -280,8 +280,8 @@ const FormAnalytics: React.FC = () => {
                     } else if (data.type === 'responses_processing') {
                       // Mark responses as "Pending" (currently being processed)
                       if (data.processedResponseIds && Array.isArray(data.processedResponseIds)) {
-                        setResponses(prevResponses => 
-                          prevResponses.map(r => 
+                        setResponses(prevResponses =>
+                          prevResponses.map(r =>
                             data.processedResponseIds.includes(r._id)
                               ? { ...r, metadata: { ...r.metadata, processingTaskId: data.taskId } }
                               : r
@@ -294,8 +294,8 @@ const FormAnalytics: React.FC = () => {
                     } else if (data.type === 'responses_processed') {
                       // Update processed response IDs in real-time
                       if (data.processedResponseIds && Array.isArray(data.processedResponseIds)) {
-                        setResponses(prevResponses => 
-                          prevResponses.map(r => 
+                        setResponses(prevResponses =>
+                          prevResponses.map(r =>
                             data.processedResponseIds.includes(r._id)
                               ? { ...r, metadata: { ...r.metadata, processedForAnalytics: true, processingTaskId: undefined } }
                               : r
@@ -317,21 +317,21 @@ const FormAnalytics: React.FC = () => {
                       logger.debug('[Frontend] Analytics complete, reloading...');
                       setProgressMessage('Complete!');
                       setProgressPercent(100);
-                      
+
                       // Clear taskId
                       setCurrentTaskId(null);
                       sessionStorage.removeItem(`analytics-task-${formId}`);
-                      
+
                       // Reload analytics and responses after completion
                       setTimeout(async () => {
                         const analyticsData = await formsService.getFormAnalytics(formId, false);
-                        if (analyticsData?.analytics) {
+                        if (analyticsData) {
                           try {
-                            const insights = analyticsData.analytics?.insights;
-                            logger.debug('[Frontend] Reloaded analytics meta:', analyticsData.meta);
+                            const insights = analyticsData.insights;
+                            logger.debug('[Frontend] Reloaded analytics meta:', analyticsData);
                             logger.debug('[Frontend] Insights summary length:', insights?.summary?.length || 0, 'keyFindings:', (insights?.keyFindings || []).length);
-                          } catch {}
-                          setAnalytics(analyticsData.analytics);
+                          } catch { }
+                          setAnalytics(analyticsData);
                         }
                         // Reload responses to update any remaining statuses
                         await loadResponses(formId);
@@ -377,7 +377,7 @@ const FormAnalytics: React.FC = () => {
         setProgressMessage('');
         setProgressPercent(0);
       }
-      
+
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to start analytics generation';
       setError('Failed to start analytics generation: ' + errorMessage);
@@ -399,7 +399,7 @@ const FormAnalytics: React.FC = () => {
     form.questions.forEach(q => headers.push(q.title));
 
     const csvData = [headers];
-    
+
     responses.forEach(response => {
       const row: string[] = [
         new Date(response.submittedAt).toLocaleString(),
@@ -418,7 +418,7 @@ const FormAnalytics: React.FC = () => {
       csvData.push(row);
     });
 
-    const csvContent = csvData.map(row => 
+    const csvContent = csvData.map(row =>
       row.map(cell => `"${cell}"`).join(',')
     ).join('\n');
 
@@ -436,7 +436,7 @@ const FormAnalytics: React.FC = () => {
     setFilters(currentFilters => {
       const currentTopics = currentFilters.topics || [];
       const isTopicSelected = currentTopics.includes(topic);
-      
+
       if (isTopicSelected) {
         // Remove topic from filter
         const newTopics = currentTopics.filter(t => t !== topic);
@@ -460,7 +460,7 @@ const FormAnalytics: React.FC = () => {
     if (Object.keys(filters).length === 0) {
       return responses;
     }
-    
+
     // Filtering will be handled server-side when we implement real-time filtering
     // For now, return all responses (backend will handle filtering when we refetch)
     return responses;
@@ -479,14 +479,14 @@ const FormAnalytics: React.FC = () => {
           }
           if (filters.representativeness) filterParams.representativeness = filters.representativeness;
           if (filters.depth) filterParams.depth = filters.depth;
-          
+
           const filteredData = await formsService.getFormResponses(formId, filterParams);
           setResponses(filteredData);
         } catch (error) {
           logger.error('Error fetching filtered responses:', error);
         }
       };
-      
+
       fetchFilteredResponses();
     } else if (formId && Object.keys(filters).length === 0) {
       // No filters - reload all responses
@@ -529,7 +529,7 @@ const FormAnalytics: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
-      
+
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
@@ -546,7 +546,7 @@ const FormAnalytics: React.FC = () => {
               <p className="text-gray-600">Form Analytics</p>
             </div>
           </div>
-          
+
           <div className="flex space-x-3">
             {analytics && (
               <Button
@@ -652,8 +652,8 @@ const FormAnalytics: React.FC = () => {
               <p className="text-gray-600 mb-4">
                 No responses match your current filters. Try adjusting the filters above or clearing them to see results.
               </p>
-              <Button 
-                variant="secondary" 
+              <Button
+                variant="secondary"
                 onClick={() => setFilters({})}
               >
                 Clear All Filters
@@ -673,7 +673,7 @@ const FormAnalytics: React.FC = () => {
                 Note: At least 10 responses are recommended for meaningful analytics.
               </p>
             ) : null}
-            
+
             {refreshingAnalytics ? (
               <div className="space-y-3">
                 <div className="flex items-center justify-center gap-2 text-blue-600">
@@ -683,7 +683,7 @@ const FormAnalytics: React.FC = () => {
                 {progressPercent > 0 && (
                   <div className="max-w-md mx-auto">
                     <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div 
+                      <div
                         className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                         style={{ width: `${progressPercent}%` }}
                       />
@@ -693,8 +693,8 @@ const FormAnalytics: React.FC = () => {
                 )}
               </div>
             ) : (
-              <Button 
-                variant="primary" 
+              <Button
+                variant="primary"
                 icon={RefreshCw}
                 onClick={() => setShowRefreshModal(true)}
                 disabled={responses.length < 10}
@@ -713,14 +713,14 @@ const FormAnalytics: React.FC = () => {
                     <RefreshCw className="w-8 h-8 text-blue-600 animate-spin" />
                     <h3 className="text-xl font-medium text-gray-900">Generating Analytics</h3>
                   </div>
-                  
+
                   <p className="text-gray-600 text-center">{progressMessage || 'Processing responses...'}</p>
-                  
+
                   {/* Progress bar */}
                   {progressPercent > 0 && (
                     <div className="max-w-md mx-auto space-y-2">
                       <div className="w-full bg-gray-200 rounded-full h-3">
-                        <div 
+                        <div
                           className="bg-blue-600 h-3 rounded-full transition-all duration-300"
                           style={{ width: `${progressPercent}%` }}
                         />
@@ -728,7 +728,7 @@ const FormAnalytics: React.FC = () => {
                       <p className="text-sm font-medium text-gray-700 text-center">{progressPercent}%</p>
                     </div>
                   )}
-                  
+
                   {/* Detailed stats */}
                   {progressStats && (
                     <div className="max-w-lg mx-auto mt-6 p-4 bg-gray-50 rounded-lg border">
@@ -743,7 +743,7 @@ const FormAnalytics: React.FC = () => {
                             </span>
                           </div>
                         )}
-                        
+
                         {progressStats.currentResponse !== undefined && progressStats.totalToProcess !== undefined && (
                           <div className="flex justify-between">
                             <span className="text-gray-600">Processing Response:</span>
@@ -752,7 +752,7 @@ const FormAnalytics: React.FC = () => {
                             </span>
                           </div>
                         )}
-                        
+
                         {progressStats.processedResponses !== undefined && progressStats.totalResponses !== undefined && (
                           <div className="flex justify-between">
                             <span className="text-gray-600">Responses Analyzed:</span>
@@ -761,7 +761,7 @@ const FormAnalytics: React.FC = () => {
                             </span>
                           </div>
                         )}
-                        
+
                         {progressStats.uniqueTopics !== undefined && (
                           <div className="flex justify-between">
                             <span className="text-gray-600">Topics Discovered:</span>
@@ -773,7 +773,7 @@ const FormAnalytics: React.FC = () => {
                       </div>
                     </div>
                   )}
-                  
+
                   <p className="text-sm text-gray-500 mt-4 text-center">
                     This may take a few minutes. You can refresh this page to check progress.
                   </p>
@@ -815,21 +815,21 @@ const FormAnalytics: React.FC = () => {
                           dominantTendency={analytics?.climate?.dominantTendency ?? climate.dominantTendency}
                           semanticAxis={analytics?.climate?.semanticAxis ?? climate.semanticAxis}
                         />
-                        <TopicsThemesCard 
-                          analytics={analytics || undefined} 
+                        <TopicsThemesCard
+                          analytics={analytics || undefined}
                           onTopicClick={handleTopicClick}
                           selectedTopics={filters.topics || []}
                         />
-                        <TopicSentimentCard 
+                        <TopicSentimentCard
                           analytics={analytics || undefined}
                           selectedTopics={filters.topics || []}
                         />
-                        <TopicRelationshipsCard 
+                        <TopicRelationshipsCard
                           analytics={analytics || undefined}
                           selectedTopics={filters.topics || []}
                         />
                         <div className="lg:col-span-2">
-                          <ClosedQuestionTopicsCard 
+                          <ClosedQuestionTopicsCard
                             analytics={analytics || undefined}
                             selectedTopics={filters.topics || []}
                             hasActiveFilters={hasActiveFilters}
@@ -845,7 +845,7 @@ const FormAnalytics: React.FC = () => {
         )}
 
         {/* Raw Responses Table */}
-        <RawResponsesTable 
+        <RawResponsesTable
           form={form}
           responses={responses}
           showAnalyticsStatus={!!analytics}

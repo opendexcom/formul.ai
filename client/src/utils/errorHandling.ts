@@ -1,12 +1,12 @@
-import { AxiosError } from 'axios';
+import axios, { AxiosError } from 'axios';
 
 /**
  * Extracts a user-friendly error message from various error types
  */
 export const getErrorMessage = (error: unknown): string => {
-  if (AxiosError.isAxiosError(error)) {
+  if (axios.isAxiosError(error)) {
     const axiosError = error as AxiosError<{ message?: string; error?: string }>;
-    
+
     // Try to extract message from response
     if (axiosError.response?.data) {
       const data = axiosError.response.data;
@@ -20,22 +20,22 @@ export const getErrorMessage = (error: unknown): string => {
         return typeof data.error === 'string' ? data.error : JSON.stringify(data.error);
       }
     }
-    
+
     // Fall back to axios error message
     if (axiosError.message) {
       return axiosError.message;
     }
-    
+
     // Network errors
     if (axiosError.code === 'ERR_NETWORK') {
       return 'Network error. Please check your connection.';
     }
-    
+
     // Timeout errors
     if (axiosError.code === 'ECONNABORTED') {
       return 'Request timeout. Please try again.';
     }
-    
+
     // Status code based messages
     const status = axiosError.response?.status;
     if (status === 401) {
@@ -50,18 +50,18 @@ export const getErrorMessage = (error: unknown): string => {
     if (status === 500) {
       return 'Server error. Please try again later.';
     }
-    
+
     return `Request failed: ${status ? `Status ${status}` : 'Unknown error'}`;
   }
-  
+
   if (error instanceof Error) {
     return error.message;
   }
-  
+
   if (typeof error === 'string') {
     return error;
   }
-  
+
   return 'An unexpected error occurred';
 };
 
@@ -69,7 +69,7 @@ export const getErrorMessage = (error: unknown): string => {
  * Checks if an error is an axios error
  */
 export const isAxiosError = (error: unknown): error is AxiosError => {
-  return AxiosError.isAxiosError(error);
+  return axios.isAxiosError(error);
 };
 
 /**

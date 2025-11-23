@@ -97,7 +97,7 @@ const AIFormChat: React.FC<AIFormChatProps> = ({ currentForm, onFormGenerated })
     try {
       const token = localStorage.getItem('token');
       const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
-      
+
       const isRefine = !!(currentForm && (currentForm.questions?.length || 0) > 0);
       const response = await fetch(`${API_BASE_URL}/ai/generate-stream`, {
         method: 'POST',
@@ -137,7 +137,7 @@ const AIFormChat: React.FC<AIFormChatProps> = ({ currentForm, onFormGenerated })
           if (line.startsWith('data: ')) {
             const data = line.slice(6);
             if (data === '[DONE]') continue;
-            
+
             try {
               const step: ProcessingStep = JSON.parse(data);
               if (step.status === 'error') {
@@ -153,14 +153,14 @@ const AIFormChat: React.FC<AIFormChatProps> = ({ currentForm, onFormGenerated })
                 return [...prev, step];
               });
 
-              // If this is the final step with the form data
               if (step.step === 'generate' && step.status === 'completed' && step.data) {
-                onFormGenerated(step.data);
-                
+                const formData = step.data as unknown as GeneratedForm;
+                onFormGenerated(formData);
+
                 setMessages(prev => [...prev, {
                   id: Date.now().toString(),
                   type: 'assistant',
-                  content: `✅ Form "${step.data.title}" has been generated successfully! You can now edit it in the canvas.`,
+                  content: `✅ Form "${formData.title}" has been generated successfully! You can now edit it in the canvas.`,
                   timestamp: new Date(),
                 }]);
               }
@@ -212,13 +212,12 @@ const AIFormChat: React.FC<AIFormChatProps> = ({ currentForm, onFormGenerated })
             className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             <div
-              className={`max-w-[80%] rounded-lg px-4 py-2 ${
-                message.type === 'user'
-                  ? 'bg-blue-600 text-white'
-                  : message.type === 'system'
+              className={`max-w-[80%] rounded-lg px-4 py-2 ${message.type === 'user'
+                ? 'bg-blue-600 text-white'
+                : message.type === 'system'
                   ? 'bg-red-50 text-red-900 border border-red-200'
                   : 'bg-white text-gray-900 border border-gray-200'
-              }`}
+                }`}
             >
               <p className="text-sm whitespace-pre-wrap">{message.content}</p>
               <span className="text-xs opacity-70 mt-1 block">
