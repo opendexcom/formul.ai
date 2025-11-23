@@ -25,7 +25,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Check if user is logged in on app start
     const currentUser = authService.getCurrentUser();
     const currentUserId = authService.getCurrentUserId();
-    
+
     if (currentUser && currentUserId && authService.isAuthenticated()) {
       setUser(currentUser);
       setUserId(currentUserId);
@@ -52,20 +52,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     firstName: string,
     lastName: string
   ): Promise<void> => {
-    setLoading(true);
+    // We don't set loading here because it triggers a re-render of PublicRoute
+    // which unmounts the LandingPage and clears the success message
     try {
-      const response = await authService.register({
+      await authService.register({
         email,
         password,
         firstName,
         lastName,
       });
-      setUser(response.user);
-      setUserId(authService.getCurrentUserId());
+      // Do not set user here as registration now requires email confirmation
     } catch (error) {
       throw error;
-    } finally {
-      setLoading(false);
     }
   };
 

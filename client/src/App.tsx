@@ -7,6 +7,8 @@ import Dashboard from './pages/Dashboard';
 import FormEditor from './pages/FormEditor';
 import FormAnalytics from './pages/FormAnalytics';
 import PublicFormView from './pages/PublicFormView';
+import EmailConfirmation from './pages/EmailConfirmation';
+import AdminSettings from './pages/AdminSettings';
 import './App.css';
 
 // Protected Route Component
@@ -46,50 +48,62 @@ function App() {
         <Router>
           <div className="App">
             <Routes>
-              <Route 
-                path="/" 
+              <Route
+                path="/"
                 element={
                   <PublicRoute>
                     <LandingPage />
                   </PublicRoute>
-                } 
+                }
               />
-              <Route 
-                path="/dashboard" 
+              <Route
+                path="/dashboard"
                 element={
                   <ProtectedRoute>
                     <Dashboard />
                   </ProtectedRoute>
-                } 
+                }
               />
-              <Route 
-                path="/forms/new" 
+              <Route
+                path="/forms/new"
                 element={
                   <ProtectedRoute>
                     <FormEditor />
                   </ProtectedRoute>
-                } 
+                }
               />
-              <Route 
-                path="/forms/:id/edit" 
+              <Route
+                path="/forms/:id/edit"
                 element={
                   <ProtectedRoute>
                     <FormEditor />
                   </ProtectedRoute>
-                } 
+                }
               />
-              <Route 
-                path="/forms/:formId/analytics" 
+              <Route
+                path="/forms/:formId/analytics"
                 element={
                   <ProtectedRoute>
                     <FormAnalytics />
                   </ProtectedRoute>
-                } 
+                }
               />
               {/* Public form route - accessible without authentication */}
-              <Route 
-                path="/form/:formId" 
-                element={<PublicFormView />} 
+              <Route
+                path="/form/:formId"
+                element={<PublicFormView />}
+              />
+              <Route
+                path="/confirm-email"
+                element={<EmailConfirmation />}
+              />
+              <Route
+                path="/admin/settings"
+                element={
+                  <ProtectedRoute>
+                    <AdminSettings />
+                  </ProtectedRoute>
+                }
               />
               {/* Redirect any unknown routes to home */}
               <Route path="*" element={<Navigate to="/" replace />} />

@@ -36,7 +36,7 @@ export const createApiClient = (): AxiosInstance => {
         // Clear auth state
         localStorage.removeItem('token');
         localStorage.removeItem('user');
-        
+
         // Only redirect if we're not already on the landing page
         if (window.location.pathname !== '/') {
           window.location.href = '/';
@@ -45,6 +45,17 @@ export const createApiClient = (): AxiosInstance => {
       return Promise.reject(error);
     }
   );
+
+  // Settings API
+  (client as any).getRegistrationSetting = async (): Promise<boolean> => {
+    const response = await client.get<{ allowRegistration: boolean }>('/settings/registration');
+    return response.data.allowRegistration;
+  };
+
+  (client as any).updateRegistrationSetting = async (allowRegistration: boolean): Promise<{ allowRegistration: boolean }> => {
+    const response = await client.put<{ allowRegistration: boolean }>('/settings/registration', { allowRegistration });
+    return response.data;
+  };
 
   return client;
 };
