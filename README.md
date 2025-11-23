@@ -15,6 +15,8 @@ FormulAI is an intelligent survey platform that combines intuitive form building
 - JWT authentication, role-based access
 - Scalable queue-based architecture (Bull + Redis)
 
+![AI Analysis of Responses](docs/summary.jpeg)
+
 ## 🛠️ Technology Stack
 
 - **Frontend**: React 19, TypeScript 5, Vite, Tailwind CSS
