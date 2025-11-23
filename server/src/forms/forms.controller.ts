@@ -239,7 +239,19 @@ export class FormsController {
       console.log('[SSE] User owns form, processing request...');
 
       // Use provided taskId or generate a new one
-      const taskId = existingTaskId || randomUUID();
+      // Validate taskId format to prevent XSS (must be UUID format)
+      let taskId: string;
+      if (existingTaskId) {
+        // Validate UUID format (8-4-4-4-12 hex digits)
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!uuidRegex.test(existingTaskId)) {
+          res.status(400).json({ message: 'Invalid taskId format' });
+          return;
+        }
+        taskId = existingTaskId;
+      } else {
+        taskId = randomUUID();
+      }
       const existing = Boolean(existingTaskId);
 
       // Set SSE headers
@@ -314,14 +326,16 @@ export class FormsController {
           }
         });
       } catch (error) {
-        const errorMsg = JSON.stringify({ type: 'error', message: error.message, taskId });
-        console.log('[SSE] Error:', errorMsg);
+        // Sanitize error message to prevent XSS - don't include user-controlled data
+        const safeErrorMsg = 'An error occurred during analytics generation';
+        const errorMsg = JSON.stringify({ type: 'error', message: safeErrorMsg, taskId });
+        console.error('[SSE] Error during analytics generation:', error);
         res.write(`data: ${errorMsg}\n\n`);
         res.end();
       }
     } catch (authError) {
-      console.log('[SSE] Authentication failed:', authError.message);
-      res.status(401).json({ message: 'Authentication failed', error: authError.message });
+      console.error('[SSE] Authentication failed:', authError);
+      res.status(401).json({ message: 'Authentication failed' });
     }
   }
 

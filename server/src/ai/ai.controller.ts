@@ -10,7 +10,7 @@ import type { Request, Response } from 'express';
 @UseGuards(JwtAuthGuard)
 @Controller('ai')
 export class AiController {
-  constructor(private readonly aiService: AiService) {}
+  constructor(private readonly aiService: AiService) { }
 
   @Post('generate')
   @ApiOperation({ summary: 'Generate or refine a form using AI (non-streaming)' })
@@ -37,7 +37,7 @@ export class AiController {
     let clientClosed = false;
     req.on('close', () => {
       clientClosed = true;
-      try { res.end(); } catch {}
+      try { res.end(); } catch { }
     });
 
     try {
@@ -48,10 +48,13 @@ export class AiController {
       if (!clientClosed) res.end();
     } catch (error: any) {
       try {
-        res.write(`data: ${JSON.stringify({ 
-          step: 'error', 
-          message: error?.message || 'An error occurred', 
-          status: 'error' 
+        // Sanitize error message to prevent XSS - use generic message
+        const safeErrorMsg = 'An error occurred during form generation';
+        console.error('[AI Generate Stream] Error:', error);
+        res.write(`data: ${JSON.stringify({
+          step: 'error',
+          message: safeErrorMsg,
+          status: 'error'
         })}\n\n`);
       } finally {
         res.end();
