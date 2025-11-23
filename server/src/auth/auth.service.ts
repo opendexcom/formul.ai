@@ -61,7 +61,7 @@ export class AuthService {
   }
 
   async confirmEmail(token: string) {
-    const user = await this.userModel.findOne({ emailVerificationToken: token });
+    const user = await this.userModel.findOne({ emailVerificationToken: { $eq: token } });
     if (!user) {
       throw new UnauthorizedException('Invalid verification token');
     }
