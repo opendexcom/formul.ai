@@ -8,6 +8,7 @@ import FormEditor from './pages/FormEditor';
 import FormAnalytics from './pages/FormAnalytics';
 import PublicFormView from './pages/PublicFormView';
 import EmailConfirmation from './pages/EmailConfirmation';
+import AdminSettings from './pages/AdminSettings';
 import './App.css';
 
 // Protected Route Component
@@ -95,6 +96,14 @@ function App() {
               <Route
                 path="/confirm-email"
                 element={<EmailConfirmation />}
+              />
+              <Route
+                path="/admin/settings"
+                element={
+                  <ProtectedRoute>
+                    <AdminSettings />
+                  </ProtectedRoute>
+                }
               />
               {/* Redirect any unknown routes to home */}
               <Route path="*" element={<Navigate to="/" replace />} />

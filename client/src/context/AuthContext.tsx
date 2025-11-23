@@ -52,7 +52,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     firstName: string,
     lastName: string
   ): Promise<void> => {
-    setLoading(true);
+    // We don't set loading here because it triggers a re-render of PublicRoute
+    // which unmounts the LandingPage and clears the success message
     try {
       await authService.register({
         email,
@@ -63,8 +64,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Do not set user here as registration now requires email confirmation
     } catch (error) {
       throw error;
-    } finally {
-      setLoading(false);
     }
   };
 

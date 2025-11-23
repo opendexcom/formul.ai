@@ -7,6 +7,7 @@ import { User, UserDocument } from '../schemas/user.schema';
 import { RegisterDto, LoginDto } from './dto/auth.dto';
 
 import { EmailService } from '../forms/email.service';
+import { SettingsService } from '../settings/settings.service';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -15,9 +16,15 @@ export class AuthService {
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     private jwtService: JwtService,
     private emailService: EmailService,
+    private settingsService: SettingsService,
   ) { }
 
   async register(registerDto: RegisterDto) {
+    const isRegistrationAllowed = await this.settingsService.isRegistrationAllowed();
+    if (!isRegistrationAllowed) {
+      throw new UnauthorizedException('Registration is currently disabled');
+    }
+
     const { email, password, firstName, lastName } = registerDto;
 
     // Check if user already exists
@@ -98,6 +105,7 @@ export class AuthService {
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
+        roles: user.roles,
       },
       token,
     };

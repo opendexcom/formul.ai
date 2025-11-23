@@ -72,7 +72,8 @@ export class EmailService {
   }
 
   async sendConfirmationEmail(email: string, token: string): Promise<void> {
-    const confirmationUrl = `${process.env.CLIENT_URL || 'http://localhost:5173'}/confirm-email?token=${token}`;
+    const baseUrl = process.env.FRONTEND_URL || process.env.CLIENT_URL || 'http://localhost:5173';
+    const confirmationUrl = `${baseUrl}/confirm-email?token=${token}`;
     const subject = 'Confirm your email address';
     const message = `Please click the following link to confirm your email address: ${confirmationUrl}`;
 

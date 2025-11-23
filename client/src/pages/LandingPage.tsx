@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { apiClient } from '../services/apiClient';
 import { Eye, EyeOff, Sparkles, Users, BarChart3 } from 'lucide-react';
 
 const LandingPage: React.FC = () => {
@@ -14,6 +15,19 @@ const LandingPage: React.FC = () => {
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [allowRegistration, setAllowRegistration] = useState(true);
+
+  useEffect(() => {
+    const checkRegistration = async () => {
+      try {
+        const setting = await (apiClient as any).getRegistrationSetting();
+        setAllowRegistration(setting);
+      } catch (error) {
+        console.error('Failed to check registration setting:', error);
+      }
+    };
+    checkRegistration();
+  }, []);
 
   const { login, register } = useAuth();
 
@@ -120,22 +134,24 @@ const LandingPage: React.FC = () => {
                 type="button"
                 onClick={() => { setIsSignUp(false); setError(''); setSuccessMessage(''); }}
                 className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${!isSignUp
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
                   }`}
               >
                 Sign In
               </button>
-              <button
-                type="button"
-                onClick={() => { setIsSignUp(true); setError(''); setSuccessMessage(''); }}
-                className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${isSignUp
+              {allowRegistration && (
+                <button
+                  type="button"
+                  onClick={() => { setIsSignUp(true); setError(''); setSuccessMessage(''); }}
+                  className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${isSignUp
                     ? 'bg-white text-gray-900 shadow-sm'
                     : 'text-gray-600 hover:text-gray-900'
-                  }`}
-              >
-                Sign Up
-              </button>
+                    }`}
+                >
+                  Sign Up
+                </button>
+              )}
             </div>
 
             {error && (

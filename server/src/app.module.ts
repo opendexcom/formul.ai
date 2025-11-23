@@ -8,6 +8,7 @@ import { FormsModule } from './forms/forms.module';
 import { MigrationModule } from './migrations/migration.module';
 import { AiModule } from './ai/ai.module';
 import { MonitoringModule } from './monitoring/monitoring.module';
+import { SettingsModule } from './settings/settings.module';
 
 @Module({
   imports: [
@@ -21,8 +22,9 @@ import { MonitoringModule } from './monitoring/monitoring.module';
     MigrationModule,
     AiModule,
     MonitoringModule,
+    SettingsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }
