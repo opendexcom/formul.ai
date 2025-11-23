@@ -1,5 +1,3 @@
-
-
 services:
   mongodb:
     image: mongo:7.0
@@ -59,9 +57,6 @@ services:
       NODE_ENV: production
       MONGODB_URI: mongodb://mongodb:27017/formulai
       REDIS_HOST: redis
-      JWT_SECRET: ${JWT_SECRET:-secret}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      FRONTEND_URL: http://localhost
     env_file:
       - ./server/.env
     depends_on:
@@ -71,6 +66,25 @@ services:
       - formulai-network
     ports:
       - "3001:3001"
+
+  worker:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    container_name: formulai-worker
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      MONGODB_URI: mongodb://mongodb:27017/formulai
+      REDIS_HOST: redis
+    env_file:
+      - ./server/.env
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - formulai-network
+    command: npm run start:worker:prod
 
   gateway:
     build:
