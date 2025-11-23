@@ -8,6 +8,10 @@ on:
         required: true
         default: 'develop'
 
+permissions:
+  contents: write
+  pull-requests: read
+
 jobs:
   deploy:
     runs-on: ubuntu-latest

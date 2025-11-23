@@ -11,13 +11,13 @@ export class AuthService {
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     private jwtService: JwtService,
-  ) {}
+  ) { }
 
   async register(registerDto: RegisterDto) {
     const { email, password, firstName, lastName } = registerDto;
 
     // Check if user already exists
-    const existingUser = await this.userModel.findOne({ email });
+    const existingUser = await this.userModel.findOne({ email: { $eq: email } });
     if (existingUser) {
       throw new ConflictException('User with this email already exists');
     }
@@ -55,7 +55,7 @@ export class AuthService {
     const { email, password } = loginDto;
 
     // Find user
-    const user = await this.userModel.findOne({ email });
+    const user = await this.userModel.findOne({ email: { $eq: email } });
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
