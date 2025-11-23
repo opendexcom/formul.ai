@@ -3,7 +3,7 @@ import { FormData } from '../../services/formsService';
 
 interface ResponseData {
   _id: string;
-  answers: { questionId: string; value: any }[];
+  answers: { questionId: string; value: string | number | string[] | boolean | null }[];
   submittedAt: string;
   respondentEmail?: string;
   ipAddress?: string;

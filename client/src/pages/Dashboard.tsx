@@ -4,6 +4,7 @@ import { Plus, FileText } from 'lucide-react';
 import formsService, { FormData } from '../services/formsService';
 import { Header, FormCard, PageHeader, ShareFormModal } from '../components/common';
 import { LoadingSpinner, Alert, EmptyState } from '../components/ui';
+import { logger } from '../utils/logger';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -40,9 +41,9 @@ const Dashboard: React.FC = () => {
         })
       );
       setResponseCounts(counts);
-    } catch (error: any) {
+    } catch (error) {
       setError('Failed to load forms');
-      console.error('Error loading forms:', error);
+      logger.error('Error loading forms:', error);
     } finally {
       setLoading(false);
     }

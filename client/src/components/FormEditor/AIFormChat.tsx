@@ -8,11 +8,18 @@ interface Message {
   timestamp: Date;
 }
 
+interface ProcessingStepData {
+  progress?: number;
+  formData?: GeneratedForm;
+  error?: string;
+  [key: string]: unknown;
+}
+
 interface ProcessingStep {
   step: string;
   message: string;
   status: 'pending' | 'in-progress' | 'completed' | 'error';
-  data?: any;
+  data?: ProcessingStepData;
 }
 
 interface AIFormChatProps {

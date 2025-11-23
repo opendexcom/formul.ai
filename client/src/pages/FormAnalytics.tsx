@@ -32,6 +32,7 @@ import { ClosedQuestionTopicsCard } from '../components/analytics/ClosedQuestion
 import { AnalyticsData } from '../types/analytics';
 import { AnalyticsFilters } from '../components/analytics/FilterPanel';
 import type { RefreshOptions } from '../components/analytics/RefreshAnalyticsModal';
+import { logger } from '../utils/logger';
 
 interface ResponseData {
   _id: string;
@@ -90,7 +91,7 @@ const FormAnalytics: React.FC = () => {
       // Check if there's an ongoing task from session storage
       const existingTaskId = sessionStorage.getItem(`analytics-task-${formId}`);
       if (existingTaskId) {
-        console.log('[Frontend] Found existing taskId in session:', existingTaskId);
+        logger.debug('[Frontend] Found existing taskId in session:', existingTaskId);
         setCurrentTaskId(existingTaskId);
         // We'll reconnect in handleRefreshAnalytics or we can check task status here
       }
@@ -102,7 +103,7 @@ const FormAnalytics: React.FC = () => {
       const responsesData = await formsService.getFormResponses(id);
       setResponses(responsesData);
     } catch (error) {
-      console.error('Error loading responses:', error);
+      logger.error('Error loading responses:', error);
     }
   };
 
@@ -125,14 +126,16 @@ const FormAnalytics: React.FC = () => {
         if (analyticsData?.analytics) {
           setAnalytics(analyticsData.analytics);
         }
-      } catch (analyticsError: any) {
+      } catch (analyticsError) {
         // Don't fail the whole page if analytics fail
-        console.log('Analytics not available:', analyticsError.message);
+        const errorMessage = analyticsError instanceof Error ? analyticsError.message : 'Analytics not available';
+        logger.warn('Analytics not available:', errorMessage);
       }
 
-    } catch (error: any) {
-      setError(error.message);
-      console.error('Error loading form analytics:', error);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load form analytics';
+      setError(errorMessage);
+      logger.error('Error loading form analytics:', error);
     } finally {
       setLoading(false);
     }
@@ -141,7 +144,7 @@ const FormAnalytics: React.FC = () => {
   const handleRefreshAnalytics = async (options: RefreshOptions) => {
     if (!formId) return;
     
-    console.log('[Frontend] Starting analytics refresh with options:', options);
+    logger.debug('[Frontend] Starting analytics refresh with options:', options);
     
     try {
       setRefreshingAnalytics(true);
@@ -160,10 +163,10 @@ const FormAnalytics: React.FC = () => {
       // Clear any existing taskId if reprocessing - we want a fresh start
       if (options.reprocessResponses) {
         sessionStorage.removeItem(`analytics-task-${formId}`);
-        console.log('[Frontend] Cleared existing taskId for fresh start with reprocessing');
+        logger.debug('[Frontend] Cleared existing taskId for fresh start with reprocessing');
       }
       
-      console.log('[Frontend] Starting SSE connection to:', `/api/forms/${formId}/analytics/stream`);
+      logger.debug('[Frontend] Starting SSE connection to:', `/api/forms/${formId}/analytics/stream`);
       
       // Use fetch with streaming for SSE with proper Authorization header
       const controller = new AbortController();
@@ -185,7 +188,7 @@ const FormAnalytics: React.FC = () => {
       
       const url = `/api/forms/${formId}/analytics/stream${params.toString() ? '?' + params.toString() : ''}`;
       
-      console.log('[Frontend] SSE URL:', url, existingTaskId ? `(reconnecting to taskId: ${existingTaskId})` : '(new task)');
+      logger.debug('[Frontend] SSE URL:', url, existingTaskId ? `(reconnecting to taskId: ${existingTaskId})` : '(new task)');
       
       try {
         const response = await fetch(url, {
@@ -197,7 +200,7 @@ const FormAnalytics: React.FC = () => {
           signal: controller.signal,
         });
 
-        console.log('[Frontend] SSE response status:', response.status);
+        logger.debug('[Frontend] SSE response status:', response.status);
 
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -210,7 +213,7 @@ const FormAnalytics: React.FC = () => {
           throw new Error('Response body is not readable');
         }
 
-        console.log('[Frontend] Stream reader obtained, processing stream...');
+        logger.debug('[Frontend] Stream reader obtained, processing stream...');
 
         const processStream = async () => {
           try {
@@ -218,19 +221,19 @@ const FormAnalytics: React.FC = () => {
               const { done, value } = await reader.read();
               
               if (done) {
-                console.log('[Frontend] Stream done');
+                logger.debug('[Frontend] Stream done');
                 break;
               }
 
               const chunk = decoder.decode(value, { stream: true });
-              console.log('[Frontend] Received chunk:', chunk);
+              logger.debug('[Frontend] Received chunk:', chunk);
               const lines = chunk.split('\n');
 
               for (const line of lines) {
                 if (line.startsWith('data: ')) {
                   try {
                     const data = JSON.parse(line.substring(6));
-                    console.log('[Frontend] Parsed SSE data:', data);
+                    logger.debug('[Frontend] Parsed SSE data:', data);
                     
                     // Store taskId for reconnection
                     if (data.taskId) {
@@ -251,7 +254,7 @@ const FormAnalytics: React.FC = () => {
                       // Don't refetch - wait for responses_claimed event to update state
                       setProgressMessage(data.message);
                       setProgressPercent(data.progress || 2);
-                      console.log('[Frontend] Reprocessing initiated, waiting for responses_claimed event...');
+                      logger.debug('[Frontend] Reprocessing initiated, waiting for responses_claimed event...');
                     } else if (data.type === 'start') {
                       setProgressMessage(data.message);
                       setProgressPercent(data.progress || 0);
@@ -270,7 +273,7 @@ const FormAnalytics: React.FC = () => {
                               : r
                           )
                         );
-                        console.log('[Frontend] Reset', data.processedResponseIds.length, 'responses to "Not started" (claimed)');
+                        logger.debug('[Frontend] Reset', data.processedResponseIds.length, 'responses to "Not started" (claimed)');
                       }
                       setProgressMessage(data.message);
                       setProgressPercent(data.progress || 0);
@@ -284,7 +287,7 @@ const FormAnalytics: React.FC = () => {
                               : r
                           )
                         );
-                        console.log('[Frontend] Marked', data.processedResponseIds.length, 'responses as "Pending" (processing)');
+                        logger.debug('[Frontend] Marked', data.processedResponseIds.length, 'responses as "Pending" (processing)');
                       }
                       setProgressMessage(data.message);
                       setProgressPercent(data.progress || 0);
@@ -298,7 +301,7 @@ const FormAnalytics: React.FC = () => {
                               : r
                           )
                         );
-                        console.log('[Frontend] Updated status for', data.processedResponseIds.length, 'processed responses');
+                        logger.debug('[Frontend] Updated status for', data.processedResponseIds.length, 'processed responses');
                       }
                       setProgressMessage(data.message);
                       setProgressPercent(data.progress || 0);
@@ -311,7 +314,7 @@ const FormAnalytics: React.FC = () => {
                         substage: data.substage
                       }));
                     } else if (data.type === 'complete') {
-                      console.log('[Frontend] Analytics complete, reloading...');
+                      logger.debug('[Frontend] Analytics complete, reloading...');
                       setProgressMessage('Complete!');
                       setProgressPercent(100);
                       
@@ -325,8 +328,8 @@ const FormAnalytics: React.FC = () => {
                         if (analyticsData?.analytics) {
                           try {
                             const insights = analyticsData.analytics?.insights;
-                            console.log('[Frontend] Reloaded analytics meta:', analyticsData.meta);
-                            console.log('[Frontend] Insights summary length:', insights?.summary?.length || 0, 'keyFindings:', (insights?.keyFindings || []).length);
+                            logger.debug('[Frontend] Reloaded analytics meta:', analyticsData.meta);
+                            logger.debug('[Frontend] Insights summary length:', insights?.summary?.length || 0, 'keyFindings:', (insights?.keyFindings || []).length);
                           } catch {}
                           setAnalytics(analyticsData.analytics);
                         }
@@ -338,7 +341,7 @@ const FormAnalytics: React.FC = () => {
                       }, 500);
                       break;
                     } else if (data.type === 'error') {
-                      console.error('[Frontend] Server error:', data.message);
+                      logger.error('[Frontend] Server error:', data.message);
                       setError(data.message || 'Analytics generation failed');
                       setRefreshingAnalytics(false);
                       setProgressMessage('');
@@ -348,14 +351,14 @@ const FormAnalytics: React.FC = () => {
                       break;
                     }
                   } catch (parseError) {
-                    console.error('[Frontend] Failed to parse SSE message:', parseError, 'Line:', line);
+                    logger.error('[Frontend] Failed to parse SSE message:', parseError, 'Line:', line);
                   }
                 }
               }
             }
-          } catch (streamError: any) {
-            if (streamError.name !== 'AbortError') {
-              console.error('[Frontend] Stream processing error:', streamError);
+          } catch (streamError) {
+            if (streamError instanceof Error && streamError.name !== 'AbortError') {
+              logger.error('[Frontend] Stream processing error:', streamError);
               setError('Connection error during analytics generation');
               setRefreshingAnalytics(false);
               setProgressMessage('');
@@ -368,16 +371,17 @@ const FormAnalytics: React.FC = () => {
 
         processStream();
       } catch (fetchError) {
-        console.error('SSE fetch error:', fetchError);
+        logger.error('SSE fetch error:', fetchError);
         setError('Connection error during analytics generation');
         setRefreshingAnalytics(false);
         setProgressMessage('');
         setProgressPercent(0);
       }
       
-    } catch (error: any) {
-      setError('Failed to start analytics generation: ' + error.message);
-      console.error('Error starting analytics:', error);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to start analytics generation';
+      setError('Failed to start analytics generation: ' + errorMessage);
+      logger.error('Error starting analytics:', error);
       setRefreshingAnalytics(false);
       setProgressMessage('');
       setProgressPercent(0);
@@ -479,7 +483,7 @@ const FormAnalytics: React.FC = () => {
           const filteredData = await formsService.getFormResponses(formId, filterParams);
           setResponses(filteredData);
         } catch (error) {
-          console.error('Error fetching filtered responses:', error);
+          logger.error('Error fetching filtered responses:', error);
         }
       };
       

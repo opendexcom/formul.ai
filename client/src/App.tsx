@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import ErrorBoundary from './components/common/ErrorBoundary';
 import LandingPage from './pages/LandingPage';
 import Dashboard from './pages/Dashboard';
 import FormEditor from './pages/FormEditor';
@@ -40,61 +41,63 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
-        <div className="App">
-          <Routes>
-            <Route 
-              path="/" 
-              element={
-                <PublicRoute>
-                  <LandingPage />
-                </PublicRoute>
-              } 
-            />
-            <Route 
-              path="/dashboard" 
-              element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/forms/new" 
-              element={
-                <ProtectedRoute>
-                  <FormEditor />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/forms/:id/edit" 
-              element={
-                <ProtectedRoute>
-                  <FormEditor />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/forms/:formId/analytics" 
-              element={
-                <ProtectedRoute>
-                  <FormAnalytics />
-                </ProtectedRoute>
-              } 
-            />
-            {/* Public form route - accessible without authentication */}
-            <Route 
-              path="/form/:formId" 
-              element={<PublicFormView />} 
-            />
-            {/* Redirect any unknown routes to home */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </div>
-      </Router>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <Router>
+          <div className="App">
+            <Routes>
+              <Route 
+                path="/" 
+                element={
+                  <PublicRoute>
+                    <LandingPage />
+                  </PublicRoute>
+                } 
+              />
+              <Route 
+                path="/dashboard" 
+                element={
+                  <ProtectedRoute>
+                    <Dashboard />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/forms/new" 
+                element={
+                  <ProtectedRoute>
+                    <FormEditor />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/forms/:id/edit" 
+                element={
+                  <ProtectedRoute>
+                    <FormEditor />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/forms/:formId/analytics" 
+                element={
+                  <ProtectedRoute>
+                    <FormAnalytics />
+                  </ProtectedRoute>
+                } 
+              />
+              {/* Public form route - accessible without authentication */}
+              <Route 
+                path="/form/:formId" 
+                element={<PublicFormView />} 
+              />
+              {/* Redirect any unknown routes to home */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </div>
+        </Router>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 

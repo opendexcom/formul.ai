@@ -68,10 +68,18 @@ export interface SentimentAnalytics {
   };
 }
 
+export interface TopicCorrelation {
+  topic1: string;
+  topic2: string;
+  strength: number;
+  cooccurrenceCount: number;
+  relationship?: string;
+}
+
 export interface CorrelationsAnalytics {
   byQuestion: Record<string, QuestionCorrelations>;
   questionPairs: CorrelationPair[];
-  topCorrelations: any[];
+  topCorrelations: TopicCorrelation[];
   closedQuestionTopics?: Array<{
     questionId: string;
     questionTitle: string;
@@ -116,6 +124,11 @@ export interface CorrelationDetail {
   insight: string;
 }
 
+export interface CorrelationSample {
+  value1: string | number;
+  value2: string | number;
+}
+
 export interface CorrelationPair {
   question1Id: string;
   question1Title: string;
@@ -125,7 +138,7 @@ export interface CorrelationPair {
   correlation: number;
   strength: 'strong' | 'moderate' | 'weak' | 'very weak';
   insight: string;
-  samples?: Array<{ value1: any; value2: any }>;
+  samples?: CorrelationSample[];
   type?: 'partial' | 'bivariate';
   controlledFor?: string[];
   significance?: number;
@@ -317,7 +330,7 @@ export interface ValidationInfo {
 export interface QuestionStats {
   responseCount: number;
   completionRate: number;
-  mostCommon: any;
+  mostCommon: string | number | null;
   distribution: Record<string, number>;
 }
 
@@ -336,18 +349,38 @@ export interface ResponseMetadata {
   };
   allTopics?: string[];
   qualityScore?: number;
-  topics?: any[];
-  sentiment?: any;
-  discourse?: any;
-  quotes?: any;
+  topics?: Array<{
+    topic: string;
+    confidence: number;
+    relevance: number;
+  }>;
+  sentiment?: {
+    label: 'positive' | 'neutral' | 'negative' | 'ambivalent';
+    score: number;
+    confidence: number;
+  };
+  discourse?: {
+    frames?: string[];
+    patterns?: string[];
+  };
+  quotes?: Array<{
+    text: string;
+    context: string;
+    relevance: number;
+  }>;
   fullTextPreserved?: boolean;
+}
+
+export interface FormAnswer {
+  questionId: string;
+  value: string | number | string[] | boolean | null;
 }
 
 export interface ResponseWithMetadata {
   _id: string;
   formId: string;
   respondentEmail?: string;
-  answers: any[];
+  answers: FormAnswer[];
   submittedAt: Date;
   metadata: ResponseMetadata;
 }

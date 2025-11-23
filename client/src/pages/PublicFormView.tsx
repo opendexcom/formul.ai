@@ -5,7 +5,7 @@ import { FormData, Question, QuestionType } from '../services/formsService';
 import { Button, LoadingSpinner, Alert } from '../components/ui';
 
 interface FormResponse {
-  [questionId: string]: any;
+  [questionId: string]: string | number | string[] | boolean | null;
 }
 
 const PublicFormView: React.FC = () => {
@@ -44,15 +44,15 @@ const PublicFormView: React.FC = () => {
       
       const formData = await response.json();
       setForm(formData);
-    } catch (error: any) {
-      setError(error.message);
-      console.error('Error loading public form:', error);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load form';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleInputChange = (questionId: string, value: any) => {
+  const handleInputChange = (questionId: string, value: string | number | string[] | boolean) => {
     setResponses(prev => ({
       ...prev,
       [questionId]: value
@@ -110,8 +110,6 @@ const PublicFormView: React.FC = () => {
       setSubmitting(true);
       setError('');
       
-      console.log('Submitting form response:', { formId, responses });
-      
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api'}/public/forms/${formId}/responses`, {
         method: 'POST',
         headers: {
@@ -124,25 +122,21 @@ const PublicFormView: React.FC = () => {
         }),
       });
       
-      console.log('Response status:', response.status);
-      
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Response error:', errorText);
         throw new Error('Failed to submit response');
       }
       
-      const result = await response.json();
-      console.log('Response result:', result);
+      await response.json();
       
       if (!response.ok) {
         throw new Error('Failed to submit response');
       }
       
       setSubmitted(true);
-    } catch (error: any) {
-      setError(error.message);
-      console.error('Error submitting form:', error);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to submit response';
+      setError(errorMessage);
     } finally {
       setSubmitting(false);
     }

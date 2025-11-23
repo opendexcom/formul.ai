@@ -3,6 +3,7 @@ import { Copy, QrCode, Share2, Check, Eye } from 'lucide-react';
 import { FormData } from '../../services/formsService';
 import { Button } from '../ui';
 import Modal from '../ui/Modal';
+import { logger } from '../../utils/logger';
 
 interface ShareFormModalProps {
   isOpen: boolean;
@@ -72,7 +73,7 @@ const ShareFormModal: React.FC<ShareFormModalProps> = ({
     }
   };
 
-  const updateFormSetting = async (field: string, value: any) => {
+  const updateFormSetting = async (field: string, value: string | boolean) => {
     if (!form || !form._id) return;
     
     setUpdating(true);
@@ -132,9 +133,10 @@ const ShareFormModal: React.FC<ShareFormModalProps> = ({
       
       // Auto-clear status after 5 seconds
       setTimeout(() => setEmailStatus(''), 5000);
-    } catch (error: any) {
-      setEmailStatus(`Error: ${error.message}`);
-      console.error('Error sending invitations:', error);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to send invitations';
+      setEmailStatus(`Error: ${errorMessage}`);
+      logger.error('Error sending invitations:', error);
     } finally {
       setUpdating(false);
     }
