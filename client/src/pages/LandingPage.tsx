@@ -12,6 +12,7 @@ const LandingPage: React.FC = () => {
     lastName: '',
   });
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
   const { login, register } = useAuth();
@@ -23,16 +24,20 @@ const LandingPage: React.FC = () => {
       [name]: value,
     }));
     setError('');
+    setSuccessMessage('');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setSuccessMessage('');
 
     try {
       if (isSignUp) {
         await register(formData.email, formData.password, formData.firstName, formData.lastName);
+        setSuccessMessage('Registration successful! Please check your email to confirm your account.');
+        setFormData({ email: '', password: '', firstName: '', lastName: '' });
       } else {
         await login(formData.email, formData.password);
       }
@@ -113,23 +118,21 @@ const LandingPage: React.FC = () => {
             <div className="flex bg-gray-100 rounded-lg p-1 mb-6">
               <button
                 type="button"
-                onClick={() => setIsSignUp(false)}
-                className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${
-                  !isSignUp
+                onClick={() => { setIsSignUp(false); setError(''); setSuccessMessage(''); }}
+                className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${!isSignUp
                     ? 'bg-white text-gray-900 shadow-sm'
                     : 'text-gray-600 hover:text-gray-900'
-                }`}
+                  }`}
               >
                 Sign In
               </button>
               <button
                 type="button"
-                onClick={() => setIsSignUp(true)}
-                className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${
-                  isSignUp
+                onClick={() => { setIsSignUp(true); setError(''); setSuccessMessage(''); }}
+                className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${isSignUp
                     ? 'bg-white text-gray-900 shadow-sm'
                     : 'text-gray-600 hover:text-gray-900'
-                }`}
+                  }`}
               >
                 Sign Up
               </button>
@@ -138,6 +141,12 @@ const LandingPage: React.FC = () => {
             {error && (
               <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
                 <p className="text-red-600 text-sm">{error}</p>
+              </div>
+            )}
+
+            {successMessage && (
+              <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                <p className="text-green-600 text-sm">{successMessage}</p>
               </div>
             )}
 

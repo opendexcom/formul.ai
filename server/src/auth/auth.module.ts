@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { MongooseModule } from '@nestjs/mongoose';
 import { PassportModule } from '@nestjs/passport';
@@ -6,6 +6,8 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
 import { User, UserSchema } from '../schemas/user.schema';
+
+import { FormsModule } from '../forms/forms.module';
 
 @Module({
   imports: [
@@ -16,9 +18,10 @@ import { User, UserSchema } from '../schemas/user.schema';
       // cast to any to satisfy types that expect StringValue | number
       signOptions: { expiresIn: (process.env.JWT_EXPIRES_IN as any) || '7d' },
     }),
+    forwardRef(() => FormsModule),
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy],
   exports: [AuthService],
 })
-export class AuthModule {}
+export class AuthModule { }

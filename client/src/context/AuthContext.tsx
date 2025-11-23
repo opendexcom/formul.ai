@@ -25,7 +25,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Check if user is logged in on app start
     const currentUser = authService.getCurrentUser();
     const currentUserId = authService.getCurrentUserId();
-    
+
     if (currentUser && currentUserId && authService.isAuthenticated()) {
       setUser(currentUser);
       setUserId(currentUserId);
@@ -54,14 +54,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   ): Promise<void> => {
     setLoading(true);
     try {
-      const response = await authService.register({
+      await authService.register({
         email,
         password,
         firstName,
         lastName,
       });
-      setUser(response.user);
-      setUserId(authService.getCurrentUserId());
+      // Do not set user here as registration now requires email confirmation
     } catch (error) {
       throw error;
     } finally {

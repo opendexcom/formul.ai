@@ -20,6 +20,9 @@ export class User {
   @Prop({ default: false })
   isEmailVerified: boolean;
 
+  @Prop()
+  emailVerificationToken: string;
+
   @Prop({ type: [String], default: ['user'] })
   roles: string[];
 

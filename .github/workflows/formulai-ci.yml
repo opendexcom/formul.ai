@@ -19,4 +19,7 @@ jobs:
       - run: corepack prepare pnpm@latest --activate
       - run: pnpm install
       - run: pnpm build
+      - run: pnpm --filter client test
+      - run: pnpm --filter server test
+      - run: pnpm --filter server test:e2e
  
