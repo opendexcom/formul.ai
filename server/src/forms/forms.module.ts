@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { JwtModule } from '@nestjs/jwt';
 import { FormsService } from './forms.service';
@@ -42,15 +42,15 @@ import { FormLockStore } from '../analytics/stores/form-lock.store';
       secret: process.env.JWT_SECRET || 'your-secret-key',
       signOptions: { expiresIn: (process.env.JWT_EXPIRES_IN as any) || '7d' },
     }),
-    AiModule,
+    forwardRef(() => AiModule),
     BullConfigModule,
     AnalyticsQueueModule,
   ],
   controllers: [FormsController, PublicFormsController],
   providers: [
-    FormsService, 
-    ResponseService, 
-    EmailService, 
+    FormsService,
+    ResponseService,
+    EmailService,
     AnalyticsService,
     // Analytics core
     AnalyticsOrchestrator,
@@ -75,4 +75,4 @@ import { FormLockStore } from '../analytics/stores/form-lock.store';
   ],
   exports: [FormsService, ResponseService, EmailService, AnalyticsService],
 })
-export class FormsModule {}
+export class FormsModule { }

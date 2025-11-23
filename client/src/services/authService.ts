@@ -20,6 +20,7 @@ export interface AuthResponse {
     email: string;
     firstName: string;
     lastName: string;
+    roles: string[];
   };
   token: string;
 }
@@ -31,26 +32,20 @@ class AuthService {
     try {
       const response = await this.api.post<AuthResponse>('/auth/login', credentials);
       const { user, token } = response.data;
-      
+
       // Store token in localStorage
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
-      
+
       return response.data;
     } catch (error) {
       throw new Error(getErrorMessage(error));
     }
   }
 
-  async register(userData: RegisterRequest): Promise<AuthResponse> {
+  async register(userData: RegisterRequest): Promise<{ message: string }> {
     try {
-      const response = await this.api.post<AuthResponse>('/auth/register', userData);
-      const { user, token } = response.data;
-      
-      // Store token in localStorage
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(user));
-      
+      const response = await this.api.post<{ message: string }>('/auth/register', userData);
       return response.data;
     } catch (error) {
       throw new Error(getErrorMessage(error));
@@ -81,13 +76,13 @@ class AuthService {
     if (!token) {
       return false;
     }
-    
+
     // Check if token is expired
     if (isTokenExpired(token)) {
       this.logout(); // Clean up expired token
       return false;
     }
-    
+
     return true;
   }
 }

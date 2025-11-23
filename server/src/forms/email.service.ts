@@ -71,6 +71,48 @@ export class EmailService {
     return results;
   }
 
+  async sendConfirmationEmail(email: string, token: string): Promise<void> {
+    const baseUrl = process.env.FRONTEND_URL || process.env.CLIENT_URL || 'http://localhost:5173';
+    const confirmationUrl = `${baseUrl}/confirm-email?token=${token}`;
+    const subject = 'Confirm your email address';
+    const message = `Please click the following link to confirm your email address: ${confirmationUrl}`;
+
+    const mailOptions = {
+      from: process.env.FROM_EMAIL || '"FormulAI" <noreply@formulai.com>',
+      to: email,
+      subject: subject,
+      text: message,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Welcome to FormulAI!</h2>
+          <p>Please confirm your email address by clicking the button below:</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${confirmationUrl}" style="background-color: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Confirm Email</a>
+          </div>
+          <p>Or copy and paste this link into your browser:</p>
+          <p><a href="${confirmationUrl}">${confirmationUrl}</a></p>
+        </div>
+      `,
+    };
+
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST || 'localhost',
+      port: Number(process.env.SMTP_PORT) || 1025,
+      secure: false,
+      auth: {
+        user: process.env.SMTP_USER || 'user',
+        pass: process.env.SMTP_PASS || 'pass',
+      },
+    });
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`Confirmation email sent to ${email}: ${info.messageId}`);
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`Preview URL: http://localhost:3001/email-preview/${info.messageId}`);
+    }
+  }
+
   private escapeHtml(unsafe: string): string {
     return unsafe
       .replace(/&/g, '&amp;')
