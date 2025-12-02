@@ -46,7 +46,7 @@
     "ioredis": "^5.8.2",
     "langchain": "^1.0.2",
     "mongoose": "^8.19.2",
-    "nodemailer": "^7.0.10",
+    "nodemailer": "^7.0.11",
     "openai": "^6.7.0",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
