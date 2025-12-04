@@ -4,6 +4,7 @@ import { FormData } from '../../services/formsService';
 import { Button } from '../ui';
 import Modal from '../ui/Modal';
 import { logger } from '../../utils/logger';
+import { isSaaS } from '../../utils/config';
 
 interface ShareFormModalProps {
   isOpen: boolean;
@@ -436,6 +437,8 @@ const ShareFormModal: React.FC<ShareFormModalProps> = ({
                     />
                   </button>
                 </div>
+                {isSaaS() && (
+                  
                 
                 <div className="border-t border-gray-200 pt-3">
                   <span className="text-sm font-medium text-gray-900">Response Limit</span>
@@ -446,7 +449,7 @@ const ShareFormModal: React.FC<ShareFormModalProps> = ({
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
-                
+                )}
                 <div className="border-t border-gray-200 pt-3">
                   <span className="text-sm font-medium text-gray-900">Closing Date</span>
                   <p className="text-sm text-gray-600 mb-2">Automatically close form on specific date</p>
