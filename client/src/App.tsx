@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { UsageProvider } from './context/UsageContext';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import LandingPage from './pages/LandingPage';
 import Dashboard from './pages/Dashboard';
@@ -45,6 +46,7 @@ function App() {
   return (
     <ErrorBoundary>
       <AuthProvider>
+        <UsageProvider>
         <Router>
           <div className="App">
             <Routes>
@@ -110,6 +112,7 @@ function App() {
             </Routes>
           </div>
         </Router>
+        </UsageProvider>
       </AuthProvider>
     </ErrorBoundary>
   );

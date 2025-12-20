@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, FileText } from 'lucide-react';
 import formsService, { FormData } from '../services/formsService';
+import { useUsage } from '../context/UsageContext';
 import { Header, FormCard, PageHeader, ShareFormModal } from '../components/common';
 import { LoadingSpinner, Alert, EmptyState } from '../components/ui';
 import { logger } from '../utils/logger';
 
 const Dashboard: React.FC = () => {
+  const { usage, loading: usageLoading } = useUsage();
   const navigate = useNavigate();
   const [forms, setForms] = useState<FormData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -133,6 +135,24 @@ const Dashboard: React.FC = () => {
           </div>
         )}
       </main>
+
+      {/* TODO: Remove after PR review - proof that useUsage() works */}
+{loading ? (
+  <div className="bg-yellow-50 border border-yellow-200 rounded p-3 mb-4 text-sm">
+    ⏳ Loading usage data...
+  </div>
+) : usage ? (
+  <div className="bg-blue-50 border border-blue-200 rounded p-3 mb-4">
+    <div className="text-sm">
+      <strong>✅ UsageContext works!</strong> Plan: {usage.tier.toUpperCase()} | 
+      Forms: {usage.usage.forms}/{usage.limits.forms} | 
+      Responses: {usage.usage.responses}/{usage.limits.responses}
+    </div>
+  </div>
+) : null}
+
+
+
 
       {/* Share Form Modal */}
       <ShareFormModal
