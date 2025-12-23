@@ -44,7 +44,7 @@
     "dodopayments": "^2.6.0",
     "dotenv": "^17.2.3",
     "ioredis": "^5.8.2",
-    "langchain": "^1.0.2",
+    "langchain": "^1.2.3",
     "mongoose": "^8.19.2",
     "nodemailer": "^7.0.10",
     "openai": "^6.7.0",
