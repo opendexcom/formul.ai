@@ -1,18 +1,6 @@
 import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { AnalyticsData } from '../types/analytics';
 import { FormData } from '../services/formsService';
-
-interface ResponseData {
-  _id: string;
-  answers: { questionId: string; value: any }[];
-  submittedAt: Date | string;
-  respondentEmail?: string;
-  metadata?: {
-    overallSentiment?: { label?: string };
-    canonicalTopics?: string[];
-  };
-}
 
 // Color palette matching the app's Tailwind colors
 const colors = {
@@ -45,7 +33,6 @@ const colors = {
 export function generateAnalyticsPDF(
   form: FormData,
   analytics: AnalyticsData,
-  responses: ResponseData[]
 ): void {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();

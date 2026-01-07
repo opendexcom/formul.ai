@@ -1,5 +1,5 @@
-import React from 'react';
-import { BarChart, Filter, Users, Info } from 'lucide-react';
+import React, { useState } from 'react';
+import { BarChart, Filter, Users, Info, ChevronDown, ChevronUp } from 'lucide-react';
 import { AnalyticsData } from '../../types/analytics';
 
 interface ClosedQuestionTopicsCardProps {
@@ -13,7 +13,19 @@ export const ClosedQuestionTopicsCard: React.FC<ClosedQuestionTopicsCardProps> =
   selectedTopics = [],
   hasActiveFilters = false
 }) => {
+  const [expandedAnswers, setExpandedAnswers] = useState<Set<string>>(new Set());
   const closedQuestionCorrelations = analytics?.correlations?.closedQuestionTopics || [];
+  
+  const toggleAnswer = (questionIndex: number, answerIndex: number) => {
+    const key = `${questionIndex}-${answerIndex}`;
+    const newExpanded = new Set(expandedAnswers);
+    if (newExpanded.has(key)) {
+      newExpanded.delete(key);
+    } else {
+      newExpanded.add(key);
+    }
+    setExpandedAnswers(newExpanded);
+  };
 
   // Filter by selected topics if any
   const filteredCorrelations = selectedTopics.length > 0
@@ -101,52 +113,75 @@ export const ClosedQuestionTopicsCard: React.FC<ClosedQuestionTopicsCardProps> =
 
             {/* Answer values in 2-column grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-              {question.correlations.map((answer, aIndex) => (
-                <div key={aIndex} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-gray-900">{answer.answerValue}</span>
-                    <span className="flex items-center gap-1 text-xs text-gray-600">
-                      <Users className="w-3 h-3" />
-                      {answer.responseCount} {answer.responseCount === 1 ? 'response' : 'responses'}
-                    </span>
-                  </div>
-
-                  {/* Topic distribution */}
-                  {answer.topicDistribution.length > 0 ? (
-                    <div className="space-y-1.5">
-                      {answer.topicDistribution.slice(0, 5).map((topic, tIndex) => (
-                        <div key={tIndex} className="flex items-center gap-2">
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between text-xs mb-1">
-                              <span className={`inline-flex px-2 py-0.5 rounded font-medium ${getTopicColor(tIndex)}`}>
-                                {topic.topic}
-                              </span>
-                              <span className="text-gray-600 font-medium">{topic.percentage}%</span>
-                            </div>
-                            {/* Progress bar */}
-                            <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                              <div
-                                className={`h-full ${getTopicColor(tIndex).split(' ')[0]}`}
-                                style={{ width: `${topic.percentage}%` }}
-                              />
-                            </div>
-                          </div>
-                          <span className="text-xs text-gray-500 w-8 text-right">
-                            {topic.count}
-                          </span>
-                        </div>
-                      ))}
-                      {answer.topicDistribution.length > 5 && (
-                        <p className="text-xs text-gray-500 text-center mt-2">
-                          +{answer.topicDistribution.length - 5} more topics
-                        </p>
-                      )}
+              {question.correlations.map((answer, aIndex) => {
+                const answerKey = `${qIndex}-${aIndex}`;
+                const isExpanded = expandedAnswers.has(answerKey);
+                const displayedTopics = isExpanded 
+                  ? answer.topicDistribution 
+                  : answer.topicDistribution.slice(0, 5);
+                
+                return (
+                  <div key={aIndex} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-900">{answer.answerValue}</span>
+                      <span className="flex items-center gap-1 text-xs text-gray-600">
+                        <Users className="w-3 h-3" />
+                        {answer.responseCount} {answer.responseCount === 1 ? 'response' : 'responses'}
+                      </span>
                     </div>
-                  ) : (
-                    <p className="text-xs text-gray-500 italic">No topics discussed</p>
-                  )}
-                </div>
-              ))}
+
+                    {/* Topic distribution */}
+                    {answer.topicDistribution.length > 0 ? (
+                      <div className="space-y-1.5">
+                        {displayedTopics.map((topic, tIndex) => (
+                          <div key={tIndex} className="flex items-center gap-2">
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between text-xs mb-1">
+                                <span className={`inline-flex px-2 py-0.5 rounded font-medium ${getTopicColor(tIndex)}`}>
+                                  {topic.topic}
+                                </span>
+                                <span className="text-gray-600 font-medium">{topic.percentage}%</span>
+                              </div>
+                              {/* Progress bar */}
+                              <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full ${getTopicColor(tIndex).split(' ')[0]}`}
+                                  style={{ width: `${topic.percentage}%` }}
+                                />
+                              </div>
+                            </div>
+                            <span className="text-xs text-gray-500 w-8 text-right">
+                              {topic.count}
+                            </span>
+                          </div>
+                        ))}
+                        {answer.topicDistribution.length > 5 && (
+                          <div className="text-center mt-2">
+                            <button
+                              onClick={() => toggleAnswer(qIndex, aIndex)}
+                              className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors"
+                            >
+                              {isExpanded ? (
+                                <>
+                                  <ChevronUp className="w-3 h-3" />
+                                  Show Less
+                                </>
+                              ) : (
+                                <>
+                                  <ChevronDown className="w-3 h-3" />
+                                  Show All {answer.topicDistribution.length} Topics
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-500 italic">No topics discussed</p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         ))}

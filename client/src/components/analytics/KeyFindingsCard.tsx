@@ -1,5 +1,5 @@
-import React from 'react';
-import { Lightbulb, TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Minus } from 'lucide-react';
+import React, { useState } from 'react';
+import { Lightbulb, TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Minus, ChevronDown, ChevronUp } from 'lucide-react';
 import { AnalyticsData } from '../../types/analytics';
 
 interface KeyFindingsCardProps {
@@ -7,7 +7,9 @@ interface KeyFindingsCardProps {
 }
 
 export const KeyFindingsCard: React.FC<KeyFindingsCardProps> = ({ analytics }) => {
+  const [showAll, setShowAll] = useState(false);
   const findings = analytics?.insights?.keyFindings || [];
+  const displayedFindings = showAll ? findings : findings.slice(0, 4);
 
   const getConfidenceBadge = (confidence: string) => {
     const colors = {
@@ -58,7 +60,7 @@ export const KeyFindingsCard: React.FC<KeyFindingsCardProps> = ({ analytics }) =
         </div>
       ) : (
         <div className="space-y-4">
-          {findings.slice(0, 4).map((finding, index) => (
+          {displayedFindings.map((finding, index) => (
             <div key={index} className={`border-l-4 ${getTypeBorderColor(finding.type)} pl-4 py-2`}>
               <div className="flex items-start justify-between gap-2 mb-2">
                 <div className="flex items-start gap-2 flex-1">
@@ -110,9 +112,22 @@ export const KeyFindingsCard: React.FC<KeyFindingsCardProps> = ({ analytics }) =
 
       {findings.length > 4 && (
         <div className="mt-4 text-center">
-          <span className="text-xs text-gray-500">
-            Showing top 4 of {findings.length} findings
-          </span>
+          <button
+            onClick={() => setShowAll(!showAll)}
+            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-md transition-colors"
+          >
+            {showAll ? (
+              <>
+                <ChevronUp className="w-4 h-4" />
+                Show Less
+              </>
+            ) : (
+              <>
+                <ChevronDown className="w-4 h-4" />
+                Show All {findings.length} Findings
+              </>
+            )}
+          </button>
         </div>
       )}
 

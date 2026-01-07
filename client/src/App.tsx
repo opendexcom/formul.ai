@@ -6,6 +6,7 @@ import LandingPage from './pages/LandingPage';
 import Dashboard from './pages/Dashboard';
 import FormEditor from './pages/FormEditor';
 import FormAnalytics from './pages/FormAnalytics';
+import PrintableAnalytics from './pages/PrintableAnalytics';
 import PublicFormView from './pages/PublicFormView';
 import EmailConfirmation from './pages/EmailConfirmation';
 import ResetPassword from './pages/ResetPassword';
@@ -86,6 +87,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <FormAnalytics />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/forms/:formId/analytics/print"
+                element={
+                  <ProtectedRoute>
+                    <PrintableAnalytics />
                   </ProtectedRoute>
                 }
               />

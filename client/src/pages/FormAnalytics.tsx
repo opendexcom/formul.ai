@@ -15,7 +15,6 @@ import formsService, { FormData } from '../services/formsService';
 import { Header } from '../components/common';
 import { Button, LoadingSpinner, Alert } from '../components/ui';
 import { computeOverallClimate } from '../utils/analysis';
-import { generateAnalyticsPDF } from '../utils/pdfExport';
 import {
   AnalyticsSummaryCard,
   OverallClimateCard,
@@ -400,7 +399,10 @@ const FormAnalytics: React.FC = () => {
 
   const handleExportPDF = () => {
     if (!form || !analytics) return;
-    generateAnalyticsPDF(form, analytics, responses);
+    
+    // Open the printable analytics report in a new tab
+    const printUrl = `/forms/${formId}/analytics/print`;
+    window.open(printUrl, '_blank');
   };
 
   // Handle topic click - toggle topic in filters
@@ -793,6 +795,7 @@ const FormAnalytics: React.FC = () => {
                         <TopicSentimentCard
                           analytics={analytics || undefined}
                           selectedTopics={filters.topics || []}
+                          onTopicClick={handleTopicClick}
                         />
                         <TopicRelationshipsCard
                           analytics={analytics || undefined}

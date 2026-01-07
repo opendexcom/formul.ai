@@ -25,12 +25,18 @@ importers:
       '@hookform/resolvers':
         specifier: ^5.2.2
         version: 5.2.2(react-hook-form@7.66.0(react@19.2.0))
+      '@types/html2pdf.js':
+        specifier: ^0.10.0
+        version: 0.10.0
       '@types/jspdf':
         specifier: ^2.0.0
         version: 2.0.0
       axios:
         specifier: ^1.13.1
         version: 1.13.1(debug@4.4.3)
+      html2pdf.js:
+        specifier: ^0.13.0
+        version: 0.13.0
       jspdf:
         specifier: ^4.0.0
         version: 4.0.0
@@ -1986,6 +1992,9 @@ packages:
   '@types/history@4.7.11':
     resolution: {integrity: sha512-qjDJRrmvBMiTx+jyLxvLfJU7UznFuokDv4f3WRuriHKERccVpFU+8XMQUAbDzoiJCsmexxRExQeMwwCdamSKDA==}
 
+  '@types/html2pdf.js@0.10.0':
+    resolution: {integrity: sha512-XisuzaIQRGHsdu+Xxnymffh/+M2cu4lzpFMsoMTCoq3flN0EcEVFeYhqIO2uq5FE19NoA7tWYE62lS3SeOdMqA==}
+
   '@types/http-errors@2.0.5':
     resolution: {integrity: sha512-r8Tayk8HJnX0FztbZN7oVqGccWgw98T/0neJphO91KkmOzug1KkofZURD4UaD5uH8AqcFLfdPErnBod0u71/qg==}
 
@@ -3419,6 +3428,9 @@ packages:
   html2canvas@1.4.1:
     resolution: {integrity: sha512-fPU6BHNpsyIhr8yyMpTLLxAbkaK8ArIBcmZIRiBLiDhjeqvXolaEmDGmELFuX9I4xDcaKKcJl+TKZLqruBbmWA==}
     engines: {node: '>=8.0.0'}
+
+  html2pdf.js@0.13.0:
+    resolution: {integrity: sha512-m/U8XqxJIfEfu5GhxRNHk3aqt/gQXoJrVY9nHHBQfYnWEobDXaYEbd50KiU61x7P/BpSiL2MSuFQ84rrDKVfcA==}
 
   http-errors@2.0.0:
     resolution: {integrity: sha512-FtwrG/euBzaEjYeRqOgly7G0qviiXoJWnvEH2Z1plBdXgbyjv34pHTSb9zoeHMyDy33+DWy5Wt9Wo+TURtOYSQ==}
@@ -6982,6 +6994,8 @@ snapshots:
 
   '@types/history@4.7.11': {}
 
+  '@types/html2pdf.js@0.10.0': {}
+
   '@types/http-errors@2.0.5': {}
 
   '@types/istanbul-lib-coverage@2.0.6': {}
@@ -7608,8 +7622,7 @@ snapshots:
 
   balanced-match@1.0.2: {}
 
-  base64-arraybuffer@1.0.2:
-    optional: true
+  base64-arraybuffer@1.0.2: {}
 
   base64-js@1.5.1: {}
 
@@ -7921,7 +7934,6 @@ snapshots:
   css-line-break@2.1.0:
     dependencies:
       utrie: 1.0.2
-    optional: true
 
   css.escape@1.5.1: {}
 
@@ -8533,7 +8545,11 @@ snapshots:
     dependencies:
       css-line-break: 2.1.0
       text-segmentation: 1.0.3
-    optional: true
+
+  html2pdf.js@0.13.0:
+    dependencies:
+      html2canvas: 1.4.1
+      jspdf: 4.0.0
 
   http-errors@2.0.0:
     dependencies:
@@ -8578,7 +8594,7 @@ snapshots:
       isstream: 0.1.2
       jsonwebtoken: 9.0.2
       mime-types: 2.1.35
-      retry-axios: 2.6.0(axios@1.13.1(debug@4.4.3))
+      retry-axios: 2.6.0(axios@1.13.1)
       tough-cookie: 4.1.4
     transitivePeerDependencies:
       - supports-color
@@ -9840,7 +9856,7 @@ snapshots:
       onetime: 5.1.2
       signal-exit: 3.0.7
 
-  retry-axios@2.6.0(axios@1.13.1(debug@4.4.3)):
+  retry-axios@2.6.0(axios@1.13.1):
     dependencies:
       axios: 1.13.1(debug@4.4.3)
 
@@ -10231,7 +10247,6 @@ snapshots:
   text-segmentation@1.0.3:
     dependencies:
       utrie: 1.0.2
-    optional: true
 
   thenify-all@1.6.0:
     dependencies:
@@ -10478,7 +10493,6 @@ snapshots:
   utrie@1.0.2:
     dependencies:
       base64-arraybuffer: 1.0.2
-    optional: true
 
   uuid@10.0.0: {}
 

@@ -164,7 +164,7 @@ export class SummaryGenerator {
   }
 
   /**
-   * Calculate statistics for closed questions (dropdown, radio, checkbox, rating)
+   * Calculate statistics for closed questions (multiple_choice, checkbox, dropdown, rating)
    */
   private calculateClosedQuestionStats(
     form: Form | FormDocument,
@@ -177,7 +177,7 @@ export class SummaryGenerator {
     ratingDistribution?: { [key: number]: number };
   }> {
     const closedQuestions = form.questions.filter(q => 
-      ['dropdown', 'radio', 'checkbox', 'rating'].includes(q.type)
+      ['multiple_choice', 'checkbox', 'dropdown', 'rating'].includes(q.type)
     );
 
     return closedQuestions.map(q => {

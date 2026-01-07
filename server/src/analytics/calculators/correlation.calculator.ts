@@ -4,7 +4,7 @@ import { Form, FormDocument } from '../../schemas/form.schema';
 
 /**
  * Correlation Calculator
- * 
+ *
  * Calculates various correlations and relationships in the data:
  * - Topic co-occurrence (which topics appear together)
  * - Topic-sentiment correlation (sentiment patterns per topic)
@@ -12,7 +12,6 @@ import { Form, FormDocument } from '../../schemas/form.schema';
  */
 @Injectable()
 export class CorrelationCalculator {
-  
   /**
    * Calculate topic co-occurrence matrix
    * Shows which topics frequently appear together in the same response
@@ -28,7 +27,7 @@ export class CorrelationCalculator {
     const topicPairCounts = new Map<string, Set<string>>();
 
     // Count topic co-occurrences - enforce canonicalTopics only
-    responses.forEach(response => {
+    responses.forEach((response) => {
       const topics = response.metadata?.canonicalTopics || [];
       if (topics.length < 2) return;
 
@@ -37,18 +36,19 @@ export class CorrelationCalculator {
         for (let j = i + 1; j < topics.length; j++) {
           const topic1 = topics[i];
           const topic2 = topics[j];
-          
+
           // Create consistent key (alphabetically sorted)
           const key = [topic1, topic2].sort().join('|||');
-          
+
           cooccurrenceMap.set(key, (cooccurrenceMap.get(key) || 0) + 1);
-          
+
           // Track unique response IDs for this pair
           if (!topicPairCounts.has(key)) {
             topicPairCounts.set(key, new Set());
           }
           const pairSet = topicPairCounts.get(key);
           if (pairSet && response._id) {
+            // eslint-disable-next-line @typescript-eslint/no-base-to-string
             pairSet.add(String(response._id));
           }
         }
@@ -60,18 +60,18 @@ export class CorrelationCalculator {
       .map(([key, frequency]) => {
         const [topic1, topic2] = key.split('|||');
         const uniqueResponses = topicPairCounts.get(key)?.size || 0;
-        
+
         // Determine relationship strength
         let relationship = 'weak';
         if (frequency >= 5) relationship = 'strong';
         else if (frequency >= 3) relationship = 'moderate';
-        
+
         return {
           topic1,
           topic2,
           frequency,
           relationship,
-          uniqueResponses
+          uniqueResponses,
         };
       })
       .sort((a, b) => b.frequency - a.frequency)
@@ -95,39 +95,42 @@ export class CorrelationCalculator {
     dominantSentiment: string;
     responseCount: number;
   }> {
-    const topicSentimentMap = new Map<string, {
-      positive: number;
-      neutral: number;
-      negative: number;
-      scores: number[];
-    }>();
+    const topicSentimentMap = new Map<
+      string,
+      {
+        positive: number;
+        neutral: number;
+        negative: number;
+        scores: number[];
+      }
+    >();
 
     // Aggregate sentiment data per topic - enforce canonicalTopics only
-    responses.forEach(response => {
+    responses.forEach((response) => {
       const topics = response.metadata?.canonicalTopics || [];
       const sentiment = response.metadata?.overallSentiment;
-      
+
       if (!sentiment || topics.length === 0) return;
 
-      topics.forEach(topic => {
+      topics.forEach((topic) => {
         if (!topicSentimentMap.has(topic)) {
           topicSentimentMap.set(topic, {
             positive: 0,
             neutral: 0,
             negative: 0,
-            scores: []
+            scores: [],
           });
         }
 
         const data = topicSentimentMap.get(topic);
         if (!data) return;
-        
+
         const label = sentiment.label || 'neutral';
-        
+
         if (label === 'positive') data.positive++;
         else if (label === 'negative') data.negative++;
         else data.neutral++;
-        
+
         if (typeof sentiment.score === 'number') {
           data.scores.push(sentiment.score);
         }
@@ -138,19 +141,22 @@ export class CorrelationCalculator {
     const correlations = Array.from(topicSentimentMap.entries())
       .map(([topic, data]) => {
         const total = data.positive + data.neutral + data.negative;
-        const avgScore = data.scores.length > 0
-          ? data.scores.reduce((sum, s) => sum + s, 0) / data.scores.length
-          : 0;
+        const avgScore =
+          data.scores.length > 0
+            ? data.scores.reduce((sum, s) => sum + s, 0) / data.scores.length
+            : 0;
 
         // Determine dominant sentiment
         let dominantSentiment = 'neutral';
         const posPercent = (data.positive / total) * 100;
         const negPercent = (data.negative / total) * 100;
-        
+
         if (posPercent > 60) dominantSentiment = 'positive';
         else if (negPercent > 60) dominantSentiment = 'negative';
-        else if (posPercent > 40 && negPercent < 20) dominantSentiment = 'mostly positive';
-        else if (negPercent > 40 && posPercent < 20) dominantSentiment = 'mostly negative';
+        else if (posPercent > 40 && negPercent < 20)
+          dominantSentiment = 'mostly positive';
+        else if (negPercent > 40 && posPercent < 20)
+          dominantSentiment = 'mostly negative';
         else dominantSentiment = 'mixed';
 
         return {
@@ -162,7 +168,7 @@ export class CorrelationCalculator {
           },
           averageScore: Math.round(avgScore * 100) / 100,
           dominantSentiment,
-          responseCount: total
+          responseCount: total,
         };
       })
       .sort((a, b) => b.responseCount - a.responseCount)
@@ -177,7 +183,7 @@ export class CorrelationCalculator {
    */
   calculateClosedQuestionTopicCorrelations(
     form: Form | FormDocument,
-    responses: ResponseDocument[]
+    responses: ResponseDocument[],
   ): Array<{
     questionId: string;
     questionTitle: string;
@@ -192,75 +198,87 @@ export class CorrelationCalculator {
       responseCount: number;
     }>;
   }> {
-    // Identify closed questions (dropdown, radio, checkbox, rating)
-    const closedQuestions = form.questions.filter(q => 
-      ['dropdown', 'radio', 'checkbox', 'rating'].includes(q.type)
+    // Identify closed questions (multiple_choice, checkbox, dropdown, rating)
+    const closedQuestions = form.questions.filter((q) =>
+      ['multiple_choice', 'checkbox', 'dropdown', 'rating'].includes(q.type),
     );
 
     if (closedQuestions.length === 0) {
       return [];
     }
 
-    const correlations = closedQuestions.map(question => {
-      // Group responses by answer value
-      const answerGroups = new Map<string, ResponseDocument[]>();
+    const correlations = closedQuestions
+      .map((question) => {
+        // Group responses by answer value
+        const answerGroups = new Map<string, ResponseDocument[]>();
 
-      responses.forEach(response => {
-        const answer = response.answers.find(a => a.questionId === question.id);
-        if (!answer || !answer.value) return;
+        responses.forEach((response) => {
+          const answer = response.answers.find(
+            (a) => a.questionId === question.id,
+          );
+          if (!answer || !answer.value) return;
 
-        // Handle both single values and arrays (for checkbox questions)
-        const values = Array.isArray(answer.value) ? answer.value : [answer.value];
+          // Handle both single values and arrays (for checkbox questions)
+          const values = Array.isArray(answer.value)
+            ? answer.value
+            : [answer.value];
 
-        values.forEach(value => {
-          const valueStr = String(value);
-          if (!answerGroups.has(valueStr)) {
-            answerGroups.set(valueStr, []);
-          }
-          answerGroups.get(valueStr)!.push(response);
-        });
-      });
-
-      // Calculate topic distribution for each answer value
-      const answerCorrelations = Array.from(answerGroups.entries()).map(([answerValue, groupResponses]) => {
-        // Count topics across responses in this group
-        const topicCounts = new Map<string, number>();
-        
-        groupResponses.forEach(response => {
-          const topics = response.metadata?.canonicalTopics || [];
-          topics.forEach(topic => {
-            topicCounts.set(topic, (topicCounts.get(topic) || 0) + 1);
+          values.forEach((value) => {
+            const valueStr = String(value);
+            if (!answerGroups.has(valueStr)) {
+              answerGroups.set(valueStr, []);
+            }
+            answerGroups.get(valueStr)!.push(response);
           });
         });
 
-        // Convert to distribution array
-        const totalTopicMentions = Array.from(topicCounts.values()).reduce((sum, count) => sum + count, 0);
-        const topicDistribution = Array.from(topicCounts.entries())
-          .map(([topic, count]) => ({
-            topic,
-            percentage: totalTopicMentions > 0 ? Math.round((count / totalTopicMentions) * 100) : 0,
-            count
-          }))
-          .sort((a, b) => b.count - a.count)
-          .slice(0, 10); // Top 10 topics per answer value
+        // Calculate topic distribution for each answer value
+        const answerCorrelations = Array.from(answerGroups.entries())
+          .map(([answerValue, groupResponses]) => {
+            // Count topics across responses in this group
+            const topicCounts = new Map<string, number>();
+
+            groupResponses.forEach((response) => {
+              const topics = response.metadata?.canonicalTopics || [];
+              topics.forEach((topic) => {
+                topicCounts.set(topic, (topicCounts.get(topic) || 0) + 1);
+              });
+            });
+
+            // Convert to distribution array
+            const totalTopicMentions = Array.from(topicCounts.values()).reduce(
+              (sum, count) => sum + count,
+              0,
+            );
+            const topicDistribution = Array.from(topicCounts.entries())
+              .map(([topic, count]) => ({
+                topic,
+                percentage:
+                  totalTopicMentions > 0
+                    ? Math.round((count / totalTopicMentions) * 100)
+                    : 0,
+                count,
+              }))
+              .sort((a, b) => b.count - a.count)
+              .slice(0, 10); // Top 10 topics per answer value
+
+            return {
+              answerValue,
+              topicDistribution,
+              responseCount: groupResponses.length,
+            };
+          })
+          .filter((ac) => ac.responseCount >= 2) // Only include answer values with at least 2 responses
+          .sort((a, b) => b.responseCount - a.responseCount);
 
         return {
-          answerValue,
-          topicDistribution,
-          responseCount: groupResponses.length
+          questionId: question.id,
+          questionTitle: question.title,
+          questionType: question.type,
+          correlations: answerCorrelations,
         };
       })
-      .filter(ac => ac.responseCount >= 2) // Only include answer values with at least 2 responses
-      .sort((a, b) => b.responseCount - a.responseCount);
-
-      return {
-        questionId: question.id,
-        questionTitle: question.title,
-        questionType: question.type,
-        correlations: answerCorrelations
-      };
-    })
-    .filter(qc => qc.correlations.length > 0); // Only include questions with meaningful correlations
+      .filter((qc) => qc.correlations.length > 0); // Only include questions with meaningful correlations
 
     return correlations;
   }

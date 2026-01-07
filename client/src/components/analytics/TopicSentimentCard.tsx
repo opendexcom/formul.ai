@@ -1,19 +1,23 @@
-import React from 'react';
-import { BarChart3, ThumbsUp, ThumbsDown, Minus } from 'lucide-react';
+import React, { useState } from 'react';
+import { BarChart3, ThumbsUp, ThumbsDown, Minus, ChevronDown, ChevronUp } from 'lucide-react';
 import { AnalyticsData } from '../../types/analytics';
 
 interface TopicSentimentCardProps {
   analytics?: AnalyticsData;
   selectedTopics?: string[];
+  onTopicClick?: (topic: string) => void;
 }
 
-export const TopicSentimentCard: React.FC<TopicSentimentCardProps> = ({ analytics, selectedTopics = [] }) => {
+export const TopicSentimentCard: React.FC<TopicSentimentCardProps> = ({ analytics, selectedTopics = [], onTopicClick }) => {
+  const [showAll, setShowAll] = useState(false);
   const topicCorrelations = analytics?.sentiment?.topicCorrelations || [];
 
   // Filter by selected topics if any are selected
   const filteredCorrelations = selectedTopics.length > 0
     ? topicCorrelations.filter(correlation => selectedTopics.includes(correlation.topic))
     : topicCorrelations;
+
+  const displayedCorrelations = showAll ? filteredCorrelations : filteredCorrelations.slice(0, 8);
 
   // Helper to get sentiment data (handles both old and new field names)
   const getSentimentData = (correlation: any) => {
@@ -98,17 +102,28 @@ export const TopicSentimentCard: React.FC<TopicSentimentCardProps> = ({ analytic
       </p>
 
       <div className="space-y-3">
-        {filteredCorrelations.slice(0, 8).map((correlation, index) => {
+        {displayedCorrelations.map((correlation, index) => {
           const { sentiment, averageScore, responseCount } = getSentimentData(correlation);
+          const isSelected = selectedTopics.includes(correlation.topic);
           
           return (
             <div 
               key={index}
-              className="p-3 bg-gray-50 rounded-lg border border-gray-200"
+              className={`p-3 rounded-lg border transition-colors ${
+                isSelected 
+                  ? 'bg-blue-50 border-blue-300 ring-2 ring-blue-200' 
+                  : 'bg-gray-50 border-gray-200 hover:border-gray-300'
+              }`}
             >
               <div className="flex items-start justify-between mb-2">
                 <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <span className="text-sm font-medium text-gray-900 truncate">
+                  <span 
+                    className={`text-sm font-medium truncate cursor-pointer hover:underline ${
+                      isSelected ? 'text-blue-900' : 'text-gray-900'
+                    }`}
+                    onClick={() => onTopicClick?.(correlation.topic)}
+                    title={`Click to ${isSelected ? 'remove' : 'add'} filter: ${correlation.topic}`}
+                  >
                     {correlation.topic}
                   </span>
                   <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${getSentimentColor(correlation.dominantSentiment)}`}>
@@ -176,9 +191,22 @@ export const TopicSentimentCard: React.FC<TopicSentimentCardProps> = ({ analytic
 
       {filteredCorrelations.length > 8 && (
         <div className="mt-4 text-center">
-          <span className="text-xs text-gray-500">
-            Showing top 8 of {filteredCorrelations.length} topics
-          </span>
+          <button
+            onClick={() => setShowAll(!showAll)}
+            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-md transition-colors"
+          >
+            {showAll ? (
+              <>
+                <ChevronUp className="w-4 h-4" />
+                Show Less
+              </>
+            ) : (
+              <>
+                <ChevronDown className="w-4 h-4" />
+                Show All {filteredCorrelations.length} Topics
+              </>
+            )}
+          </button>
         </div>
       )}
 
