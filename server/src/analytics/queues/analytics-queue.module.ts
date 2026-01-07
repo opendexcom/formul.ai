@@ -11,13 +11,14 @@ import { AIGenerationConsumer } from './ai-generation.consumer';
 import { ProgressService } from './progress.service';
 import { Form, FormSchema } from '../../schemas/form.schema';
 import { Response, ResponseSchema } from '../../schemas/response.schema';
-import { AiModule } from '../../ai/ai.module';
+import { AiCoreModule } from '../../ai/ai.module';
 // Analytics providers
 import { ResponseProcessor } from '../processors/response.processor';
 import { TopicClusterer } from '../processors/topic.clusterer';
 import { StatisticsCalculator } from '../calculators/statistics.calculator';
 import { CorrelationCalculator } from '../calculators/correlation.calculator';
 import { SentimentCalculator } from '../calculators/sentiment.calculator';
+import { TrendCalculator } from '../calculators/trend.calculator';
 import { SummaryGenerator } from '../generators/summary.generator';
 import { FindingsGenerator } from '../generators/findings.generator';
 import { RecommendationsGenerator } from '../generators/recommendations.generator';
@@ -87,7 +88,7 @@ import { DeadLetterConsumer } from './dead-letter.consumer';
       { name: Form.name, schema: FormSchema },
       { name: Response.name, schema: ResponseSchema },
     ]),
-    AiModule,
+    AiCoreModule,
   ],
   providers: [
     // Queue producers/consumers
@@ -107,6 +108,7 @@ import { DeadLetterConsumer } from './dead-letter.consumer';
     StatisticsCalculator,
     CorrelationCalculator,
     SentimentCalculator,
+    TrendCalculator,
     SummaryGenerator,
     FindingsGenerator,
     RecommendationsGenerator,

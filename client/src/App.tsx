@@ -8,6 +8,7 @@ import FormEditor from './pages/FormEditor';
 import FormAnalytics from './pages/FormAnalytics';
 import PublicFormView from './pages/PublicFormView';
 import EmailConfirmation from './pages/EmailConfirmation';
+import ResetPassword from './pages/ResetPassword';
 import AdminSettings from './pages/AdminSettings';
 import './App.css';
 
@@ -96,6 +97,10 @@ function App() {
               <Route
                 path="/confirm-email"
                 element={<EmailConfirmation />}
+              />
+              <Route
+                path="/reset-password"
+                element={<ResetPassword />}
               />
               <Route
                 path="/admin/settings"

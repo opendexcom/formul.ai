@@ -65,7 +65,8 @@ export class SentimentCalculator {
     }> = {};
 
     responses.forEach(response => {
-      const topics = response.metadata?.canonicalTopics || response.metadata?.allTopics || [];
+      // Enforce canonicalTopics only - no fallback to allTopics
+      const topics = response.metadata?.canonicalTopics || [];
       const sentiment = response.metadata?.overallSentiment;
       
       if (!sentiment) return;

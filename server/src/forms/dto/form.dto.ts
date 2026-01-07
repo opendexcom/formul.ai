@@ -24,6 +24,10 @@ export class CreateQuestionDto {
   @IsBoolean()
   required: boolean;
 
+  @ApiPropertyOptional({ example: false, description: 'Can this question be other (if yes, then last option should be "Other" and it should be the last option, we will show text input for other)' })
+  @IsBoolean()
+  canBeOther?: boolean;
+
   @ApiPropertyOptional({ example: ['Option 1', 'Option 2'] })
   @IsOptional()
   @IsArray()
@@ -71,7 +75,7 @@ export class CreateFormDto {
 
 export class UpdateFormDto {
   // Note: createdBy is intentionally excluded - it should never be updatable
-  
+
   @ApiPropertyOptional({ example: 'Updated Survey Title' })
   @IsOptional()
   @IsString()

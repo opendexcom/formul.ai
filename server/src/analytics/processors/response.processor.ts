@@ -129,25 +129,8 @@ export class ResponseProcessor {
       // Get IDs for responses in this wave
       const waveResponseIds = wave.flat().map(r => (r._id as Types.ObjectId).toString());
       
-      // Mark THIS wave's responses as "Pending" (set processingTaskId)
-      await this.responseModel.updateMany(
-        { _id: { $in: waveResponseIds.map(id => new Types.ObjectId(id)) } },
-        {
-          $set: {
-            'metadata.processingTaskId': taskId,
-            'metadata.processingStartedAt': new Date()
-          }
-        }
-      ).exec();
-      
-      // Send SSE event with THIS wave's response IDs (frontend marks them as "Pending")
-      progressCallback({
-        type: 'responses_processing',
-        message: `Processing batch ${waveNumber}/${totalWaves} (${waveResponseIds.length} responses)...`,
-        progress: 5 + Math.floor((processedChunks / chunks.length) * 40),
-        taskId,
-        processedResponseIds: waveResponseIds, // Only this wave's IDs
-      });
+      // Note: processingTaskId is already set by orchestration for all responses upfront
+      // No need to mark as "Pending" here again
       
       // Send detailed progress message
       progressCallback({
@@ -166,7 +149,7 @@ export class ResponseProcessor {
           )
         );
 
-        const processedIds = await this.saveChunkResults(waveResults);
+        const processedIds = await this.saveChunkResults(waveResults, form, wave.flat());
         processedChunks += wave.length;
         
         // Send update with processed response IDs
@@ -182,6 +165,13 @@ export class ResponseProcessor {
       } catch (error) {
         console.error(`[ResponseProcessor][${taskId}] Error in wave ${waveNumber}:`, error);
         errors.push(`Wave ${waveNumber}: ${error.message}`);
+        
+        // Clean up processingTaskId on failed wave's responses so they can be retried
+        await this.responseModel.updateMany(
+          { _id: { $in: waveResponseIds.map(id => new Types.ObjectId(id)) } },
+          { $unset: { 'metadata.processingTaskId': '', 'metadata.processingStartedAt': '' } }
+        ).exec();
+        console.log(`[ResponseProcessor][${taskId}] Cleaned up processingTaskId for ${waveResponseIds.length} responses after wave failure`);
       }
     }
 
@@ -202,18 +192,18 @@ export class ResponseProcessor {
     progressCallback: ProgressCallback,
     allowedResponseIds?: string[]
   ): Promise<ResponseDocument[]> {
-    // Just fetch unprocessed responses - orchestration already sent responses_claimed event
+    // Fetch responses for this batch - orchestration already set processingTaskId on all
+    // Use allowedResponseIds to filter to just this batch's responses
     const query: any = {
       formId: formId,
-      'metadata.processedForAnalytics': false,
-      'metadata.processingTaskId': { $exists: false }
+      'metadata.processedForAnalytics': { $ne: true },
     };
     if (allowedResponseIds && allowedResponseIds.length > 0) {
       query._id = { $in: allowedResponseIds.map(id => new Types.ObjectId(id)) };
     }
     const unprocessedResponses = await this.responseModel.find(query).exec();
 
-    console.log(`[ResponseProcessor][${taskId}] Found ${unprocessedResponses.length} unprocessed responses to claim`);
+    console.log(`[ResponseProcessor][${taskId}] Found ${unprocessedResponses.length} unprocessed responses to claim (allowedIds: ${allowedResponseIds?.length || 'all'})`);
 
     return unprocessedResponses;
   }
@@ -234,12 +224,14 @@ export class ResponseProcessor {
 
     try {
       // Batch the 3 analysis types in parallel
+      // Skip validation since these are internal/trusted prompts for analytics
       const results = await this.aiService.batchAnalyze(
         [topicPrompt, sentimentPrompt, quotePrompt],
         { 
           temperature: 0.3, 
           maxTokens: 4000, 
-          maxConcurrency: 3
+          maxConcurrency: 3,
+          skipValidation: true
         }
       );
 
@@ -280,7 +272,14 @@ export class ResponseProcessor {
   /**
    * Save chunk results to database
    */
-  private async saveChunkResults(waveResults: any[]): Promise<string[]> {
+  /**
+   * Save chunk results to database
+   */
+  private async saveChunkResults(
+    waveResults: any[], 
+    form: Form | FormDocument,
+    waveResponses: ResponseDocument[]
+  ): Promise<string[]> {
     const updates: any[] = [];
     const processedIds: string[] = [];
 

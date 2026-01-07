@@ -61,6 +61,7 @@ const FormCanvas: React.FC<FormCanvasProps> = ({
             required: false,
             order: dropIndex,
             options: needsOptions(fieldType) ? ['Option 1'] : undefined,
+            canBeOther: false,
           };
 
           const updatedQuestions = [...form.questions];

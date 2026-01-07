@@ -3,6 +3,7 @@ import { AiService } from '../../ai/ai.service';
 import { PromptBuilder } from '../utils/prompt.builder';
 import { ResponseDocument } from '../../schemas/response.schema';
 import { Form, FormDocument } from '../../schemas/form.schema';
+import { TrendAnalysis } from '../calculators/trend.calculator';
 
 /**
  * Summary Generator
@@ -12,6 +13,7 @@ import { Form, FormDocument } from '../../schemas/form.schema';
  * - Context preparation (topic quotes, closed question stats)
  * - LLM prompt construction
  * - Summary generation with fallback handling
+ * - Negative topic highlighting and trend awareness
  */
 @Injectable()
 export class SummaryGenerator {
@@ -22,6 +24,16 @@ export class SummaryGenerator {
 
   /**
    * Generate comprehensive analytics summary using LLM
+   * @param form The form being analyzed
+   * @param responses All responses to analyze
+   * @param topTopics Top topics from topic extraction
+   * @param sentimentDistribution Overall sentiment breakdown
+   * @param keyFindings Generated key findings
+   * @param recommendations Generated recommendations
+   * @param highlightedQuotes Highlighted quotes for citations
+   * @param closedQuestionCorrelations Topic correlations with closed questions
+   * @param topicSentiment Optional topic-level sentiment for negative topic highlighting
+   * @param trends Optional trend analysis for temporal patterns
    */
   async generateAnalyticsSummary(
     form: Form | FormDocument,
@@ -31,7 +43,9 @@ export class SummaryGenerator {
     keyFindings: any[],
     recommendations: any[],
     highlightedQuotes: any[],
-    closedQuestionCorrelations: any[]
+    closedQuestionCorrelations: any[],
+    topicSentiment?: Map<string, { positive: number; neutral: number; negative: number }>,
+    trends?: TrendAnalysis
   ): Promise<string> {
     try {
       // Find responses related to most common topics for citations
@@ -62,6 +76,28 @@ export class SummaryGenerator {
       // Format insights from closed question topic correlations
       const closedQuestionInsights = this.formatClosedQuestionInsights(closedQuestionCorrelations);
 
+      // Calculate negative topics (topics with >40% negative sentiment)
+      const negativeTopics = topicSentiment 
+        ? this.extractNegativeTopics(topicSentiment)
+        : [];
+
+      // Format trends for the prompt
+      const formattedTrends = trends ? {
+        emergingTopics: trends.emergingTopics?.map(t => ({
+          topic: t.topic,
+          description: t.description
+        })),
+        decliningTopics: trends.decliningTopics?.map(t => ({
+          topic: t.topic,
+          description: t.description
+        })),
+        sentimentShifts: trends.sentimentShifts?.map(s => ({
+          topic: s.topic,
+          direction: s.direction,
+          description: s.description
+        }))
+      } : undefined;
+
       // Build and execute prompt
       const prompt = this.promptBuilder.buildAnalyticsSummaryPrompt(
         form,
@@ -70,7 +106,9 @@ export class SummaryGenerator {
         responses.length,
         topicQuotes,
         closedQuestionStats,
-        closedQuestionInsights
+        closedQuestionInsights,
+        negativeTopics,
+        formattedTrends
       );
 
       console.log('[SummaryGenerator] Sending prompt to AI service, prompt length:', prompt.length);
@@ -126,44 +164,75 @@ export class SummaryGenerator {
   }
 
   /**
-   * Calculate statistics for closed questions (dropdown, radio, checkbox)
+   * Calculate statistics for closed questions (dropdown, radio, checkbox, rating)
    */
   private calculateClosedQuestionStats(
     form: Form | FormDocument,
     responses: ResponseDocument[]
   ): Array<{
     question: string;
+    questionType: string;
     topAnswers: Array<{ value: string; count: number; percentage: number }>;
+    averageRating?: number;
+    ratingDistribution?: { [key: number]: number };
   }> {
     const closedQuestions = form.questions.filter(q => 
-      ['dropdown', 'radio', 'checkbox'].includes(q.type)
+      ['dropdown', 'radio', 'checkbox', 'rating'].includes(q.type)
     );
 
     return closedQuestions.map(q => {
       const answerCounts = new Map<string, number>();
+      const ratingValues: number[] = [];
+      
       responses.forEach(r => {
         const answer = r.answers.find(a => a.questionId === q.id);
-        if (answer?.value) {
+        if (answer?.value != null) {
           const values = Array.isArray(answer.value) ? answer.value : [answer.value];
           values.forEach(v => {
             const valStr = String(v);
             answerCounts.set(valStr, (answerCounts.get(valStr) || 0) + 1);
+            
+            // Collect numeric values for rating calculations
+            if (q.type === 'rating') {
+              const numVal = typeof v === 'number' ? v : parseFloat(String(v));
+              if (!isNaN(numVal)) {
+                ratingValues.push(numVal);
+              }
+            }
           });
         }
       });
       
       const sortedAnswers = Array.from(answerCounts.entries())
         .sort((a, b) => b[1] - a[1])
-        .slice(0, 3); // Top 3 answers
+        .slice(0, 5); // Top 5 answers for ratings
       
-      return {
+      const result: {
+        question: string;
+        questionType: string;
+        topAnswers: Array<{ value: string; count: number; percentage: number }>;
+        averageRating?: number;
+        ratingDistribution?: { [key: number]: number };
+      } = {
         question: q.title,
+        questionType: q.type,
         topAnswers: sortedAnswers.map(([value, count]) => ({
           value,
           count,
           percentage: Math.round((count / responses.length) * 100)
         }))
       };
+      
+      // Calculate average rating and distribution for rating questions
+      if (q.type === 'rating' && ratingValues.length > 0) {
+        result.averageRating = Math.round((ratingValues.reduce((sum, v) => sum + v, 0) / ratingValues.length) * 10) / 10;
+        result.ratingDistribution = {};
+        ratingValues.forEach(v => {
+          result.ratingDistribution![v] = (result.ratingDistribution![v] || 0) + 1;
+        });
+      }
+      
+      return result;
     });
   }
 
@@ -218,6 +287,32 @@ export class SummaryGenerator {
         topTopic: string;
         topicPercentage: number;
       }>;
+  }
+
+  /**
+   * Extract topics with high negative sentiment (>40% negative)
+   */
+  private extractNegativeTopics(
+    topicSentiment: Map<string, { positive: number; neutral: number; negative: number }>
+  ): Array<{ topic: string; negativePercentage: number; count: number }> {
+    const negativeTopics: Array<{ topic: string; negativePercentage: number; count: number }> = [];
+    
+    for (const [topic, sentiment] of topicSentiment.entries()) {
+      const total = sentiment.positive + sentiment.neutral + sentiment.negative;
+      if (total === 0) continue;
+      
+      const negativePercentage = Math.round((sentiment.negative / total) * 100);
+      if (negativePercentage >= 40) {
+        negativeTopics.push({
+          topic,
+          negativePercentage,
+          count: total
+        });
+      }
+    }
+    
+    // Sort by negative percentage descending
+    return negativeTopics.sort((a, b) => b.negativePercentage - a.negativePercentage);
   }
 
   /**

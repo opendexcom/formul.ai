@@ -14,6 +14,15 @@ export interface RegisterRequest {
   lastName: string;
 }
 
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ResetPasswordRequest {
+  token: string;
+  password: string;
+}
+
 export interface AuthResponse {
   user: {
     id: string;
@@ -46,6 +55,24 @@ class AuthService {
   async register(userData: RegisterRequest): Promise<{ message: string }> {
     try {
       const response = await this.api.post<{ message: string }>('/auth/register', userData);
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async forgotPassword(data: ForgotPasswordRequest): Promise<{ message: string }> {
+    try {
+      const response = await this.api.post<{ message: string }>('/auth/forgot-password', data);
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async resetPassword(data: ResetPasswordRequest): Promise<{ message: string }> {
+    try {
+      const response = await this.api.post<{ message: string }>('/auth/reset-password', data);
       return response.data;
     } catch (error) {
       throw new Error(getErrorMessage(error));

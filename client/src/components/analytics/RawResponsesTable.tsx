@@ -1,4 +1,4 @@
-import { CheckCircle, Circle } from 'lucide-react';
+import { CheckCircle, Circle, ThumbsUp, ThumbsDown, Minus, Tag } from 'lucide-react';
 import { FormData } from '../../services/formsService';
 
 interface ResponseData {
@@ -17,6 +17,8 @@ interface ResponseData {
       score?: number;
       emotionalTone?: string;
     };
+    canonicalTopics?: string[];
+    primaryTopics?: string[];
   };
 }
 
@@ -107,6 +109,16 @@ export const RawResponsesTable: React.FC<RawResponsesTableProps> = ({
                   {question.title}
                 </th>
               ))}
+              {showAnalyticsStatus && (
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Sentiment
+                </th>
+              )}
+              {showAnalyticsStatus && (
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Topics
+                </th>
+              )}
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -159,6 +171,59 @@ export const RawResponsesTable: React.FC<RawResponsesTableProps> = ({
                       </td>
                     );
                   })}
+                  {showAnalyticsStatus && (
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {response.metadata?.overallSentiment?.label ? (
+                        <div className="flex items-center gap-2">
+                          {response.metadata.overallSentiment.label === 'positive' ? (
+                            <ThumbsUp className="w-4 h-4 text-green-600" />
+                          ) : response.metadata.overallSentiment.label === 'negative' ? (
+                            <ThumbsDown className="w-4 h-4 text-red-600" />
+                          ) : (
+                            <Minus className="w-4 h-4 text-gray-500" />
+                          )}
+                          <span className={`text-xs font-medium capitalize ${
+                            response.metadata.overallSentiment.label === 'positive' ? 'text-green-700' :
+                            response.metadata.overallSentiment.label === 'negative' ? 'text-red-700' :
+                            'text-gray-600'
+                          }`}>
+                            {response.metadata.overallSentiment.label}
+                          </span>
+                          {response.metadata.overallSentiment.emotionalTone && (
+                            <span className="text-xs text-gray-500">
+                              ({response.metadata.overallSentiment.emotionalTone})
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-400">-</span>
+                      )}
+                    </td>
+                  )}
+                  {showAnalyticsStatus && (
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {response.metadata?.canonicalTopics && response.metadata.canonicalTopics.length > 0 ? (
+                        <div className="flex items-center gap-1">
+                          {response.metadata.canonicalTopics.slice(0, 3).map((topic, idx) => (
+                            <span
+                              key={idx}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700 whitespace-nowrap"
+                            >
+                              <Tag className="w-3 h-3" />
+                              {topic}
+                            </span>
+                          ))}
+                          {response.metadata.canonicalTopics.length > 3 && (
+                            <span className="text-xs text-gray-500 whitespace-nowrap">
+                              +{response.metadata.canonicalTopics.length - 3}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-400">-</span>
+                      )}
+                    </td>
+                  )}
                 </tr>
               );
             })}

@@ -9,13 +9,13 @@ import { PromptBuilder } from '../utils/prompt.builder';
 /**
  * Topic Clusterer
  * 
- * Clusters raw topics into canonical categories using LLM.
- * This makes aggregation trivial - just count canonical topics across responses.
+ * Creates canonical topics by unifying and merging similar topics using LLM.
+ * This ensures consistent topic names across all responses for accurate aggregation.
  * 
  * Process:
- * 1. Collect all unique raw topics from processed responses
- * 2. Use LLM to create canonical topic mapping
- * 3. Apply mapping to all responses (store as canonicalTopics)
+ * 1. Collect ALL unique raw topics from processed responses
+ * 2. Send to LLM for canonicalization (unify names, merge related concepts)
+ * 3. Apply canonical mapping to all responses (store as canonicalTopics)
  * 4. Return clustering summary
  */
 @Injectable()
@@ -35,17 +35,25 @@ export class TopicClusterer {
     progressCallback: ProgressCallback
   ): Promise<ClusteringResult> {
     const startTime = Date.now();
-    console.log(`[TopicClusterer][${taskId}] Starting canonical topic clustering`);
+    console.log(`[TopicClusterer][${taskId}] Starting canonical topic creation`);
 
     // Get all processed responses with topics
+    // Note: Don't filter by processingTaskId - we want ALL processed responses for this form
     const responsesWithTopics = await this.responseModel.find({
       formId: formId,
-      'metadata.processingTaskId': taskId,
+      'metadata.processedForAnalytics': true,
       'metadata.allTopics': { $exists: true, $ne: [] }
     }).exec();
 
+    console.log(`[TopicClusterer][${taskId}] Found ${responsesWithTopics.length} responses with topics`);
+    
+    // Debug: log response IDs being processed
+    if (responsesWithTopics.length > 0) {
+      console.log(`[TopicClusterer][${taskId}] Response IDs:`, responsesWithTopics.map(r => (r._id as any).toString()));
+    }
+
     if (responsesWithTopics.length === 0) {
-      console.log(`[TopicClusterer][${taskId}] No responses with topics to cluster`);
+      console.log(`[TopicClusterer][${taskId}] No responses with topics found`);
       return {
         canonicalTopics: [],
         topicMapping: {},
@@ -62,18 +70,20 @@ export class TopicClusterer {
     });
 
     const uniqueTopics = Array.from(allRawTopics);
-    console.log(`[TopicClusterer][${taskId}] Found ${uniqueTopics.length} unique raw topics to cluster`);
+    console.log(`[TopicClusterer][${taskId}] Found ${uniqueTopics.length} unique raw topics`);
 
     progressCallback({
       type: 'progress',
-      message: `Clustering ${uniqueTopics.length} unique topics into canonical categories...`,
+      message: `Creating canonical topics from ${uniqueTopics.length} unique topics...`,
       progress: 47,
       taskId
     });
 
     // Use LLM to create canonical topic mapping
+    console.log(`[TopicClusterer][${taskId}] Calling LLM to create canonical topics: ${uniqueTopics.join(', ')}`);
     const canonicalMapping = await this.createCanonicalTopicMapping(uniqueTopics);
     console.log(`[TopicClusterer][${taskId}] Created ${Object.keys(canonicalMapping).length} canonical topic mappings`);
+    console.log(`[TopicClusterer][${taskId}] Mapping sample:`, JSON.stringify(canonicalMapping).substring(0, 500));
 
     progressCallback({
       type: 'progress',
@@ -106,11 +116,15 @@ export class TopicClusterer {
 
     // Execute updates in batches
     console.log(`[TopicClusterer][${taskId}] Updating ${updates.length} responses with canonical topics`);
+    let updatedCount = 0;
     for (const { filter, update } of updates) {
-      await this.responseModel.updateOne(filter, update).exec();
+      console.log(`[TopicClusterer][${taskId}] Updating response ${filter._id} with canonicalTopics:`, update.$set['metadata.canonicalTopics']);
+      const result = await this.responseModel.updateOne(filter, update).exec();
+      console.log(`[TopicClusterer][${taskId}] Update result for ${filter._id}: matchedCount=${result.matchedCount}, modifiedCount=${result.modifiedCount}`);
+      if (result.modifiedCount > 0) updatedCount++;
     }
 
-    console.log(`[TopicClusterer][${taskId}] Canonical topic clustering complete`);
+    console.log(`[TopicClusterer][${taskId}] Canonical topic creation complete - updated ${updatedCount}/${updates.length} responses`);
 
     // Get unique canonical topics
     const canonicalTopics = Array.from(new Set(Object.values(canonicalMapping)));
@@ -124,6 +138,7 @@ export class TopicClusterer {
 
   /**
    * Create canonical topic mapping using LLM
+   * Unifies topic names and merges related topics
    */
   private async createCanonicalTopicMapping(rawTopics: string[]): Promise<Record<string, string>> {
     if (rawTopics.length === 0) return {};
@@ -144,9 +159,14 @@ export class TopicClusterer {
       return normalized;
     } catch (e) {
       console.error('[createCanonicalTopicMapping] Failed to parse LLM result:', e);
-      // Fallback: identity mapping
+      // Fallback: identity mapping (just title-case the original)
       return rawTopics.reduce((acc, topic) => {
-        acc[topic.trim().toLowerCase()] = topic;
+        const key = topic.trim().toLowerCase();
+        // Title case the original topic as fallback
+        const titleCased = topic.trim().split(' ')
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+          .join(' ');
+        acc[key] = titleCased;
         return acc;
       }, {} as Record<string, string>);
     }

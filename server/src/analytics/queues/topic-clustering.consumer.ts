@@ -1,5 +1,6 @@
 import { Processor, Process, OnQueueFailed } from '@nestjs/bull';
 import type { Job } from 'bull';
+import { Types } from 'mongoose';
 import { QueueName } from './queue.names';
 import type { TopicClusteringJobData } from './queue.names';
 import { TopicClusterer } from '../processors/topic.clusterer';
@@ -17,17 +18,16 @@ export class TopicClusteringConsumer {
   @Process({ name: 'cluster-topics', concurrency: 2 })
   async handleClustering(job: Job<TopicClusteringJobData>) {
     const { taskId, formId } = job.data;
+    console.log(`[TopicClusteringConsumer][${taskId}] Starting topic clustering job for form ${formId}`);
     await this.progressService.publishProgress({
       taskId,
       type: 'progress',
       message: `Clustering topics for form ${formId}`,
       progress: 50,
     });
-    // If formId needs to be ObjectId, convert if necessary
-    let objectIdFormId: any = formId;
-    if (typeof formId === 'string' && typeof (global as any).ObjectId === 'function') {
-      objectIdFormId = new (global as any).ObjectId(formId);
-    }
+    // Convert formId to ObjectId
+    const objectIdFormId = new Types.ObjectId(formId);
+    console.log(`[TopicClusteringConsumer][${taskId}] Calling topicClusterer.clusterAndStoreCanonicalTopics`);
     const result = await this.topicClusterer.clusterAndStoreCanonicalTopics(
       objectIdFormId,
       taskId,
@@ -40,6 +40,7 @@ export class TopicClusteringConsumer {
       }),
     );
     job.progress(100);
+    console.log(`[TopicClusteringConsumer][${taskId}] Topic clustering completed: ${result.canonicalTopics.length} canonical topics`);
     return { success: true, canonicalTopicsCount: result.canonicalTopics.length };
   }
 

@@ -20,7 +20,8 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "generate:responses": "ts-node scripts/generate-fake-responses.ts"
   },
   "dependencies": {
     "@bull-board/api": "^6.14.0",
@@ -37,6 +38,7 @@
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.1.8",
     "@nestjs/swagger": "^11.2.1",
+    "@opendexcom/plugin-interface": "^1.0.5",
     "bcryptjs": "^3.0.2",
     "bull": "^4.16.5",
     "class-transformer": "^0.5.1",

@@ -107,6 +107,9 @@ RULES:
    * Note: Per-question sentiment is calculated mathematically later
    */
   buildOverallSentimentPrompt(responses: ResponseDocument[], form: Form): string {
+    // Get rating questions for context
+    const ratingQuestions = form.questions.filter(q => q.type === 'rating');
+    
     const responsesData = responses.map((r) => {
       const normalizedAnswers = r.answers
         .map(ans => {
@@ -141,21 +144,39 @@ RULES:
         })
         .filter(Boolean) as Array<{ questionId: string; questionTitle?: string; value: string }>;
 
+      // Extract rating answers separately
+      const ratingAnswers = ratingQuestions.map(rq => {
+        const answer = r.answers.find(a => a.questionId === rq.id);
+        if (answer?.value != null) {
+          return {
+            questionTitle: rq.title,
+            value: answer.value
+          };
+        }
+        return null;
+      }).filter(Boolean);
+
       const combinedText = normalizedAnswers.map(a => a.value).join('\n');
 
       return {
         responseId: (r._id as Types.ObjectId).toString(),
         answers: normalizedAnswers,
+        ratingAnswers: ratingAnswers.length > 0 ? ratingAnswers : undefined,
         combinedText
       };
     });
+
+    const ratingContext = ratingQuestions.length > 0 
+      ? `\nRATING QUESTIONS IN THIS SURVEY:\n${ratingQuestions.map(q => `- "${q.title}"`).join('\n')}\n\nIMPORTANT: Consider rating values when determining sentiment. Interpret what each rating means based on the question context (e.g., a low rating for "How satisfied are you?" indicates negative sentiment, while a low rating for "How stressful is your job?" might indicate positive sentiment).`
+      : '';
 
     return `CRITICAL: You MUST return ONLY valid JSON. No explanations, no markdown, no prose.
 
 Task: Analyze OVERALL sentiment for ${responses.length} survey responses.
 Focus on the respondent's general feeling/tone across ALL their answers.
+${ratingContext}
 
-Responses (only textual answers included, with a combinedText helper field):
+Responses (textual answers and rating values included):
 ${JSON.stringify(responsesData, null, 2)}
 
 REQUIRED OUTPUT FORMAT (valid JSON object with "results" array):
@@ -242,31 +263,38 @@ RULES:
   }
 
   /**
-   * Build prompt for clustering raw topics into canonical categories
+   * Build prompt for creating canonical topics by merging similar/related topics
    */
   buildTopicClusteringPrompt(rawTopics: string[]): string {
-    return `You are a topic clustering expert. Map each raw topic to a canonical category name.
-Topics may be similar but phrased differently (e.g., "Web Dev", "web development", "building websites" → "Web Development").
-Topics in different languages with same meaning should map to same canonical name.
+    return `You are a topic consolidation expert. Your task is to reduce a list of raw topics into a smaller set of canonical topics by merging related concepts.
 
-Raw topics to cluster:
+Given a list of raw topics extracted from survey responses, create canonical topics by:
+1. Fixing typos and inconsistent capitalization
+2. Merging topics that are variations of the same concept (e.g., "Web Dev", "web development" → "Web Development")
+3. Grouping closely related topics into broader categories (e.g., "Team-Building", "Team Dynamics", "Collaboration" → "Team Collaboration")
+4. Combining topics that represent similar themes (e.g., "Recognition", "Recognition Improvement" → "Recognition")
+5. Unifying synonyms under a single name (e.g., "Support", "Supportive Culture", "Support and Communication" → "Supportive Environment")
+
+Raw topics to consolidate:
 ${JSON.stringify(rawTopics, null, 2)}
 
 REQUIRED OUTPUT FORMAT (valid JSON object):
 {
   "mapping": {
-    "raw topic 1": "Canonical Category 1",
-    "raw topic 2": "Canonical Category 1",
-    "raw topic 3": "Canonical Category 2"
+    "original topic 1": "Canonical Topic Name",
+    "original topic 2": "Canonical Topic Name",
+    "original topic 3": "Different Canonical Topic"
   }
 }
 
 RULES:
 - Output MUST be valid JSON object with "mapping" property
-- Each raw topic MUST appear exactly once as a key in mapping
+- Each original topic MUST appear exactly once as a key in mapping
 - Canonical names should be clear, concise, title-cased
-- Group semantically similar topics under same canonical name
-- Preserve language diversity but use English for canonical names
+- BE AGGRESSIVE in merging related topics - aim to reduce the total count significantly
+- Target 8-15 final canonical topics for most surveys
+- Multiple original topics should map to the same canonical topic when related
+- Use the most descriptive, general phrasing as the canonical name
 - Do NOT add explanations, only return JSON`;
   }
 
@@ -281,7 +309,13 @@ RULES:
     responseCount: number,
     topicQuotes: Array<{ topic: string; quote: string; count: number }>,
     closedQuestionStats: any[],
-    closedQuestionInsights: any[]
+    closedQuestionInsights: any[],
+    negativeTopics?: Array<{ topic: string; negativePercentage: number; count: number }>,
+    trends?: {
+      emergingTopics?: Array<{ topic: string; description: string }>;
+      decliningTopics?: Array<{ topic: string; description: string }>;
+      sentimentShifts?: Array<{ topic: string; direction: string; description: string }>;
+    }
   ): string {
     const formContext = {
       title: form.title,
@@ -299,8 +333,34 @@ RULES:
       },
       topicQuotes,
       closedQuestions: closedQuestionStats,
-      closedQuestionInsights
+      closedQuestionInsights,
+      negativeTopics: negativeTopics || [],
+      trends: trends || {}
     };
+
+    // Build negative topics section
+    const negativeTopicsSection = analyticsContext.negativeTopics.length > 0
+      ? `\nTOPICS WITH CONCERNING SENTIMENT (require attention):
+${analyticsContext.negativeTopics.map((nt: any) => `- "${nt.topic}": ${nt.negativePercentage}% negative (${nt.count} responses)`).join('\n')}`
+      : '';
+
+    // Build trends section
+    let trendsSection = '';
+    if (trends?.sentimentShifts?.length || trends?.emergingTopics?.length) {
+      trendsSection = '\nTRENDS DETECTED:';
+      if (trends.sentimentShifts?.length) {
+        trendsSection += '\nSentiment Changes:';
+        trends.sentimentShifts.forEach((s: any) => {
+          trendsSection += `\n- ${s.description}`;
+        });
+      }
+      if (trends.emergingTopics?.length) {
+        trendsSection += '\nEmerging Topics:';
+        trends.emergingTopics.forEach((e: any) => {
+          trendsSection += `\n- ${e.description}`;
+        });
+      }
+    }
 
     return `You are a professional data analyst writing an executive summary of survey analytics.
 
@@ -315,9 +375,12 @@ ANALYSIS RESULTS:
 - Sentiment: ${analyticsContext.sentiment.positive}% positive, ${analyticsContext.sentiment.neutral}% neutral, ${analyticsContext.sentiment.negative}% negative
 
 ${analyticsContext.closedQuestions.length > 0 ? `CLOSED QUESTION RESPONSES:
-${analyticsContext.closedQuestions.map((d: any) => 
-  `${d.question}: ${d.topAnswers.map((a: any) => `${a.value} (${a.percentage}%)`).join(', ')}`
-).join('\n')}` : ''}
+${analyticsContext.closedQuestions.map((d: any) => {
+  if (d.questionType === 'rating' && d.averageRating !== undefined) {
+    return `${d.question} (Rating): Average ${d.averageRating}/5 - Distribution: ${d.topAnswers.map((a: any) => `${a.value} stars (${a.percentage}%)`).join(', ')}`;
+  }
+  return `${d.question}: ${d.topAnswers.map((a: any) => `${a.value} (${a.percentage}%)`).join(', ')}`;
+}).join('\n')}` : ''}
 
 ${analyticsContext.closedQuestionInsights.length > 0 ? `TOPIC PATTERNS BY RESPONSE:
 ${analyticsContext.closedQuestionInsights.map((di: any) => 
@@ -326,6 +389,7 @@ ${analyticsContext.closedQuestionInsights.map((di: any) =>
 
 Sample responses from top topics:
 ${analyticsContext.topicQuotes.map((tq: any) => `• ${tq.topic} (${tq.count} responses): "${tq.quote}"`).join('\n')}
+${negativeTopicsSection}${trendsSection}
 
 TASK:
 Write a professional, structured executive summary using this exact format:
@@ -352,6 +416,9 @@ Write a professional, structured executive summary using this exact format:
    - Use **bold** for emphasis on important words/metrics
    - Focus on insights decision-makers can act on
    - May reference response patterns if they reveal important insights (e.g., "those who selected X prioritize Y")
+   - If rating questions are present, mention average ratings and what they correlate with
+   - **If negative topics are identified, one takeaway MUST address the concern areas**
+   - **If trends are detected, mention significant changes in sentiment or emerging issues**
 
 3. Style:
    - Professional, objective tone suitable for business/academic contexts

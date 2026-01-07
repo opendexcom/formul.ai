@@ -4,7 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import { Model } from 'mongoose';
 import * as bcrypt from 'bcryptjs';
 import { User, UserDocument } from '../schemas/user.schema';
-import { RegisterDto, LoginDto } from './dto/auth.dto';
+import { RegisterDto, LoginDto, ForgotPasswordDto, ResetPasswordDto } from './dto/auth.dto';
 
 import { EmailService } from '../forms/email.service';
 import { SettingsService } from '../settings/settings.service';
@@ -113,5 +113,61 @@ export class AuthService {
 
   async validateUser(payload: any): Promise<any> {
     return await this.userModel.findById(payload.sub).select('-password');
+  }
+
+  async forgotPassword(forgotPasswordDto: ForgotPasswordDto) {
+    const { email } = forgotPasswordDto;
+
+    const user = await this.userModel.findOne({ email: { $eq: email } });
+    
+    // Always return success message to prevent email enumeration
+    if (!user) {
+      return {
+        message: 'If an account with that email exists, a password reset link has been sent.',
+      };
+    }
+
+    // Generate reset token
+    const resetToken = crypto.randomUUID();
+    const resetExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
+
+    // Save token to user
+    user.passwordResetToken = resetToken;
+    user.passwordResetExpires = resetExpires;
+    await user.save();
+
+    // Send reset email
+    await this.emailService.sendPasswordResetEmail(email, resetToken);
+
+    return {
+      message: 'If an account with that email exists, a password reset link has been sent.',
+    };
+  }
+
+  async resetPassword(resetPasswordDto: ResetPasswordDto) {
+    const { token, password } = resetPasswordDto;
+
+    const user = await this.userModel.findOne({
+      passwordResetToken: { $eq: token },
+      passwordResetExpires: { $gt: new Date() },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('Invalid or expired reset token');
+    }
+
+    // Hash new password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Update password and clear reset token
+    user.password = hashedPassword;
+    user.passwordResetToken = null as any;
+    user.passwordResetExpires = null as any;
+    await user.save();
+
+    return {
+      message: 'Password has been reset successfully. You can now login with your new password.',
+    };
   }
 }

@@ -27,9 +27,9 @@ export class CorrelationCalculator {
     const cooccurrenceMap = new Map<string, number>();
     const topicPairCounts = new Map<string, Set<string>>();
 
-    // Count topic co-occurrences
+    // Count topic co-occurrences - enforce canonicalTopics only
     responses.forEach(response => {
-      const topics = response.metadata?.canonicalTopics || response.metadata?.allTopics || [];
+      const topics = response.metadata?.canonicalTopics || [];
       if (topics.length < 2) return;
 
       // For each pair of topics in this response
@@ -102,9 +102,9 @@ export class CorrelationCalculator {
       scores: number[];
     }>();
 
-    // Aggregate sentiment data per topic
+    // Aggregate sentiment data per topic - enforce canonicalTopics only
     responses.forEach(response => {
-      const topics = response.metadata?.canonicalTopics || response.metadata?.allTopics || [];
+      const topics = response.metadata?.canonicalTopics || [];
       const sentiment = response.metadata?.overallSentiment;
       
       if (!sentiment || topics.length === 0) return;
@@ -192,9 +192,9 @@ export class CorrelationCalculator {
       responseCount: number;
     }>;
   }> {
-    // Identify closed questions (dropdown, radio, checkbox)
+    // Identify closed questions (dropdown, radio, checkbox, rating)
     const closedQuestions = form.questions.filter(q => 
-      ['dropdown', 'radio', 'checkbox'].includes(q.type)
+      ['dropdown', 'radio', 'checkbox', 'rating'].includes(q.type)
     );
 
     if (closedQuestions.length === 0) {
@@ -227,7 +227,7 @@ export class CorrelationCalculator {
         const topicCounts = new Map<string, number>();
         
         groupResponses.forEach(response => {
-          const topics = response.metadata?.canonicalTopics || response.metadata?.allTopics || [];
+          const topics = response.metadata?.canonicalTopics || [];
           topics.forEach(topic => {
             topicCounts.set(topic, (topicCounts.get(topic) || 0) + 1);
           });

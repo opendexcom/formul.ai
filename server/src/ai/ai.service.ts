@@ -248,8 +248,9 @@ ${dto.currentForm ? '\n- Preserve the original form ID and metadata where applic
                 type: 'string',
                 enum: ['text', 'textarea', 'multiple_choice', 'checkbox', 'dropdown', 'email', 'number', 'date', 'time', 'rating']
               },
+              canBeOther: { type: 'boolean', description: 'Whether the question can have a "Other" option instead of other option directly in options list' },
               required: { type: 'boolean' },
-              options: { type: 'array', items: { type: 'string' } },
+              options: { type: 'array', items: { type: 'string' }, description: 'List of options for the question, without "Other" option' },
               order: { type: 'number' }
             },
             required: ['id', 'title', 'type', 'required', 'order'],
@@ -282,12 +283,16 @@ ${dto.currentForm ? '\n- Preserve the original form ID and metadata where applic
   /**
    * Public method for generic text analysis with JSON response
    * Useful for analytics, topic clustering, etc.
+   * @param prompt The prompt to analyze
+   * @param skipValidation Set to true for internal/trusted calls (e.g., analytics processing)
    */
-  async analyzeText(prompt: string): Promise<string> {
-    // Security Check
-    const validation = await this.guardianService.validatePrompt(prompt);
-    if (!validation.isSafe) {
-      throw new BadRequestException(`Request rejected: ${validation.reason}`);
+  async analyzeText(prompt: string, skipValidation: boolean = false): Promise<string> {
+    // Security Check - skip for internal/trusted calls
+    if (!skipValidation) {
+      const validation = await this.guardianService.validatePrompt(prompt);
+      if (!validation.isSafe) {
+        throw new BadRequestException(`Request rejected: ${validation.reason}`);
+      }
     }
     return this.invokeModelRaw(prompt);
   }
@@ -308,6 +313,7 @@ ${dto.currentForm ? '\n- Preserve the original form ID and metadata where applic
       maxConcurrency?: number;
       schema?: any; // JSON Schema for structured output
       maxRetries?: number; // Max retries per failed prompt
+      skipValidation?: boolean; // Skip Guardian validation for internal/trusted calls
     },
   ): Promise<string[]> {
     if (!this.chatModel) {
@@ -328,31 +334,39 @@ ${dto.currentForm ? '\n- Preserve the original form ID and metadata where applic
       const results: Array<{ index: number; content: string | null; error?: any }> =
         prompts.map((_, index) => ({ index, content: null }));
 
+      const skipValidation = options?.skipValidation ?? false;
+
       // Process in waves with retry logic
       for (let i = 0; i < prompts.length; i += maxConcurrency) {
         const batch = prompts.slice(i, i + maxConcurrency);
         const batchIndices = Array.from({ length: batch.length }, (_, idx) => i + idx);
 
-        // Validate batch prompts first
-        const validatedBatch = await Promise.all(batch.map(async (prompt, idx) => {
-          const validation = await this.guardianService.validatePrompt(prompt);
-          return { prompt, validation, originalIndex: batchIndices[idx] };
-        }));
+        let safePrompts: string[] = [];
+        let safeIndices: number[] = [];
 
-        const safePrompts: string[] = [];
-        const safeIndices: number[] = [];
+        if (skipValidation) {
+          // Skip validation for internal/trusted calls (e.g., analytics processing)
+          safePrompts = batch;
+          safeIndices = batchIndices;
+        } else {
+          // Validate batch prompts first
+          const validatedBatch = await Promise.all(batch.map(async (prompt, idx) => {
+            const validation = await this.guardianService.validatePrompt(prompt);
+            return { prompt, validation, originalIndex: batchIndices[idx] };
+          }));
 
-        for (const item of validatedBatch) {
-          if (!item.validation.isSafe) {
-            // Mark unsafe prompts as handled with an error response
-            results[item.originalIndex].content = JSON.stringify({
-              error: 'unsafe_content',
-              reason: item.validation.reason,
-              riskType: item.validation.riskType
-            });
-          } else {
-            safePrompts.push(item.prompt);
-            safeIndices.push(item.originalIndex);
+          for (const item of validatedBatch) {
+            if (!item.validation.isSafe) {
+              // Mark unsafe prompts as handled with an error response
+              results[item.originalIndex].content = JSON.stringify({
+                error: 'unsafe_content',
+                reason: item.validation.reason,
+                riskType: item.validation.riskType
+              });
+            } else {
+              safePrompts.push(item.prompt);
+              safeIndices.push(item.originalIndex);
+            }
           }
         }
 
@@ -480,6 +494,7 @@ ${dto.currentForm ? '\n- Preserve the original form ID and metadata where applic
       title: q.title || 'Untitled Question',
       description: q.description || undefined,
       type: mapType(q.type),
+      canBeOther: q.canBeOther || false,
       required: typeof q.required === 'boolean' ? q.required : false,
       options: ['multiple_choice', 'checkbox', 'dropdown'].includes(mapType(q.type)) ? (q.options || ['Option 1']) : undefined,
       order: typeof q.order === 'number' ? q.order : idx,

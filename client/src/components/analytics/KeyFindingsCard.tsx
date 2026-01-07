@@ -1,5 +1,5 @@
 import React from 'react';
-import { Lightbulb, TrendingUp } from 'lucide-react';
+import { Lightbulb, TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Minus } from 'lucide-react';
 import { AnalyticsData } from '../../types/analytics';
 
 interface KeyFindingsCardProps {
@@ -27,6 +27,24 @@ export const KeyFindingsCard: React.FC<KeyFindingsCardProps> = ({ analytics }) =
     return colors[(importance || 'medium') as keyof typeof colors] || colors.medium;
   };
 
+  const getTypeBorderColor = (type?: string) => {
+    switch (type) {
+      case 'positive': return 'border-green-400';
+      case 'negative': return 'border-red-400';
+      case 'trend': return 'border-blue-400';
+      default: return 'border-amber-400';
+    }
+  };
+
+  const getTypeIcon = (type?: string) => {
+    switch (type) {
+      case 'positive': return <CheckCircle className="w-4 h-4 text-green-600" />;
+      case 'negative': return <AlertTriangle className="w-4 h-4 text-red-600" />;
+      case 'trend': return <TrendingUp className="w-4 h-4 text-blue-600" />;
+      default: return <Minus className="w-4 h-4 text-gray-400" />;
+    }
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-sm border p-6">
       <div className="flex items-center gap-2 mb-4">
@@ -41,11 +59,14 @@ export const KeyFindingsCard: React.FC<KeyFindingsCardProps> = ({ analytics }) =
       ) : (
         <div className="space-y-4">
           {findings.slice(0, 4).map((finding, index) => (
-            <div key={index} className="border-l-4 border-amber-400 pl-4 py-2">
+            <div key={index} className={`border-l-4 ${getTypeBorderColor(finding.type)} pl-4 py-2`}>
               <div className="flex items-start justify-between gap-2 mb-2">
-                <p className="text-sm font-medium text-gray-900 flex-1">
-                  {finding.finding}
-                </p>
+                <div className="flex items-start gap-2 flex-1">
+                  {getTypeIcon(finding.type)}
+                  <p className="text-sm font-medium text-gray-900">
+                    {finding.finding}
+                  </p>
+                </div>
                 {finding.importance && (
                   <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium border flex-shrink-0 ${getImportanceBadge(finding.importance)}`}>
                     {finding.importance}
@@ -97,9 +118,9 @@ export const KeyFindingsCard: React.FC<KeyFindingsCardProps> = ({ analytics }) =
 
       <div className="mt-4 pt-4 border-t border-gray-200">
         <div className="flex items-start gap-2 text-xs text-gray-600">
-          <TrendingUp className="w-4 h-4 flex-shrink-0 mt-0.5" />
+          <TrendingDown className="w-4 h-4 flex-shrink-0 mt-0.5" />
           <p>
-            Key findings highlight significant patterns discovered in the response data
+            Key findings highlight significant patterns discovered in the response data. Red indicates areas of concern requiring attention.
           </p>
         </div>
       </div>
