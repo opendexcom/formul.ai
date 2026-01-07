@@ -8,6 +8,7 @@ import type { AggregationJobData } from './queue.names';
 import { StatisticsCalculator } from '../calculators/statistics.calculator';
 import { CorrelationCalculator } from '../calculators/correlation.calculator';
 import { SentimentCalculator } from '../calculators/sentiment.calculator';
+import { TrendCalculator } from '../calculators/trend.calculator';
 import { ProgressService } from './progress.service';
 import { DeadLetterService } from './dead-letter.service';
 import { Form } from '../../schemas/form.schema';
@@ -21,6 +22,7 @@ export class AggregationConsumer {
     private readonly statisticsCalculator: StatisticsCalculator,
     private readonly correlationCalculator: CorrelationCalculator,
     private readonly sentimentCalculator: SentimentCalculator,
+    private readonly trendCalculator: TrendCalculator,
     private readonly progressService: ProgressService,
     private readonly deadLetterService: DeadLetterService,
     @InjectModel(Form.name) private readonly formModel: Model<FormDocument>,
@@ -65,10 +67,12 @@ export class AggregationConsumer {
     });
 
     const topicFrequencies = this.statisticsCalculator.calculateTopicFrequencies(responses);
+    console.log(`[AggregationConsumer][${taskId}] Topic frequencies:`, JSON.stringify(topicFrequencies).substring(0, 500));
     const topTopics = Object.entries(topicFrequencies)
       .sort(([, a]: any, [, b]: any) => b.count - a.count)
       .slice(0, 15)
       .map(([topic]) => topic);
+    console.log(`[AggregationConsumer][${taskId}] Top topics:`, topTopics);
 
     // Step 2: Calculate sentiment distribution (60-65%)
     await this.progressService.publishProgress({
@@ -123,21 +127,45 @@ export class AggregationConsumer {
       emotionalTones
     );
 
+    // Get canonical topics from responses - enforce canonicalTopics, no fallback to allTopics
+    // This must be done BEFORE trend analysis
+    const canonicalTopicsSet = new Set<string>();
+    let missingCanonicalCount = 0;
+    responses.forEach(r => {
+      const topics = r.metadata?.canonicalTopics || [];
+      if (topics.length === 0 && (r.metadata?.allTopics?.length ?? 0) > 0) {
+        missingCanonicalCount++;
+      }
+      topics.forEach(t => canonicalTopicsSet.add(t));
+    });
+    if (missingCanonicalCount > 0) {
+      console.warn(`[AggregationConsumer][${taskId}] ${missingCanonicalCount} responses have allTopics but no canonicalTopics - topic clustering may have failed`);
+    }
+    const canonicalTopics = Array.from(canonicalTopicsSet);
+
+    // Step 6b: Calculate temporal trends
+    await this.progressService.publishProgress({
+      taskId,
+      type: 'progress',
+      message: 'Analyzing temporal trends...',
+      progress: 74,
+    });
+
+    const trendAnalysis = this.trendCalculator.calculateTrends(responses, canonicalTopics);
+    console.log(`[AggregationConsumer][${taskId}] Trend analysis:`, {
+      hasEnoughData: trendAnalysis.hasEnoughData,
+      emergingTopics: trendAnalysis.emergingTopics?.length || 0,
+      decliningTopics: trendAnalysis.decliningTopics?.length || 0,
+      sentimentShifts: trendAnalysis.sentimentShifts?.length || 0,
+    });
+
     // Step 7: Store aggregated data in form.analytics (partial - generators will add more)
     await this.progressService.publishProgress({
       taskId,
       type: 'progress',
       message: 'Saving aggregated analytics...',
-      progress: 73,
+      progress: 75,
     });
-
-    // Get canonical topics from responses
-    const canonicalTopicsSet = new Set<string>();
-    responses.forEach(r => {
-      const topics = r.metadata?.canonicalTopics || [];
-      topics.forEach(t => canonicalTopicsSet.add(t));
-    });
-    const canonicalTopics = Array.from(canonicalTopicsSet);
 
     // Update form with aggregated analytics (partial structure - AI insights will be added later)
     form.analytics = {
@@ -183,6 +211,15 @@ export class AggregationConsumer {
         keyFindings: [], // Will be filled by AI generation stage
         recommendations: [], // Will be filled by AI generation stage
       },
+      // Store trend analysis for use by AI generation stage
+      trendAnalysis: trendAnalysis.hasEnoughData ? {
+        hasEnoughData: true,
+        emergingTopics: trendAnalysis.emergingTopics || [],
+        decliningTopics: trendAnalysis.decliningTopics || [],
+        sentimentShifts: trendAnalysis.sentimentShifts || [],
+        volumeTrend: trendAnalysis.volumeTrend || 'stable',
+        periodComparison: trendAnalysis.periodComparison || undefined
+      } : undefined,
     };
 
     await form.save();

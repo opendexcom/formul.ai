@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { apiClient } from '../services/apiClient';
+import authService from '../services/authService';
 import { Eye, EyeOff, Sparkles, Users, BarChart3 } from 'lucide-react';
 
 const LandingPage: React.FC = () => {
@@ -16,6 +17,10 @@ const LandingPage: React.FC = () => {
   const [successMessage, setSuccessMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [allowRegistration, setAllowRegistration] = useState(true);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
+  const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
+  const [forgotPasswordError, setForgotPasswordError] = useState('');
 
   useEffect(() => {
     const checkRegistration = async () => {
@@ -39,6 +44,25 @@ const LandingPage: React.FC = () => {
     }));
     setError('');
     setSuccessMessage('');
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotPasswordLoading(true);
+    setForgotPasswordError('');
+
+    try {
+      await authService.forgotPassword({ email: forgotPasswordEmail });
+      setSuccessMessage('If an account with that email exists, a password reset link has been sent.');
+      setShowForgotPassword(false);
+      setForgotPasswordEmail('');
+      setForgotPasswordError('');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'An error occurred';
+      setForgotPasswordError(errorMessage);
+    } finally {
+      setForgotPasswordLoading(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -241,6 +265,17 @@ const LandingPage: React.FC = () => {
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
+                {!isSignUp && (
+                  <div className="mt-2 text-right">
+                    <button
+                      type="button"
+                      onClick={() => setShowForgotPassword(true)}
+                      className="text-sm text-blue-600 hover:text-blue-800"
+                    >
+                      Forgot your password?
+                    </button>
+                  </div>
+                )}
               </div>
 
               <button
@@ -254,6 +289,62 @@ const LandingPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Forgot Password Modal */}
+      {showForgotPassword && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full">
+            <h3 className="text-xl font-bold text-gray-900 mb-2">Reset Password</h3>
+            <p className="text-gray-600 mb-6">
+              Enter your email address and we'll send you a link to reset your password.
+            </p>
+
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              {forgotPasswordError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-red-600 text-sm">{forgotPasswordError}</p>
+                </div>
+              )}
+
+              <div>
+                <label htmlFor="forgotEmail" className="block text-sm font-medium text-gray-700 mb-2">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  id="forgotEmail"
+                  value={forgotPasswordEmail}
+                  onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                  placeholder="Enter your email"
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowForgotPassword(false);
+                    setForgotPasswordEmail('');
+                    setForgotPasswordError('');
+                  }}
+                  className="flex-1 py-2 px-4 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={forgotPasswordLoading}
+                  className="flex-1 py-2 px-4 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  {forgotPasswordLoading ? 'Sending...' : 'Send Reset Link'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

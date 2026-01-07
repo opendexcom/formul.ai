@@ -224,22 +224,74 @@ const QuestionEditor: React.FC<QuestionEditorProps> = ({
         );
 
       case QuestionType.RATING:
+        const minRatingEdit = Number(question.validation?.min?.value) || 1;
+        const maxRatingEdit = Number(question.validation?.max?.value) || 5;
+        const ratingRangeEdit = Array.from({ length: maxRatingEdit - minRatingEdit + 1 }, (_, i) => minRatingEdit + i);
+        
         return (
-          <div className="flex items-center space-x-1">
-            {[1, 2, 3, 4, 5].map((star) => (
-              <svg
-                key={star}
-                className="w-6 h-6 text-gray-300"
-                fill="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z"
-                  clipRule="evenodd"
-                />
-              </svg>
-            ))}
+          <div className="space-y-3">
+            {/* Rating preview */}
+            <div className="flex items-center space-x-1">
+              {ratingRangeEdit.map((star) => (
+                <svg
+                  key={star}
+                  className="w-6 h-6 text-gray-300"
+                  fill="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              ))}
+            </div>
+            
+            {/* Rating configuration */}
+            {isSelected && (
+              <div className="flex items-center space-x-4 text-sm">
+                <div className="flex items-center space-x-2">
+                  <label className="text-gray-600">Min:</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max={maxRatingEdit - 1}
+                    value={minRatingEdit}
+                    onChange={(e) => {
+                      const newMin = Math.max(0, parseInt(e.target.value) || 1);
+                      onUpdate({
+                        validation: {
+                          ...question.validation,
+                          min: { type: 'min', value: newMin }
+                        }
+                      });
+                    }}
+                    className="w-16 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <div className="flex items-center space-x-2">
+                  <label className="text-gray-600">Max:</label>
+                  <input
+                    type="number"
+                    min={minRatingEdit + 1}
+                    max="10"
+                    value={maxRatingEdit}
+                    onChange={(e) => {
+                      const newMax = Math.min(10, Math.max(minRatingEdit + 1, parseInt(e.target.value) || 5));
+                      onUpdate({
+                        validation: {
+                          ...question.validation,
+                          max: { type: 'max', value: newMax }
+                        }
+                      });
+                    }}
+                    className="w-16 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <span className="text-gray-500">({ratingRangeEdit.length} stars)</span>
+              </div>
+            )}
           </div>
         );
 

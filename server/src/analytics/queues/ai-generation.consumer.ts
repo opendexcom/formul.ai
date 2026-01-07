@@ -14,6 +14,7 @@ import { Form } from '../../schemas/form.schema';
 import type { FormDocument } from '../../schemas/form.schema';
 import { Response } from '../../schemas/response.schema';
 import type { ResponseDocument } from '../../schemas/response.schema';
+import type { TrendAnalysis } from '../calculators/trend.calculator';
 
 @Processor(QueueName.AI_GENERATION)
 export class AIGenerationConsumer {
@@ -68,7 +69,27 @@ export class AIGenerationConsumer {
       { sentiment: form.analytics.sentiment?.topicCorrelations || [] }
     ];
 
-    // Generate summary
+    // Extract topic sentiment from topic correlations
+    const topicSentiment = new Map<string, { positive: number; neutral: number; negative: number }>();
+    const topicCorrelations = form.analytics.sentiment?.topicCorrelations || [];
+    topicCorrelations.forEach((tc: any) => {
+      if (tc.topic && tc.sentiment) {
+        topicSentiment.set(tc.topic, tc.sentiment);
+      }
+    });
+
+    // Get trend analysis from aggregation stage
+    const storedTrends = form.analytics.trendAnalysis;
+    const trends: TrendAnalysis | undefined = storedTrends?.hasEnoughData ? {
+      hasEnoughData: true,
+      emergingTopics: storedTrends.emergingTopics || [],
+      decliningTopics: storedTrends.decliningTopics || [],
+      sentimentShifts: storedTrends.sentimentShifts || [],
+      volumeTrend: storedTrends.volumeTrend || 'stable',
+      periodComparison: storedTrends.periodComparison || null
+    } : undefined;
+
+    // Generate summary with enhanced context
     let summary = await this.summaryGenerator.generateAnalyticsSummary(
       form,
       responses,
@@ -78,6 +99,8 @@ export class AIGenerationConsumer {
       recommendations,
       representativeQuotes,
       closedQuestionCorrelations,
+      topicSentiment,
+      trends
     );
 
     // Ensure non-empty summary (fallback if model returned empty text)
@@ -153,7 +176,36 @@ export class AIGenerationConsumer {
       overallScore: 0.7,
     };
 
-    // Generate findings
+    // Extract topic sentiment from topic correlations
+    const topicSentimentMap = new Map<string, { positive: number; neutral: number; negative: number }>();
+    const topicCorrelations = form.analytics.sentiment?.topicCorrelations || [];
+    topicCorrelations.forEach((tc: any) => {
+      if (tc.topic && tc.sentiment) {
+        topicSentimentMap.set(tc.topic, tc.sentiment);
+      }
+    });
+
+    // Get trend analysis from aggregation stage
+    const storedTrends = form.analytics.trendAnalysis;
+    const trends: TrendAnalysis | undefined = storedTrends?.hasEnoughData ? {
+      hasEnoughData: true,
+      emergingTopics: storedTrends.emergingTopics || [],
+      decliningTopics: storedTrends.decliningTopics || [],
+      sentimentShifts: storedTrends.sentimentShifts || [],
+      volumeTrend: storedTrends.volumeTrend || 'stable',
+      periodComparison: storedTrends.periodComparison || null
+    } : undefined;
+
+    // Convert topic sentiment Map to Record for findings generator
+    const topicSentimentRecord: Record<string, { positive: number; neutral: number; negative: number; total: number }> = {};
+    for (const [topic, sentiment] of topicSentimentMap.entries()) {
+      topicSentimentRecord[topic] = {
+        ...sentiment,
+        total: sentiment.positive + sentiment.neutral + sentiment.negative
+      };
+    }
+
+    // Generate findings with topic sentiment and trends
     const findings = this.findingsGenerator.generateKeyFindings(
       responses,
       topTopics,
@@ -162,6 +214,8 @@ export class AIGenerationConsumer {
       representativeQuotes,
       emotionalTones,
       dataQuality,
+      topicSentimentRecord,
+      trends
     );
 
     // Persist findings atomically
@@ -212,12 +266,19 @@ export class AIGenerationConsumer {
     // Extract data from form.analytics
     const sentimentDistribution = form.analytics.sentiment?.overall || { positive: 0, neutral: 0, negative: 0, averageScore: 0 };
     
-    // Get canonical topics
+    // Get canonical topics - enforce canonicalTopics, no fallback to allTopics
     const canonicalTopicsSet = new Set<string>();
+    let missingCanonicalCount = 0;
     responses.forEach(r => {
       const topics = r.metadata?.canonicalTopics || [];
+      if (topics.length === 0 && (r.metadata?.allTopics?.length ?? 0) > 0) {
+        missingCanonicalCount++;
+      }
       topics.forEach(t => canonicalTopicsSet.add(t));
     });
+    if (missingCanonicalCount > 0) {
+      console.warn(`[AIGenerationConsumer] ${missingCanonicalCount} responses have allTopics but no canonicalTopics - topic clustering may have failed`);
+    }
     const canonicalTopics = Array.from(canonicalTopicsSet);
 
     // Calculate data quality
@@ -230,11 +291,43 @@ export class AIGenerationConsumer {
       overallScore: 0.7,
     };
 
-    // Generate recommendations
+    // Extract topic sentiment from topic correlations
+    const topicSentimentMap2 = new Map<string, { positive: number; neutral: number; negative: number }>();
+    const topicCorrelations = form.analytics.sentiment?.topicCorrelations || [];
+    topicCorrelations.forEach((tc: any) => {
+      if (tc.topic && tc.sentiment) {
+        topicSentimentMap2.set(tc.topic, tc.sentiment);
+      }
+    });
+
+    // Get trend analysis from aggregation stage
+    const storedTrends = form.analytics.trendAnalysis;
+    const trends: TrendAnalysis | undefined = storedTrends?.hasEnoughData ? {
+      hasEnoughData: true,
+      emergingTopics: storedTrends.emergingTopics || [],
+      decliningTopics: storedTrends.decliningTopics || [],
+      sentimentShifts: storedTrends.sentimentShifts || [],
+      volumeTrend: storedTrends.volumeTrend || 'stable',
+      periodComparison: storedTrends.periodComparison || null
+    } : undefined;
+
+    // Convert topic sentiment Map to Record for recommendations generator
+    const topicSentimentRecord: Record<string, { positive: number; neutral: number; negative: number; total: number }> = {};
+    for (const [topic, sentiment] of topicSentimentMap2.entries()) {
+      topicSentimentRecord[topic] = {
+        ...sentiment,
+        total: sentiment.positive + sentiment.neutral + sentiment.negative
+      };
+    }
+
+    // Generate recommendations with enhanced context
     const recommendations = await this.recommendationsGenerator.generateRecommendations(
       sentimentDistribution,
       canonicalTopics,
       dataQuality,
+      responses,
+      topicSentimentRecord,
+      trends
     );
 
     // Persist recommendations atomically

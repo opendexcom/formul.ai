@@ -94,6 +94,7 @@ const FormEditor: React.FC = () => {
       required: false,
       order: form.questions.length,
       options: needsOptions(type) ? ['Option 1'] : undefined,
+      canBeOther: false,
     };
 
     updateForm({

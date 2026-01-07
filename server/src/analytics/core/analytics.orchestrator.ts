@@ -332,17 +332,24 @@ export class AnalyticsOrchestrator {
       taskId,
     });
 
-    // Get canonical (clustered) topics from responses metadata
+    // Get canonical topics from responses metadata (enforced - no fallback to allTopics)
     const canonicalTopicsSet = new Set<string>();
+    let missingCanonicalCount = 0;
     responses.forEach(r => {
-      const topics = r.metadata?.canonicalTopics || [];
-      topics.forEach(t => canonicalTopicsSet.add(t));
+      const canonicalTopics = r.metadata?.canonicalTopics || [];
+      if (canonicalTopics.length === 0 && (r.metadata?.allTopics?.length ?? 0) > 0) {
+        missingCanonicalCount++;
+      }
+      canonicalTopics.forEach(t => canonicalTopicsSet.add(t));
     });
+    if (missingCanonicalCount > 0) {
+      console.warn(`[Orchestrator] ${missingCanonicalCount} responses have allTopics but no canonicalTopics - topic clustering may have failed`);
+    }
     const canonicalTopicsList = Array.from(canonicalTopicsSet);
 
     const recommendations = await this.recommendationsGenerator.generateRecommendations(
       sentimentDistribution,
-      canonicalTopicsList.length > 0 ? canonicalTopicsList : Object.keys(topicFrequencies), // Use canonical topics if available
+      canonicalTopicsList,
       dataQuality
     );
 

@@ -14,6 +14,7 @@ export interface AnalyticsData {
   methodology?: MethodologyInfo;
   validation?: ValidationInfo;
   questionStats?: Record<string, QuestionStats>;
+  trendAnalysis?: TrendAnalysis;
 }
 
 export interface ClimateAnalytics {
@@ -232,6 +233,7 @@ export interface KeyFinding {
   confidence: 'high' | 'medium' | 'low';
   basedOnResponses: number;
   importance?: 'high' | 'medium' | 'low';
+  type?: 'positive' | 'negative' | 'neutral' | 'trend';
   methodologicalNote?: string;
   limitations?: string;
 }
@@ -346,8 +348,10 @@ export interface ResponseMetadata {
     score: number;
     emotionalTone?: string;
     confidence: number;
+    reasoning?: string;
   };
   allTopics?: string[];
+  canonicalTopics?: string[];
   qualityScore?: number;
   topics?: Array<{
     topic: string;
@@ -383,4 +387,47 @@ export interface ResponseWithMetadata {
   answers: FormAnswer[];
   submittedAt: Date;
   metadata: ResponseMetadata;
+}
+
+// Trend Analysis types
+export interface TrendAnalysis {
+  hasEnoughData: boolean;
+  message?: string;
+  emergingTopics: EmergingTopic[];
+  decliningTopics: DecliningTopic[];
+  sentimentShifts: SentimentShift[];
+  volumeTrend: 'increasing' | 'stable' | 'decreasing';
+  periodComparison?: {
+    olderPeriod: { start: Date; end: Date; responseCount: number };
+    newerPeriod: { start: Date; end: Date; responseCount: number };
+  };
+}
+
+export interface EmergingTopic {
+  topic: string;
+  type: 'new' | 'growing';
+  newerMentions: number;
+  olderMentions: number;
+  changePercentage: number;
+  description: string;
+}
+
+export interface DecliningTopic {
+  topic: string;
+  type: 'disappeared' | 'declining';
+  olderMentions: number;
+  newerMentions: number;
+  changePercentage: number;
+  description: string;
+}
+
+export interface SentimentShift {
+  topic: string;
+  direction: 'improving' | 'worsening';
+  fromScore: number;
+  toScore: number;
+  scoreDiff: number;
+  fromLabel: string;
+  toLabel: string;
+  description: string;
 }

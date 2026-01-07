@@ -5,7 +5,11 @@
   "type": "module",
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
+    "@types/html2pdf.js": "^0.10.0",
     "axios": "^1.13.1",
+    "html2pdf.js": "^0.13.0",
+    "jspdf": "^4.0.0",
+    "jspdf-autotable": "^5.0.7",
     "lucide-react": "^0.552.0",
     "react": "^19.2.0",
     "react-dnd": "^16.0.1",

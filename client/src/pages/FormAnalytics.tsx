@@ -4,7 +4,7 @@ import {
   ArrowLeft,
   Users,
   Calendar,
-  Download,
+  FileText,
   BarChart3,
   PieChart,
   TrendingUp,
@@ -52,6 +52,15 @@ interface ResponseData {
     };
   };
 }
+
+// Helper to check if analytics has been run (has meaningful data)
+const hasAnalyticsData = (analytics: AnalyticsData | null): boolean => {
+  if (!analytics) return false;
+  // Check if analytics has been actually processed
+  return analytics.totalResponsesAnalyzed > 0 || 
+         (analytics.insights?.summary && analytics.insights.summary.length > 0) ||
+         (analytics.topics?.topTopics && analytics.topics.topTopics.length > 0);
+};
 
 const FormAnalytics: React.FC = () => {
   const { formId } = useParams<{ formId: string }>();
@@ -388,47 +397,12 @@ const FormAnalytics: React.FC = () => {
     }
   };
 
-  const handleExportCSV = () => {
-    if (!form || !responses.length) return;
-
-    // Only include the Email column if any response actually has respondentEmail
-    const includeEmail = responses.some(r => !!r.respondentEmail);
-
-    const headers = ['Submitted At'];
-    if (includeEmail) headers.push('Email');
-    form.questions.forEach(q => headers.push(q.title));
-
-    const csvData = [headers];
-
-    responses.forEach(response => {
-      const row: string[] = [
-        new Date(response.submittedAt).toLocaleString(),
-      ];
-
-      if (includeEmail) {
-        row.push(response.respondentEmail || '');
-      }
-
-      form.questions.forEach(question => {
-        const answer = response.answers.find(a => a.questionId === question.id);
-        const value = answer ? answer.value : '';
-        row.push(Array.isArray(value) ? value.join(', ') : String(value));
-      });
-
-      csvData.push(row);
-    });
-
-    const csvContent = csvData.map(row =>
-      row.map(cell => `"${cell}"`).join(',')
-    ).join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${form.title}_responses.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
+  const handleExportPDF = () => {
+    if (!form || !analytics) return;
+    
+    // Open the printable analytics report in a new tab
+    const printUrl = `/forms/${formId}/analytics/print`;
+    window.open(printUrl, '_blank');
   };
 
   // Handle topic click - toggle topic in filters
@@ -548,24 +522,22 @@ const FormAnalytics: React.FC = () => {
           </div>
 
           <div className="flex space-x-3">
-            {analytics && (
-              <Button
-                variant="secondary"
-                icon={RefreshCw}
-                onClick={() => setShowRefreshModal(true)}
-                disabled={refreshingAnalytics || responses.length < 10}
-                loading={refreshingAnalytics}
-              >
-                Refresh Analytics
-              </Button>
-            )}
             <Button
               variant="secondary"
-              icon={Download}
-              onClick={handleExportCSV}
-              disabled={!responses.length}
+              icon={RefreshCw}
+              onClick={() => setShowRefreshModal(true)}
+              disabled={refreshingAnalytics || responses.length < 10}
+              loading={refreshingAnalytics}
             >
-              Export CSV
+              {hasAnalyticsData(analytics) ? 'Refresh Analytics' : 'Generate Analytics'}
+            </Button>
+            <Button
+              variant="secondary"
+              icon={FileText}
+              onClick={handleExportPDF}
+              disabled={!analytics || !hasAnalyticsData(analytics)}
+            >
+              Export PDF Report
             </Button>
           </div>
         </div>
@@ -660,7 +632,7 @@ const FormAnalytics: React.FC = () => {
               </Button>
             </div>
           </>
-        ) : !analytics ? (
+        ) : !hasAnalyticsData(analytics) ? (
           // No analytics generated yet - show generate button
           <div className="bg-white rounded-lg shadow-sm border p-10 text-center">
             <BarChart3 className="w-16 h-16 text-blue-300 mx-auto mb-4" />
@@ -823,6 +795,7 @@ const FormAnalytics: React.FC = () => {
                         <TopicSentimentCard
                           analytics={analytics || undefined}
                           selectedTopics={filters.topics || []}
+                          onTopicClick={handleTopicClick}
                         />
                         <TopicRelationshipsCard
                           analytics={analytics || undefined}
@@ -860,6 +833,7 @@ const FormAnalytics: React.FC = () => {
         totalResponses={responses.length}
         analyzedResponses={responses.filter(r => r.metadata?.processedForAnalytics).length}
         pendingResponses={responses.filter(r => !r.metadata?.processedForAnalytics && r.metadata?.hasTextContent).length}
+        hasExistingAnalytics={hasAnalyticsData(analytics)}
       />
     </div>
   );

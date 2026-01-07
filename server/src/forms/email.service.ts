@@ -113,6 +113,49 @@ export class EmailService {
     }
   }
 
+  async sendPasswordResetEmail(email: string, token: string): Promise<void> {
+    const baseUrl = process.env.FRONTEND_URL || process.env.CLIENT_URL || 'http://localhost:5173';
+    const resetUrl = `${baseUrl}/reset-password?token=${token}`;
+    const subject = 'Reset your password';
+
+    const mailOptions = {
+      from: process.env.FROM_EMAIL || '"FormulAI" <noreply@formulai.com>',
+      to: email,
+      subject: subject,
+      text: `You requested to reset your password. Click the following link to set a new password: ${resetUrl}\n\nThis link will expire in 1 hour.\n\nIf you did not request this, please ignore this email.`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Reset Your Password</h2>
+          <p>You requested to reset your password. Click the button below to set a new password:</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${resetUrl}" style="background-color: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Reset Password</a>
+          </div>
+          <p>Or copy and paste this link into your browser:</p>
+          <p><a href="${resetUrl}">${resetUrl}</a></p>
+          <p style="color: #666; font-size: 14px; margin-top: 30px;">This link will expire in 1 hour.</p>
+          <p style="color: #666; font-size: 14px;">If you did not request a password reset, please ignore this email.</p>
+        </div>
+      `,
+    };
+
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST || 'localhost',
+      port: Number(process.env.SMTP_PORT) || 1025,
+      secure: false,
+      auth: {
+        user: process.env.SMTP_USER || 'user',
+        pass: process.env.SMTP_PASS || 'pass',
+      },
+    });
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`Password reset email sent to ${email}: ${info.messageId}`);
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`Preview URL: http://localhost:3001/email-preview/${info.messageId}`);
+    }
+  }
+
   private escapeHtml(unsafe: string): string {
     return unsafe
       .replace(/&/g, '&amp;')

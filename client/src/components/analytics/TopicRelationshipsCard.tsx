@@ -1,5 +1,5 @@
-import React from 'react';
-import { Network, TrendingUp } from 'lucide-react';
+import React, { useState } from 'react';
+import { Network, TrendingUp, ChevronDown, ChevronUp } from 'lucide-react';
 import { AnalyticsData } from '../../types/analytics';
 
 interface TopicRelationshipsCardProps {
@@ -8,6 +8,7 @@ interface TopicRelationshipsCardProps {
 }
 
 export const TopicRelationshipsCard: React.FC<TopicRelationshipsCardProps> = ({ analytics, selectedTopics = [] }) => {
+  const [showAll, setShowAll] = useState(false);
   const cooccurrences = analytics?.topics?.cooccurrence || [];
 
   // Filter by selected topics if any are selected
@@ -16,6 +17,8 @@ export const TopicRelationshipsCard: React.FC<TopicRelationshipsCardProps> = ({ 
         selectedTopics.includes(co.topic1) || selectedTopics.includes(co.topic2)
       )
     : cooccurrences;
+
+  const displayedCooccurrences = showAll ? filteredCooccurrences : filteredCooccurrences.slice(0, 10);
 
   if (filteredCooccurrences.length === 0) {
     return (
@@ -69,7 +72,7 @@ export const TopicRelationshipsCard: React.FC<TopicRelationshipsCardProps> = ({ 
       </p>
 
       <div className="space-y-3">
-        {filteredCooccurrences.slice(0, 10).map((co, index) => (
+        {displayedCooccurrences.map((co, index) => (
           <div 
             key={index}
             className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200 hover:border-purple-300 transition-colors"
@@ -106,9 +109,22 @@ export const TopicRelationshipsCard: React.FC<TopicRelationshipsCardProps> = ({ 
 
       {filteredCooccurrences.length > 10 && (
         <div className="mt-4 text-center">
-          <span className="text-xs text-gray-500">
-            Showing top 10 of {filteredCooccurrences.length} topic relationships
-          </span>
+          <button
+            onClick={() => setShowAll(!showAll)}
+            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-md transition-colors"
+          >
+            {showAll ? (
+              <>
+                <ChevronUp className="w-4 h-4" />
+                Show Less
+              </>
+            ) : (
+              <>
+                <ChevronDown className="w-4 h-4" />
+                Show All {filteredCooccurrences.length} Relationships
+              </>
+            )}
+          </button>
         </div>
       )}
 

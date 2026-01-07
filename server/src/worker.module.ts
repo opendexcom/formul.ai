@@ -3,7 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { BullConfigModule } from './bull/bull.module';
 import { AnalyticsQueueModule } from './analytics/queues/analytics-queue.module';
-import { AiModule } from './ai/ai.module';
+import { AiCoreModule } from './ai/ai.module';
 import { Form, FormSchema } from './schemas/form.schema';
 import { Response, ResponseSchema } from './schemas/response.schema';
 // Analytics providers used by consumers
@@ -28,7 +28,7 @@ import { PromptBuilder } from './analytics/utils/prompt.builder';
     ]),
     BullConfigModule,
     AnalyticsQueueModule,
-    AiModule,
+    AiCoreModule,
   ],
   providers: [
     // Analytics providers consumed by workers

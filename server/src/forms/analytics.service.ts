@@ -328,7 +328,13 @@ export class AnalyticsService {
           'metadata.quotes': '',
           'metadata.extractedKeywords': '',
           'metadata.processingTaskId': '',
-          'metadata.processingStartedAt': ''
+          'metadata.processingStartedAt': '',
+          'metadata.allTopics': '',
+          'metadata.canonicalTopics': '',
+          'metadata.topicMapping': '',
+          'metadata.primaryTopics': '',
+          'metadata.topicDetails': '',
+          'metadata.overallSentiment': ''
         }
       }
     ).exec();
