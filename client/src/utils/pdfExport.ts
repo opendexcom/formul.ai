@@ -505,6 +505,6 @@ export function generateAnalyticsPDF(
   }
 
   // Save the PDF
-  const fileName = `${form.title.replace(/[^a-z0-9]/gi, '_')}_analytics_report.pdf`;
+  const fileName = `${form.title.trim().replace(/\s+/g, '_').replace(/[^a-z0-9_-]/gi, '_')}_analytics_report.pdf`;
   doc.save(fileName);
 }
