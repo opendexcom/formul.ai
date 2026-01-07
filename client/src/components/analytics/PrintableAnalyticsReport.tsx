@@ -3,7 +3,6 @@ import { AnalyticsData } from '../../types/analytics';
 import { FormData } from '../../services/formsService';
 import { 
   TrendingUp, 
-  Users, 
   MessageCircle, 
   BarChart3, 
   Lightbulb,
@@ -27,7 +26,7 @@ export const PrintableAnalyticsReport: React.FC<PrintableAnalyticsReportProps> =
     
     // Split by lines for better processing
     const lines = text.split('\n');
-    const elements: JSX.Element[] = [];
+    const elements: React.JSX.Element[] = [];
     let currentList: string[] = [];
     let listType: 'ul' | 'ol' | null = null;
     
@@ -133,13 +132,6 @@ export const PrintableAnalyticsReport: React.FC<PrintableAnalyticsReportProps> =
       low: 'bg-gray-100 text-gray-800 border-gray-200',
     };
     return colors[confidence as keyof typeof colors] || colors.medium;
-  };
-
-  const getCorrelationStrength = (frequency: number, maxFrequency: number) => {
-    const ratio = frequency / maxFrequency;
-    if (ratio >= 0.7) return 'strong';
-    if (ratio >= 0.4) return 'medium';
-    return 'weak';
   };
 
   const getCorrelationColors = (strength: string) => {

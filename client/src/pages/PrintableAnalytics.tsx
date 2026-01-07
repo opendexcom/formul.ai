@@ -35,7 +35,7 @@ const PrintableAnalytics: React.FC = () => {
       setLoading(true);
       const formData = await formsService.getForm(id);
       setForm(formData);
-      setAnalytics(formData.analytics || null);
+      setAnalytics((formData as any).analytics || null);
     } catch (err) {
       setError('Failed to load analytics data');
       console.error('Error loading form:', err);
@@ -51,7 +51,7 @@ const PrintableAnalytics: React.FC = () => {
       setGenerating(true);
 
       const options = {
-        margin: [5, 5, 5, 5],
+        margin: [5, 5, 5, 5] as [number, number, number, number],
         filename: `${form.title.replace(/[^a-z0-9]/gi, '_')}_Analytics_Report.pdf`,
         html2canvas: { 
           scale: 1
@@ -59,7 +59,7 @@ const PrintableAnalytics: React.FC = () => {
         jsPDF: { 
           unit: 'mm', 
           format: 'a4', 
-          orientation: 'portrait' 
+          orientation: 'portrait' as const
         },
         pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
       };
