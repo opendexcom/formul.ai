@@ -277,9 +277,13 @@ const PublicFormView: React.FC = () => {
         );
 
       case QuestionType.RATING:
+        const minRating = Number(question.validation?.min?.value) || 1;
+        const maxRating = Number(question.validation?.max?.value) || 5;
+        const ratingRange = Array.from({ length: maxRating - minRating + 1 }, (_, i) => minRating + i);
+        
         return (
           <div className="flex items-center space-x-1">
-            {[1, 2, 3, 4, 5].map((rating) => (
+            {ratingRange.map((rating) => (
               <button
                 key={rating}
                 type="button"
