@@ -14,10 +14,16 @@ const AnalyticsTaskChunkSchema = new Schema<AnalyticsTaskChunk>(
     chunkSeq: { type: Number, required: true, index: true },
     appliedAt: { type: Date, default: () => new Date(), expires: '7d' }, // TTL: auto-delete after 7 days
   },
-  { timestamps: false, collection: 'analytics_task_chunks' }
+  { timestamps: false, collection: 'analytics_task_chunks' },
 );
 
 // Idempotency uniqueness: prevent duplicate application of the same chunk
-AnalyticsTaskChunkSchema.index({ taskId: 1, chunkSeq: 1 }, { unique: true, name: 'uniq_task_chunk' });
+AnalyticsTaskChunkSchema.index(
+  { taskId: 1, chunkSeq: 1 },
+  { unique: true, name: 'uniq_task_chunk' },
+);
 
-export const AnalyticsTaskChunkModel = model<AnalyticsTaskChunk>('AnalyticsTaskChunk', AnalyticsTaskChunkSchema);
+export const AnalyticsTaskChunkModel = model<AnalyticsTaskChunk>(
+  'AnalyticsTaskChunk',
+  AnalyticsTaskChunkSchema,
+);
