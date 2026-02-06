@@ -1,5 +1,13 @@
 import { Injectable, Logger, DynamicModule } from '@nestjs/common';
-import { FormulAIPlugin, PluginConfig } from '@opendexcom/plugin-interface';
+import {
+  FormulAIPlugin,
+  PluginConfig,
+  PluginContext,
+  registerSchema,
+  getSchema,
+  getSchemaOrThrow,
+  hasSchema,
+} from '@opendexcom/plugin-interface';
 
 @Injectable()
 export class PluginLoaderService {
@@ -7,13 +15,35 @@ export class PluginLoaderService {
   private loadedPlugins: Map<string, FormulAIPlugin> = new Map();
 
   /**
-   * Load plugins from environment configuration
+   * Build a PluginContext that references the host's schema registry.
+   * Every plugin receives this so all schema operations go through
+   * the same Map, regardless of how many copies of plugin-interface exist.
+   */
+  private buildPluginContext(): PluginContext {
+    return {
+      schemaRegistry: {
+        register: registerSchema,
+        get: getSchema,
+        getOrThrow: getSchemaOrThrow,
+        has: hasSchema,
+      },
+    };
+  }
+
+  /**
+   * Load plugins from environment configuration.
+   * Plugins that consume schemas from the registry (e.g. admin) are loaded last
+   * so that schema-providing plugins (e.g. billing, usage-tracking) register first.
    */
   async loadPlugins(): Promise<DynamicModule[]> {
     const pluginConfigs = this.getPluginConfigs();
     const modules: DynamicModule[] = [];
+    const orderedNames = this.getPluginLoadOrder(Object.keys(pluginConfigs));
+    const context = this.buildPluginContext();
 
-    for (const [pluginName, config] of Object.entries(pluginConfigs)) {
+    for (const pluginName of orderedNames) {
+      const config = pluginConfigs[pluginName];
+      if (!config) continue;
       if (!config.enabled) {
         this.logger.log(`Plugin ${pluginName} is disabled, skipping`);
         continue;
@@ -21,7 +51,7 @@ export class PluginLoaderService {
 
       try {
         const plugin = await this.loadPlugin(pluginName, config);
-        const module = await plugin.register();
+        const module = await plugin.register(context);
         modules.push(module);
         this.loadedPlugins.set(pluginName, plugin);
         this.logger.log(`✓ Loaded plugin: ${plugin.name} v${plugin.version}`);
@@ -67,6 +97,21 @@ export class PluginLoaderService {
         );
       }
     }
+  }
+
+  /**
+   * Return plugin names in load order: schema providers first, then consumers (e.g. admin last).
+   */
+  private getPluginLoadOrder(pluginNames: string[]): string[] {
+    const isAdminPlugin = (name: string) =>
+      name === 'admin' || name.includes('admin');
+    const adminLast = (a: string, b: string) => {
+      const aIsAdmin = isAdminPlugin(a);
+      const bIsAdmin = isAdminPlugin(b);
+      if (aIsAdmin === bIsAdmin) return 0;
+      return aIsAdmin ? 1 : -1;
+    };
+    return [...pluginNames].sort(adminLast);
   }
 
   /**

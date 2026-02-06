@@ -6,14 +6,15 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { SettingsModule } from '../settings/settings.module';
 import { JwtStrategy } from './jwt.strategy';
-import { User, UserSchema } from '../schemas/user.schema';
+import { User } from '../schemas/user.schema';
+import { getCoreSchemaOrThrow } from '../schemas/core-schema-registry';
 
 import { FormsModule } from '../forms/forms.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
+    MongooseModule.forFeature([{ name: User.name, schema: getCoreSchemaOrThrow(User.name) }]),
     PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
