@@ -325,14 +325,9 @@ export class MyPluginGuard implements CanActivate {
 2. Use lazy loading for heavy operations
 3. Profile plugin initialization time
 
-## SaaS Plugins
+## Enterprise (SaaS) plugins
 
-For SaaS-specific plugins, see:
-- `/docs/SAAS_IMPLEMENTATION_PLAN.md` - Full implementation plan
-- Billing Plugin - Dodo Payments integration
-- Usage Tracking Plugin - Token monitoring
-- Monitoring Plugin - Sentry integration
-- Admin Plugin - Analytics dashboards
+The SaaS implementation plan (billing, usage tracking, monitoring, admin) lives in the **Enterprise Edition (EE)** repository: see `docs/plans/saas-implementation-plan.md` in the formul.ai-ee repo.
 
 ## Support
 
