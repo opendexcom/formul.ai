@@ -442,7 +442,7 @@ User → Analytics Dashboard → GET /forms/:id/analytics
 - **Routing**: React Router 6
 - **HTTP Client**: Axios
 - **UI Components**: Custom components with Lucide icons
-- **See detailed client utilities in** [architecture_overview.md](architecture_overview.md)
+- **See detailed client utilities in** [architecture-overview.md](architecture-overview.md)
 ### Backend
 - **Framework**: NestJS 10
 - **Language**: TypeScript 5

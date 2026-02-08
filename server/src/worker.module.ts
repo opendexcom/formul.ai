@@ -4,8 +4,9 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { BullConfigModule } from './bull/bull.module';
 import { AnalyticsQueueModule } from './analytics/queues/analytics-queue.module';
 import { AiCoreModule } from './ai/ai.module';
-import { Form, FormSchema } from './schemas/form.schema';
-import { Response, ResponseSchema } from './schemas/response.schema';
+import { Form } from './schemas/form.schema';
+import { Response } from './schemas/response.schema';
+import { getCoreSchemaOrThrow } from './schemas/core-schema-registry';
 // Analytics providers used by consumers
 import { ResponseProcessor } from './analytics/processors/response.processor';
 import { TopicClusterer } from './analytics/processors/topic.clusterer';
@@ -23,8 +24,8 @@ import { PromptBuilder } from './analytics/utils/prompt.builder';
     ConfigModule.forRoot({ isGlobal: true }),
     MongooseModule.forRoot(process.env.MONGODB_URI || 'mongodb://localhost:27017/formulai'),
     MongooseModule.forFeature([
-      { name: Form.name, schema: FormSchema },
-      { name: Response.name, schema: ResponseSchema },
+      { name: Form.name, schema: getCoreSchemaOrThrow(Form.name) },
+      { name: Response.name, schema: getCoreSchemaOrThrow(Response.name) },
     ]),
     BullConfigModule,
     AnalyticsQueueModule,

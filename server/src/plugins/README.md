@@ -243,6 +243,24 @@ Check plugin loading:
 ✓ Initialized plugin: my-plugin
 ```
 
+## Schema Registry
+
+Core and plugins share Mongoose schemas by **name** via the schema registry (`@opendexcom/plugin-interface`). This avoids import-time binding and lets plugins consume core and other plugins’ models without direct imports.
+
+**Registration order**
+
+1. **Core schemas** are registered in `PluginsModule.forRoot()` before any plugin is loaded (see `core-schema-registry.ts`).
+2. **Plugin load order** is chosen so schema **providers** (e.g. billing, usage-tracking) load before schema **consumers** (e.g. admin). Plugins whose name contains `admin` are loaded last. List providers first in `PLUGINS`, e.g. `PLUGINS=billing,usage-tracking,admin`.
+
+**If your plugin defines models**
+
+- Register them with the registry (e.g. `registerSchemaWithRegistry` from plugin-interface) so other plugins can use them by name.
+- Use the same schema in your module’s `MongooseModule.forFeature` (or use `registerSchemaWithRegistry` to do both).
+
+**If your plugin only uses existing models**
+
+- Use `getSchemaOrThrow('ModelName')` from plugin-interface and pass the result to `MongooseModule.forFeature`. Do not import schema files from core or other plugins.
+
 ## Common Patterns
 
 ### Database Schema
@@ -307,14 +325,9 @@ export class MyPluginGuard implements CanActivate {
 2. Use lazy loading for heavy operations
 3. Profile plugin initialization time
 
-## SaaS Plugins
+## Enterprise (SaaS) plugins
 
-For SaaS-specific plugins, see:
-- `/docs/SAAS_IMPLEMENTATION_PLAN.md` - Full implementation plan
-- Billing Plugin - Dodo Payments integration
-- Usage Tracking Plugin - Token monitoring
-- Monitoring Plugin - Sentry integration
-- Admin Plugin - Analytics dashboards
+The SaaS implementation plan (billing, usage tracking, monitoring, admin) lives in the **Enterprise Edition (EE)** repository: see `docs/plans/saas-implementation-plan.md` in the formul.ai-ee repo.
 
 ## Support
 

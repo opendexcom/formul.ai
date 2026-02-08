@@ -5,7 +5,8 @@ import { BullAdapter } from '@bull-board/api/bullAdapter';
 import { QueueName } from '../analytics/queues/queue.names';
 import { JwtModule } from '@nestjs/jwt';
 import { MongooseModule } from '@nestjs/mongoose';
-import { User, UserSchema } from '../schemas/user.schema';
+import { User } from '../schemas/user.schema';
+import { getCoreSchemaOrThrow } from '../schemas/core-schema-registry';
 import { AdminAuthMiddleware } from './middlewares/admin-auth.middleware';
 
 @Module({
@@ -15,7 +16,7 @@ import { AdminAuthMiddleware } from './middlewares/admin-auth.middleware';
       signOptions: { expiresIn: (process.env.JWT_EXPIRES_IN as any) || '7d' },
     }),
     MongooseModule.forFeature([
-      { name: User.name, schema: UserSchema },
+      { name: User.name, schema: getCoreSchemaOrThrow(User.name) },
     ]),
     BullBoardModule.forRoot({
       route: '/admin/queues',
