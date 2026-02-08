@@ -165,8 +165,8 @@ importers:
         specifier: ^11.2.1
         version: 11.2.4(@nestjs/common@11.1.11(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.11)(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)
       '@opendexcom/plugin-interface':
-        specifier: ^1.0.5
-        version: 1.0.5(@nestjs/common@11.1.11(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))
+        specifier: ^1.0.6
+        version: 1.0.6(@nestjs/common@11.1.11(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/mongoose@11.0.4(@nestjs/common@11.1.11(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.11)(mongoose@8.21.0)(rxjs@7.8.2))
       bcryptjs:
         specifier: ^3.0.2
         version: 3.0.3
@@ -1712,10 +1712,11 @@ packages:
     engines: {node: ^14.18.0 || >=16.10.0, npm: '>=5.10.0'}
     hasBin: true
 
-  '@opendexcom/plugin-interface@1.0.5':
-    resolution: {integrity: sha512-Ght0UGdCOoiDNy0TImoqa0Sk8s9mwQ+auUS8eB0kuFWhYxyYmCy7/1G3dj9MFseUyWqjISIQOv5K0A2WjrtIkQ==}
+  '@opendexcom/plugin-interface@1.0.6':
+    resolution: {integrity: sha512-+4A/DX0mb14W524GrhDvxJERVY6rryMF08QbdHRubqMlF5txeLCPHLBlWvKzOhU3MJ8sK6estwkq1rske1zUqw==}
     peerDependencies:
-      '@nestjs/common': ^10.0.0
+      '@nestjs/common': ^10.0.0 || ^11.0.0
+      '@nestjs/mongoose': ^10.0.0 || ^11.0.0
 
   '@paralleldrive/cuid2@2.3.1':
     resolution: {integrity: sha512-XO7cAxhnTZl0Yggq6jOgjiOHhbgcO4NqFqwSmQpjK3b6TEE6Uj/jfSk6wzYyemh3+I0sHirKSetjQwn5cZktFw==}
@@ -3348,6 +3349,7 @@ packages:
 
   glob@10.5.0:
     resolution: {integrity: sha512-DfXN8DfhJ7NH3Oe7cFmu3NCu1wKbkReJ8TorzSAFbSKrlNaQSKfIzqYqVY8zlbs2NLBbWpRiU52GX2PbaBVNkg==}
+    deprecated: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
     hasBin: true
 
   globals@14.0.0:
@@ -6691,9 +6693,10 @@ snapshots:
     dependencies:
       consola: 3.4.2
 
-  '@opendexcom/plugin-interface@1.0.5(@nestjs/common@11.1.11(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))':
+  '@opendexcom/plugin-interface@1.0.6(@nestjs/common@11.1.11(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/mongoose@11.0.4(@nestjs/common@11.1.11(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.11)(mongoose@8.21.0)(rxjs@7.8.2))':
     dependencies:
       '@nestjs/common': 11.1.11(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/mongoose': 11.0.4(@nestjs/common@11.1.11(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.11)(mongoose@8.21.0)(rxjs@7.8.2)
 
   '@paralleldrive/cuid2@2.3.1':
     dependencies:
@@ -8494,7 +8497,7 @@ snapshots:
       isstream: 0.1.2
       jsonwebtoken: 9.0.3
       mime-types: 2.1.35
-      retry-axios: 2.6.0(axios@1.13.2)
+      retry-axios: 2.6.0(axios@1.13.2(debug@4.4.3))
       tough-cookie: 4.1.4
     transitivePeerDependencies:
       - supports-color
@@ -9763,7 +9766,7 @@ snapshots:
       onetime: 5.1.2
       signal-exit: 3.0.7
 
-  retry-axios@2.6.0(axios@1.13.2):
+  retry-axios@2.6.0(axios@1.13.2(debug@4.4.3)):
     dependencies:
       axios: 1.13.2(debug@4.4.3)
 
