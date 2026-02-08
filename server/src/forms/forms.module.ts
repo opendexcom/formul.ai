@@ -6,10 +6,9 @@ import { ResponseService } from './response.service';
 import { EmailService } from './email.service';
 import { AnalyticsService } from './analytics.service';
 import { FormsController, PublicFormsController } from './forms.controller';
-import { Form, FormSchema } from '../schemas/form.schema';
-import { Response, ResponseSchema } from '../schemas/response.schema';
-import { AnalyticsTaskEntity, AnalyticsTaskSchema } from '../schemas/analytics-task.schema';
-import { FormLockSchema } from '../schemas/form-lock.schema';
+import { Form } from '../schemas/form.schema';
+import { Response } from '../schemas/response.schema';
+import { getCoreSchemaOrThrow } from '../schemas/core-schema-registry';
 import { AiModule } from '../ai/ai.module';
 import { BullConfigModule } from '../bull/bull.module';
 import { AnalyticsQueueModule } from '../analytics/queues/analytics-queue.module';
@@ -33,10 +32,10 @@ import { FormLockStore } from '../analytics/stores/form-lock.store';
 @Module({
   imports: [
     MongooseModule.forFeature([
-      { name: Form.name, schema: FormSchema },
-      { name: Response.name, schema: ResponseSchema },
-      { name: 'AnalyticsTask', schema: AnalyticsTaskSchema },
-      { name: 'FormLock', schema: FormLockSchema },
+      { name: Form.name, schema: getCoreSchemaOrThrow(Form.name) },
+      { name: Response.name, schema: getCoreSchemaOrThrow(Response.name) },
+      { name: 'AnalyticsTask', schema: getCoreSchemaOrThrow('AnalyticsTask') },
+      { name: 'FormLock', schema: getCoreSchemaOrThrow('FormLock') },
     ]),
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'your-secret-key',

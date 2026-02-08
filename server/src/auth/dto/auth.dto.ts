@@ -32,3 +32,21 @@ export class LoginDto {
   @IsNotEmpty()
   password: string;
 }
+
+export class ForgotPasswordDto {
+  @ApiProperty({ example: 'john@example.com' })
+  @IsEmail()
+  email: string;
+}
+
+export class ResetPasswordDto {
+  @ApiProperty({ example: 'reset-token-uuid' })
+  @IsString()
+  @IsNotEmpty()
+  token: string;
+
+  @ApiProperty({ example: 'newpassword123', minLength: 6 })
+  @IsString()
+  @MinLength(6)
+  password: string;
+}

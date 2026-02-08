@@ -9,6 +9,7 @@ import { MigrationModule } from './migrations/migration.module';
 import { AiModule } from './ai/ai.module';
 import { MonitoringModule } from './monitoring/monitoring.module';
 import { SettingsModule } from './settings/settings.module';
+import { PluginsModule } from './plugins/plugins.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { SettingsModule } from './settings/settings.module';
       connectTimeoutMS: 10000,
       socketTimeoutMS: 45000,
     }),
+    PluginsModule.forRoot(), // Load plugins dynamically
     AuthModule,
     FormsModule,
     MigrationModule,

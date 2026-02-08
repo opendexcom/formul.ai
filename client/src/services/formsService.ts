@@ -20,6 +20,7 @@ export interface Question {
   description?: string;
   type: QuestionType;
   required: boolean;
+  canBeOther: boolean;
   options?: string[];
   order: number;
   validation?: Record<string, ValidationRule>;
@@ -148,8 +149,9 @@ class FormsService {
   async getFormAnalytics(id: string, forceRefresh: boolean = false): Promise<AnalyticsData> {
     try {
       const url = `/forms/${id}/analytics${forceRefresh ? '?refresh=true' : ''}`;
-      const response = await this.api.get<AnalyticsData>(url);
-      return response.data;
+      const response = await this.api.get<{ formId: string; analytics: AnalyticsData; meta: any }>(url);
+      // Backend returns wrapper { formId, analytics, meta } - unwrap to get analytics data
+      return response.data.analytics;
     } catch (error) {
       throw new Error(getErrorMessage(error));
     }

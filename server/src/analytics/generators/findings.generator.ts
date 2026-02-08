@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ResponseDocument } from '../../schemas/response.schema';
+import { TrendAnalysis } from '../calculators/trend.calculator';
 
 /**
  * Findings Generator
@@ -7,9 +8,10 @@ import { ResponseDocument } from '../../schemas/response.schema';
  * Generates key findings from analytics data
  * Uses algorithmic analysis (not LLM) to identify:
  * - Top topics and their significance
- * - Sentiment patterns
+ * - Sentiment patterns (with emphasis on negative issues)
+ * - Topics with concerning sentiment
+ * - Trend-based findings
  * - Emotional tone distributions
- * - Response quality metrics
  */
 @Injectable()
 export class FindingsGenerator {
@@ -41,7 +43,9 @@ export class FindingsGenerator {
     sentimentDistribution: any,
     representativeQuotes: any[],
     dominantEmotionalTones: Array<{ tone: string; percentage: number }>,
-    dataQuality: any
+    dataQuality: any,
+    topicSentiment?: Record<string, { positive: number; neutral: number; negative: number; total: number }>,
+    trends?: TrendAnalysis
   ): Array<{
     finding: string;
     evidence: {
@@ -53,6 +57,7 @@ export class FindingsGenerator {
     confidence: 'high' | 'medium' | 'low';
     basedOnResponses: number;
     importance?: 'high' | 'medium' | 'low';
+    type?: 'positive' | 'negative' | 'neutral' | 'trend';
   }> {
     const keyFindings: Array<{
       finding: string;
@@ -65,6 +70,7 @@ export class FindingsGenerator {
       confidence: 'high' | 'medium' | 'low';
       basedOnResponses: number;
       importance?: 'high' | 'medium' | 'low';
+      type?: 'positive' | 'negative' | 'neutral' | 'trend';
     }> = [];
     
     const sentiment = sentimentDistribution;
@@ -84,16 +90,17 @@ export class FindingsGenerator {
         },
         confidence: this.calculateConfidenceFromCoverage(topicData.count, responses.length),
         basedOnResponses: topicData.count,
-        importance: 'high'
+        importance: 'high',
+        type: 'neutral'
       });
     }
 
-    // Finding 2: Sentiment overview
+    // Finding 2: Sentiment overview with emphasis on negative if significant
     const dominantSentiment = sentiment.positive > sentiment.negative ? 'positive' : 
                                sentiment.negative > sentiment.positive ? 'negative' : 'neutral';
-    // Confidence based on how dominant the sentiment is
     const sentimentDominance = Math.max(sentiment.positive, sentiment.negative, sentiment.neutral);
     const sentimentConfidence = sentimentDominance >= 50 ? 'high' : sentimentDominance >= 30 ? 'medium' : 'low';
+    
     keyFindings.push({
       finding: `Overall sentiment is ${dominantSentiment} (${sentiment.positive}% positive, ${sentiment.neutral}% neutral, ${sentiment.negative}% negative)`,
       evidence: {
@@ -103,43 +110,113 @@ export class FindingsGenerator {
       },
       confidence: sentimentConfidence,
       basedOnResponses: responses.length,
-      importance: sentiment.negative > 30 ? 'high' : 'medium'
+      importance: sentiment.negative > 30 ? 'high' : 'medium',
+      type: dominantSentiment as 'positive' | 'negative' | 'neutral'
     });
 
-    // Finding 3: Emotional tone
-    if (dominantEmotionalTones.length > 0) {
-      const topTones = dominantEmotionalTones
-        .slice(0, 3)
-        .map(t => `${t.tone} (${t.percentage}%)`)
-        .join(', ');
-      // Confidence based on top tone's percentage
-      const topTonePercentage = dominantEmotionalTones[0].percentage;
-      const toneConfidence = topTonePercentage >= 50 ? 'high' : topTonePercentage >= 30 ? 'medium' : 'low';
-      keyFindings.push({
-        finding: `Dominant emotional tones: ${topTones}`,
-        evidence: {
-          supportingQuotes: [],
-          pattern: `Emotional tone distribution across ${responses.length} responses`
-        },
-        confidence: toneConfidence,
-        basedOnResponses: responses.length
-      });
+    // Finding 3: Topics with HIGH NEGATIVE SENTIMENT (IMPORTANT - highlight problem areas)
+    if (topicSentiment) {
+      const negativeTopics = Object.entries(topicSentiment)
+        .filter(([_, data]) => {
+          const negPct = data.total > 0 ? (data.negative / data.total) : 0;
+          return negPct > 0.4 && data.total >= 3; // More than 40% negative and at least 3 mentions
+        })
+        .sort((a, b) => (b[1].negative / b[1].total) - (a[1].negative / a[1].total))
+        .slice(0, 3);
+
+      for (const [topic, data] of negativeTopics) {
+        const negPct = Math.round((data.negative / data.total) * 100);
+        const negQuotes = representativeQuotes
+          .filter(q => q.topics?.includes(topic) && q.sentiment === 'negative')
+          .slice(0, 2)
+          .map(q => q.text);
+
+        keyFindings.push({
+          finding: `"${topic}" has concerning sentiment: ${negPct}% negative (${data.negative}/${data.total} responses)`,
+          evidence: {
+            supportingQuotes: negQuotes,
+            pattern: `Topic shows predominantly negative feedback`,
+            significance: negPct / 100
+          },
+          confidence: data.total >= 5 ? 'high' : 'medium',
+          basedOnResponses: data.total,
+          importance: 'high',
+          type: 'negative'
+        });
+      }
     }
 
-    // Finding 4: Response quality
+    // Finding 4: Trend-based findings (if trends available)
+    if (trends?.hasEnoughData) {
+      // Worsening sentiment trends
+      for (const shift of trends.sentimentShifts.filter(s => s.direction === 'worsening').slice(0, 2)) {
+        keyFindings.push({
+          finding: `⚠️ "${shift.topic}" sentiment declining: ${shift.fromLabel} → ${shift.toLabel}`,
+          evidence: {
+            supportingQuotes: [],
+            pattern: shift.description
+          },
+          confidence: 'high',
+          basedOnResponses: responses.length,
+          importance: 'high',
+          type: 'trend'
+        });
+      }
+
+      // Emerging topics
+      for (const emerging of trends.emergingTopics.slice(0, 1)) {
+        keyFindings.push({
+          finding: `📈 Emerging topic: "${emerging.topic}" (+${emerging.changePercentage}% in recent responses)`,
+          evidence: {
+            supportingQuotes: [],
+            pattern: emerging.description
+          },
+          confidence: emerging.type === 'new' ? 'medium' : 'high',
+          basedOnResponses: emerging.newerMentions,
+          importance: 'medium',
+          type: 'trend'
+        });
+      }
+    }
+
+    // Finding 5: Emotional tone (only if notable)
+    if (dominantEmotionalTones.length > 0) {
+      const negativeEmotions = ['frustrated', 'disappointed', 'angry', 'dissatisfied', 'concerned', 'worried'];
+      const negativeTonesPresent = dominantEmotionalTones
+        .slice(0, 5)
+        .filter(t => negativeEmotions.some(ne => t.tone.toLowerCase().includes(ne)));
+
+      if (negativeTonesPresent.length > 0) {
+        const toneStr = negativeTonesPresent.map(t => `${t.tone} (${t.percentage}%)`).join(', ');
+        keyFindings.push({
+          finding: `Notable negative emotions detected: ${toneStr}`,
+          evidence: {
+            supportingQuotes: [],
+            pattern: `Emotional tone analysis across ${responses.length} responses`
+          },
+          confidence: 'medium',
+          basedOnResponses: responses.length,
+          importance: 'high',
+          type: 'negative'
+        });
+      }
+    }
+
+    // Finding 6: Response quality (only if problematic)
     const avgQuality = dataQuality.overallScore;
-    // Confidence based on response quality consistency (assume high quality = high confidence)
-    const qualityConfidence = avgQuality >= 0.7 ? 'high' : avgQuality >= 0.5 ? 'medium' : 'low';
-    keyFindings.push({
-      finding: `Average response quality: ${(avgQuality * 100).toFixed(0)}%`,
-      evidence: {
-        supportingQuotes: [],
-        pattern: `Quality metrics: completeness, depth, and clarity averaged across responses`
-      },
-      confidence: qualityConfidence,
-      basedOnResponses: responses.length,
-      importance: avgQuality < 0.6 ? 'high' : 'medium'
-    });
+    if (avgQuality < 0.6) {
+      keyFindings.push({
+        finding: `Average response quality: ${(avgQuality * 100).toFixed(0)}%`,
+        evidence: {
+          supportingQuotes: [],
+          pattern: `Quality metrics: completeness, depth, and clarity averaged across responses`
+        },
+        confidence: 'high',
+        basedOnResponses: responses.length,
+        importance: 'medium',
+        type: 'neutral'
+      });
+    }
 
     return keyFindings;
   }
@@ -179,11 +256,13 @@ export class FindingsGenerator {
     
     responses.forEach(r => {
       const responseQuotes = r.metadata?.quotes;
+      const ct = r.metadata?.canonicalTopics;
+      const topicsForQuote = (ct && ct.length > 0) ? ct : (r.metadata?.allTopics || []);
       if (responseQuotes && Array.isArray(responseQuotes)) {
         responseQuotes.forEach((q: any) => {
           quotes.push({
             text: q.text || q.quote || '',
-            topics: r.metadata?.canonicalTopics || r.metadata?.allTopics || [],
+            topics: topicsForQuote,
             sentiment: r.metadata?.overallSentiment?.label || 'neutral'
           });
         });
@@ -191,7 +270,7 @@ export class FindingsGenerator {
         responseQuotes.keyQuotes.forEach((q: any) => {
           quotes.push({
             text: q.quote || '',
-            topics: r.metadata?.canonicalTopics || r.metadata?.allTopics || [],
+            topics: topicsForQuote,
             sentiment: r.metadata?.overallSentiment?.label || 'neutral'
           });
         });

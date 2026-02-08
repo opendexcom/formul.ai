@@ -68,6 +68,7 @@ export class OrchestrationConsumer {
   }
 
   private async stageResponseProcessing(taskId: string, formId: string, forceRefresh: boolean) {
+    console.log(`[Orchestrator][${taskId}] Starting response processing stage (forceRefresh: ${forceRefresh})`);
     await this.progressService.publishProgress({
       taskId,
       type: 'progress',
@@ -80,7 +81,12 @@ export class OrchestrationConsumer {
       ...(forceRefresh ? {} : { 'metadata.processedForAnalytics': { $ne: true } }),
     }).exec();
     
-    if (!responses || responses.length === 0) return;
+    console.log(`[Orchestrator][${taskId}] Found ${responses?.length || 0} responses to process`);
+    
+    if (!responses || responses.length === 0) {
+      console.log(`[Orchestrator][${taskId}] No responses to process, skipping response processing stage`);
+      return;
+    }
     
     const responseIds = responses.map(r => (typeof r._id === 'string' ? r._id : r._id?.toString?.() ?? ''));
     
@@ -93,27 +99,43 @@ export class OrchestrationConsumer {
       }
     ).exec();
     
-    // Notify frontend: responses claimed (reset to "Not started")
+    // Mark ALL responses as "Pending" upfront so UI shows consistent state
+    await this.responseModel.updateMany(
+      { _id: { $in: responseIds.map(id => new Types.ObjectId(id)) } },
+      { 
+        $set: { 
+          'metadata.processingTaskId': taskId,
+          'metadata.processingStartedAt': new Date()
+        }
+      }
+    ).exec();
+    
+    // Notify frontend: all responses marked as "Pending"
     await this.progressService.publishProgress({
       taskId,
-      type: 'responses_claimed',
-      message: `Claimed ${responseIds.length} responses for processing`,
+      type: 'responses_processing',
+      message: `Processing ${responseIds.length} responses...`,
       progress: 3,
       processedResponseIds: responseIds,
     });
     
     const batches = this.chunkArray(responseIds, this.RESPONSE_BATCH_SIZE);
+    console.log(`[Orchestrator][${taskId}] Creating ${batches.length} batch jobs: ${batches.map(b => b.length).join(', ')} responses each`);
+    
     const batchJobs = await Promise.all(
-      batches.map((batch, index) =>
-        this.responseProcessingQueue.add('process-batch', {
+      batches.map((batch, index) => {
+        console.log(`[Orchestrator][${taskId}] Adding batch ${index} with ${batch.length} response IDs`);
+        return this.responseProcessingQueue.add('process-batch', {
           taskId,
           formId,
           responseIds: batch,
           batchIndex: index,
           totalBatches: batches.length,
-        })
-      )
+        });
+      })
     );
+    console.log(`[Orchestrator][${taskId}] All ${batchJobs.length} batch jobs queued, waiting for completion...`);
+    
     // Wait for ALL response-analysis batches to finish before moving on
     await this.waitForJobs(batchJobs, taskId, 5, 45, { label: 'Response analysis', unit: 'batches' });
 
@@ -144,6 +166,7 @@ export class OrchestrationConsumer {
   }
 
   private async stageTopicClustering(taskId: string, formId: string) {
+    console.log(`[Orchestrator][${taskId}] Starting topic clustering stage`);
     await this.progressService.publishProgress({
       taskId,
       type: 'progress',
@@ -151,7 +174,9 @@ export class OrchestrationConsumer {
       progress: 45,
     });
     const job = await this.topicClusteringQueue.add('cluster-topics', { taskId, formId });
+    console.log(`[Orchestrator][${taskId}] Topic clustering job added to queue, waiting...`);
     await this.waitForJobs([job], taskId, 45, 55, { label: 'Topic clustering', unit: 'task' });
+    console.log(`[Orchestrator][${taskId}] Topic clustering stage completed`);
   }
 
   private async stageAggregation(taskId: string, formId: string) {

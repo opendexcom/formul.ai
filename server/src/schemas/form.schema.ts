@@ -414,6 +414,43 @@ export class Form {
       }>;
     };
     
+    // Temporal Trend Analysis (for tracking changes over time)
+    trendAnalysis?: {
+      hasEnoughData: boolean;
+      message?: string;
+      emergingTopics: Array<{
+        topic: string;
+        type: 'new' | 'growing';
+        newerMentions: number;
+        olderMentions: number;
+        changePercentage: number;
+        description: string;
+      }>;
+      decliningTopics: Array<{
+        topic: string;
+        type: 'disappeared' | 'declining';
+        olderMentions: number;
+        newerMentions: number;
+        changePercentage: number;
+        description: string;
+      }>;
+      sentimentShifts: Array<{
+        topic: string;
+        direction: 'improving' | 'worsening';
+        fromScore: number;
+        toScore: number;
+        scoreDiff: number;
+        fromLabel: string;
+        toLabel: string;
+        description: string;
+      }>;
+      volumeTrend: 'increasing' | 'stable' | 'decreasing';
+      periodComparison?: {
+        olderPeriod: { start: Date; end: Date; responseCount: number };
+        newerPeriod: { start: Date; end: Date; responseCount: number };
+      };
+    };
+    
     // Validation metadata
     validation?: {
       convergences: Array<{ where: string; on: string }>;

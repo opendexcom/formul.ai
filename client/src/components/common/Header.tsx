@@ -78,6 +78,17 @@ const Header: React.FC<HeaderProps> = ({
                         </div>
                       </button>
                       <button
+                        onClick={() => {
+                          setShowAppsMenu(false);
+                          navigate('/admin');
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                      >
+                        <div className="flex items-center">
+                          <span>Admin Dashboard</span>
+                        </div>
+                      </button>
+                      <button
                         onClick={handleAdminSettings}
                         className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
                       >

@@ -40,12 +40,20 @@ export class StatisticsCalculator {
       };
     }> = {};
 
-    responses.forEach(r => {
-      // Use canonicalTopics if available, otherwise fall back to allTopics
-      const topics = r.metadata?.canonicalTopics || r.metadata?.allTopics || [];
+    responses.forEach((r, idx) => {
+      // Enforce canonicalTopics - if missing, topic clustering didn't run correctly
+      const canonicalTopics = r.metadata?.canonicalTopics || [];
+      
+      if (canonicalTopics.length === 0 && (r.metadata?.allTopics?.length ?? 0) > 0) {
+        console.warn(`[calculateTopicFrequencies] Response ${r._id} has allTopics but no canonicalTopics - topic clustering may have failed`);
+      }
+      
+      if (idx === 0) {
+        console.log('[calculateTopicFrequencies] First response - canonicalTopics:', canonicalTopics);
+      }
       
       // Track unique topics per response (don't count duplicates within same response)
-      const uniqueTopics = new Set(topics);
+      const uniqueTopics = new Set(canonicalTopics);
       
       uniqueTopics.forEach(topic => {
         if (!frequency[topic]) {
@@ -110,10 +118,12 @@ export class StatisticsCalculator {
 
     // Count how many responses contain each canonical topic
     responses.forEach(response => {
-      // Use canonicalTopics if available, otherwise fall back to allTopics
-      const responseTopics = Array.isArray(response.metadata?.canonicalTopics) 
-        ? response.metadata.canonicalTopics 
-        : (response.metadata?.allTopics || []);
+      // Enforce canonicalTopics - if missing, topic clustering didn't run correctly
+      const responseTopics = response.metadata?.canonicalTopics || [];
+      
+      if (responseTopics.length === 0 && (response.metadata?.allTopics?.length ?? 0) > 0) {
+        console.warn(`[calculateTopicDistribution] Response ${response._id} has allTopics but no canonicalTopics - topic clustering may have failed`);
+      }
       
       const sentiment = response.metadata?.overallSentiment?.label || 'neutral';
       const quotes = response.metadata?.quotes;
@@ -414,7 +424,8 @@ export class StatisticsCalculator {
     const freq: Record<string, { count: number }> = {};
     
     responses.forEach(r => {
-      const topics = r.metadata?.canonicalTopics || r.metadata?.allTopics || [];
+      const ct = r.metadata?.canonicalTopics;
+      const topics = (ct && ct.length > 0) ? ct : (r.metadata?.allTopics || []);
       const uniqueTopics = new Set(topics);
       
       uniqueTopics.forEach(topic => {
@@ -433,7 +444,8 @@ export class StatisticsCalculator {
     const quotes: string[] = [];
     
     for (const response of responses) {
-      const topics = response.metadata?.canonicalTopics || response.metadata?.allTopics || [];
+      const ct = response.metadata?.canonicalTopics;
+      const topics = (ct && ct.length > 0) ? ct : (response.metadata?.allTopics || []);
       if (topics.includes(topic)) {
         // Get key quotes from this response
         const keyQuotes = response.metadata?.quotes?.keyQuotes || [];
