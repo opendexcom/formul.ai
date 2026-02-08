@@ -76,7 +76,7 @@ export class PluginLoaderService {
   ): Promise<FormulAIPlugin> {
     // Try loading from npm package
     try {
-      console.log(`Attempting to load plugin ${pluginName} from npm...`);
+      this.logger.log(`Attempting to load plugin ${pluginName} from npm...`);
       const pluginModule = await import(pluginName);
       // Handle both ES module and CommonJS exports
       const PluginClass = pluginModule.default.default || pluginModule;
@@ -86,7 +86,7 @@ export class PluginLoaderService {
       try {
         const pluginDir = process.env.PLUGIN_DIR || '../../plugins';
         const localPath = `${pluginDir}/${pluginName}/dist/index.js`;
-        console.log(`Attempting to load plugin ${pluginName} from local path ${localPath}...`);
+        this.logger.log(`Attempting to load plugin ${pluginName} from local path ${localPath}...`);
         const pluginModule = await import(localPath);
         // Handle both ES module and CommonJS exports
         const PluginClass = pluginModule.default.default || pluginModule;
