@@ -37,7 +37,7 @@ Layered architecture:
 4. **Queue Layer**: Bull queues for async analytics (orchestration, response processing, topic clustering, aggregation, AI generation)
 5. **Data Layer**: MongoDB with Mongoose ODM
 
-See `docs/ARCHITECTURE.md` for details.
+See `docs/architecture.md` for details.
 
 
 ## 🚀 Quick Start
