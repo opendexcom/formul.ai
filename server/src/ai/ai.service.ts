@@ -2,12 +2,33 @@ import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { GenerateAIFormDto } from './dto/generate-ai-form.dto';
 import { GuardianService } from './guardian.service';
 import { BadRequestException } from '@nestjs/common';
+import { LlmUsage } from './llm.types';
 
 export interface GenerationStep {
   step: string;
   message: string;
   status: 'pending' | 'in-progress' | 'completed' | 'error';
   data?: any;
+  usage?: LlmUsage;
+}
+
+function extractUsageFromResponse(raw: any): LlmUsage | undefined {
+  const usage = raw?.usage ?? raw?.response_metadata?.usage;
+  if (!usage) return undefined;
+
+  const promptTokens = usage.prompt_tokens ?? usage.promptTokens;
+  const completionTokens = usage.completion_tokens ?? usage.completionTokens;
+  const totalTokens =
+    usage.total_tokens ?? usage.totalTokens ?? (promptTokens ?? 0) + (completionTokens ?? 0);
+
+  if (!promptTokens && !completionTokens && !totalTokens) return undefined;
+
+  return {
+    model: raw.model ?? usage.model ?? 'unknown',
+    promptTokens,
+    completionTokens,
+    totalTokens: totalTokens || undefined,
+  };
 }
 
 @Injectable()
@@ -92,9 +113,10 @@ Guidelines:
 - Use clear, concise question titles
 - Add helpful descriptions where needed`;
 
-    const content = await this.invokeModel(prompt);
+    const { content, usage } = await this.invokeModelWithUsage(prompt);
     const parsed = JSON.parse(content);
-    return this.validateAndSanitizeForm(parsed);
+    const form = this.validateAndSanitizeForm(parsed);
+    return { ...form, usage };
   }
 
   /**
@@ -137,7 +159,7 @@ ${dto.currentForm ? '5. What should be kept, modified, or removed from the exist
 
 Important: Respond ONLY with a valid JSON object (no backticks, no prose). Return a JSON object with this shape: { purpose: string, audience: string, dataPoints: string[], questionTypes: Record<string, string>, considerations: string[]${dto.currentForm ? ', modifications: { keep: string[], modify: string[], remove: string[], add: string[] }' : ''} }`;
 
-    const strategyContent = await this.invokeModelRaw(strategyPrompt);
+    const { content: strategyContent } = await this.invokeModelRawWithUsage(strategyPrompt);
     const strategy = JSON.parse(strategyContent);
 
     yield {
@@ -160,7 +182,7 @@ For each question, specify: title, type, description, whether it's required, and
 ${dto.currentForm ? 'Keep questions from the current form that are still relevant, and modify or add new ones as needed.' : ''}
 Important: Respond ONLY with a valid JSON array of question objects (no backticks, no prose). Return a JSON array of questions.`;
 
-    const questionsContent = await this.invokeModelRaw(questionsPrompt);
+    const { content: questionsContent } = await this.invokeModelRawWithUsage(questionsPrompt);
     const questionsList = JSON.parse(questionsContent);
 
     yield {
@@ -188,7 +210,7 @@ ${dto.currentForm ? '- Changes from the original form are intentional and improv
 
 Important: Respond ONLY with a valid JSON array of question objects (no backticks, no prose). Return optimized questions as a JSON array.`;
 
-    const optimizedContent = await this.invokeModelRaw(optimizePrompt);
+    const { content: optimizedContent } = await this.invokeModelRawWithUsage(optimizePrompt);
     const optimizedQuestions = JSON.parse(optimizedContent);
 
     yield {
@@ -214,7 +236,7 @@ Generate a complete form with:
 - The optimized questions list
 ${dto.currentForm ? '\n- Preserve the original form ID and metadata where applicable' : ''}`;
 
-    const finalContent = await this.invokeModel(finalPrompt);
+    const { content: finalContent, usage } = await this.invokeModelWithUsage(finalPrompt);
     const parsed = JSON.parse(finalContent);
     const finalForm = this.validateAndSanitizeForm(parsed);
 
@@ -222,11 +244,12 @@ ${dto.currentForm ? '\n- Preserve the original form ID and metadata where applic
       step: 'generate',
       message: 'Form generated successfully!',
       status: 'completed',
-      data: finalForm
+      data: finalForm,
+      usage,
     };
   }
 
-  private async invokeModel(prompt: string): Promise<string> {
+  private async invokeModelWithUsage(prompt: string): Promise<{ content: string; usage?: LlmUsage }> {
     if (!this.chatModel) {
       throw new InternalServerErrorException('AI provider not initialized');
     }
@@ -262,22 +285,26 @@ ${dto.currentForm ? '\n- Preserve the original form ID and metadata where applic
       additionalProperties: false
     };
 
-    // LangChain with structured output
+    // LangChain with structured output - returns parsed object, usage in response_metadata
     const structuredModel = this.chatModel.withStructuredOutput(schema);
     const res = await structuredModel.invoke(prompt);
-    return JSON.stringify(res);
+    const content = JSON.stringify(res);
+    // withStructuredOutput may not expose raw response; try to get usage from res if it has metadata
+    const usage = extractUsageFromResponse(res);
+    return { content, usage };
   }
 
-  private async invokeModelRaw(prompt: string, useJsonFormat: boolean = true): Promise<string> {
+  private async invokeModelRawWithUsage(prompt: string, useJsonFormat: boolean = true): Promise<{ content: string; usage?: LlmUsage }> {
     if (!this.chatModel) {
       throw new InternalServerErrorException('AI provider not initialized');
     }
 
     // For RAG steps, use LangChain with JSON mode for flexibility
-    // For plain text responses, don't use JSON mode
     const options = useJsonFormat ? { response_format: { type: 'json_object' } } : {};
     const res = await this.chatModel.invoke(prompt, options);
-    return typeof res.content === 'string' ? res.content : JSON.stringify(res.content);
+    const content = typeof res.content === 'string' ? res.content : JSON.stringify(res.content);
+    const usage = extractUsageFromResponse(res);
+    return { content, usage };
   }
 
   /**
@@ -294,7 +321,21 @@ ${dto.currentForm ? '\n- Preserve the original form ID and metadata where applic
         throw new BadRequestException(`Request rejected: ${validation.reason}`);
       }
     }
-    return this.invokeModelRaw(prompt);
+    const { content } = await this.invokeModelRawWithUsage(prompt);
+    return content;
+  }
+
+  /**
+   * Analyze text with usage metadata. Use when EE needs to track tokens (e.g. analytics).
+   */
+  async analyzeTextWithUsage(prompt: string, skipValidation: boolean = false): Promise<{ content: string; usage?: LlmUsage }> {
+    if (!skipValidation) {
+      const validation = await this.guardianService.validatePrompt(prompt);
+      if (!validation.isSafe) {
+        throw new BadRequestException(`Request rejected: ${validation.reason}`);
+      }
+    }
+    return this.invokeModelRawWithUsage(prompt);
   }
 
   /**
