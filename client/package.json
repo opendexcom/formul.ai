@@ -6,7 +6,7 @@
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
     "@types/html2pdf.js": "^0.10.0",
-    "axios": "^1.13.1",
+    "axios": "^1.13.5",
     "html2pdf.js": "^0.14.0",
     "jspdf": "^4.1.0",
     "jspdf-autotable": "^5.0.7",
