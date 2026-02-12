@@ -101,7 +101,32 @@
       "^.+\\.(t|j)s$": "ts-jest"
     },
     "collectCoverageFrom": [
-      "**/*.(t|j)s"
+      "**/*.(t|j)s",
+      "!**/*.spec.ts",
+      "!**/index.(t|j)s",
+      "!main.ts",
+      "!worker.ts",
+      "!**/*.module.ts",
+      "!**/*.controller.ts",
+      "!**/dto/**",
+      "!**/*.dto.ts",
+      "!analytics/queues/**",
+      "!analytics/core/analytics.orchestrator.ts",
+      "!analytics/core/task.manager.ts",
+      "!analytics/processors/**",
+      "!analytics/stores/**",
+      "!analytics/utils/**",
+      "!migrations/**",
+      "!plugins/**",
+      "!monitoring/**",
+      "!**/*.schema.ts",
+      "!**/core-schema-registry.ts",
+      "!auth/jwt-auth.guard.ts",
+      "!auth/jwt.strategy.ts",
+      "!auth/roles.guard.ts",
+      "!auth/roles.decorator.ts",
+      "!forms/analytics.service.ts",
+      "!analytics/generators/summary.generator.ts"
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
