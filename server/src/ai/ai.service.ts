@@ -44,7 +44,8 @@ function extractUsageFromResponse(raw: any): LlmUsage | undefined {
       'unknown',
     promptTokens,
     completionTokens,
-    totalTokens: totalTokens ?? (promptTokens ?? 0) + (completionTokens ?? 0),
+    totalTokens:
+      totalTokens ?? ((promptTokens ?? 0) + (completionTokens ?? 0)),
   };
 }
 
