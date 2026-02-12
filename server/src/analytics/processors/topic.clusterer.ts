@@ -145,7 +145,7 @@ export class TopicClusterer {
 
     const prompt = this.promptBuilder.buildTopicClusteringPrompt(rawTopics);
 
-    const { content: resultRaw } = await this.aiService['invokeModelRawWithUsage'](prompt);
+    const { content: resultRaw } = await this.aiService.analyzeTextWithUsage(prompt, true);
     try {
       const result = JSON.parse(resultRaw);
       const mapping = (result.mapping || {}) as Record<string, string>;

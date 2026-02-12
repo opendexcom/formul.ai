@@ -112,7 +112,7 @@ export class SummaryGenerator {
       );
 
       console.log('[SummaryGenerator] Sending prompt to AI service, prompt length:', prompt.length);
-      const { content: summary } = await this.aiService['invokeModelRawWithUsage'](prompt, false); // Use plain text, not JSON format
+      const { content: summary } = await this.aiService.analyzeTextWithUsage(prompt, true, false); // Use plain text, not JSON format
       console.log('[SummaryGenerator] AI service returned summary, length:', summary?.length || 0);
       
       if (!summary || summary.trim().length === 0) {

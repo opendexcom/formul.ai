@@ -18,16 +18,16 @@ function extractUsageFromResponse(raw: any): LlmUsage | undefined {
 
   const promptTokens = usage.prompt_tokens ?? usage.promptTokens;
   const completionTokens = usage.completion_tokens ?? usage.completionTokens;
-  const totalTokens =
-    usage.total_tokens ?? usage.totalTokens ?? (promptTokens ?? 0) + (completionTokens ?? 0);
-
-  if (!promptTokens && !completionTokens && !totalTokens) return undefined;
+  const totalTokens = usage.total_tokens ?? usage.totalTokens;
+  if (promptTokens == null && completionTokens == null && totalTokens == null) {
+    return undefined;
+  }
 
   return {
     model: raw.model ?? usage.model ?? 'unknown',
     promptTokens,
     completionTokens,
-    totalTokens: totalTokens ?? undefined,
+    totalTokens: totalTokens ?? (promptTokens ?? 0) + (completionTokens ?? 0),
   };
 }
 
@@ -327,15 +327,20 @@ ${dto.currentForm ? '\n- Preserve the original form ID and metadata where applic
 
   /**
    * Analyze text with usage metadata. Use when EE needs to track tokens (e.g. analytics).
+   * Defaults to JSON format, but can be disabled for plain-text generations.
    */
-  async analyzeTextWithUsage(prompt: string, skipValidation: boolean = false): Promise<{ content: string; usage?: LlmUsage }> {
+  async analyzeTextWithUsage(
+    prompt: string,
+    skipValidation: boolean = false,
+    useJsonFormat: boolean = true,
+  ): Promise<{ content: string; usage?: LlmUsage }> {
     if (!skipValidation) {
       const validation = await this.guardianService.validatePrompt(prompt);
       if (!validation.isSafe) {
         throw new BadRequestException(`Request rejected: ${validation.reason}`);
       }
     }
-    return this.invokeModelRawWithUsage(prompt);
+    return this.invokeModelRawWithUsage(prompt, useJsonFormat);
   }
 
   /**
