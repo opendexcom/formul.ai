@@ -8,10 +8,10 @@
     "server"
   ],
   "scripts": {
-    "dev": "concurrently \"pnpm --filter server start:dev\" \"pnpm --filter client dev\"",
+    "dev": "concurrently \"pnpm --filter server dev\" \"pnpm --filter client dev\"",
     "dev:client": "pnpm --filter client dev",
-    "dev:server": "pnpm --filter server start:dev",
-    "dev:worker": "pnpm --filter server start:worker:dev",
+    "dev:server": "pnpm --filter server dev",
+    "dev:worker": "pnpm --filter server worker:dev",
     "build": "pnpm run build:client && pnpm run build:server",
     "build:client": "pnpm --filter client build",
     "build:server": "pnpm --filter server build",

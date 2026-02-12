@@ -22,7 +22,9 @@
   },
   "scripts": {
     "dev": "vite",
+    "start:dev": "vite",
     "build": "tsc && vite build",
+    "start": "vite preview",
     "preview": "vite preview",
     "test": "vitest",
     "build:prod": "tsc && vite build --mode production"
