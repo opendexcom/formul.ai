@@ -48,9 +48,8 @@ export function validatePassword(password: string): ValidationResult {
 }
 
 /**
- * Computes strength from 0–3 (number of character-type rules met, excluding length for granularity)
- * or use getPasswordStrengthLabel for "weak" | "fair" | "strong".
- * All 5 rules (length + 4 types) must be considered for "strong".
+ * Counts how many of the 5 rules are met (0–5): minimum length plus the four character-type rules.
+ * Use getPasswordStrength for a "weak" | "fair" | "strong" label; strong requires all 5 rules.
  */
 function countRulesMet(password: string): number {
   return getPasswordRuleChecks(password).filter((c) => c.met).length;

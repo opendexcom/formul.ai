@@ -4,7 +4,7 @@ import { apiClient } from '../services/apiClient';
 import authService from '../services/authService';
 import { Eye, EyeOff, Sparkles, Users, BarChart3 } from 'lucide-react';
 import { validatePassword } from '../utils/passwordValidation';
-import { PasswordStrengthIndicator } from '../components/ui/PasswordStrengthIndicator';
+import { PasswordStrengthIndicator } from '../components/ui';
 
 const LandingPage: React.FC = () => {
   const [isSignUp, setIsSignUp] = useState(false);

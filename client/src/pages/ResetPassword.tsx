@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
 import authService from '../services/authService';
 import { validatePassword } from '../utils/passwordValidation';
-import { PasswordStrengthIndicator } from '../components/ui/PasswordStrengthIndicator';
+import { PasswordStrengthIndicator } from '../components/ui';
 
 const ResetPassword: React.FC = () => {
     const [searchParams] = useSearchParams();
