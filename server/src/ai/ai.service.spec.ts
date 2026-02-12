@@ -29,8 +29,10 @@ const createMockChatModel = () => ({
   }),
   withStructuredOutput: jest.fn().mockReturnValue({
     invoke: jest.fn().mockResolvedValue({
-      ...validForm,
-      response_metadata: { usage: mockUsage },
+      parsed: validForm,
+      raw: {
+        response_metadata: { usage: mockUsage },
+      },
     }),
   }),
 });
@@ -73,6 +75,10 @@ describe('AiService', () => {
         completionTokens: 20,
         totalTokens: 30,
       });
+      expect(mockChatModel.withStructuredOutput).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.objectContaining({ includeRaw: true }),
+      );
     });
   });
 
@@ -88,8 +94,12 @@ describe('AiService', () => {
 
       mockChatModel.withStructuredOutput.mockReturnValue({
         invoke: jest.fn().mockResolvedValue({
-          ...validForm,
-          response_metadata: { usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 } },
+          parsed: validForm,
+          raw: {
+            response_metadata: {
+              usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 },
+            },
+          },
         }),
       });
 
@@ -106,6 +116,33 @@ describe('AiService', () => {
         promptTokens: 10,
         completionTokens: 20,
         totalTokens: 30,
+      });
+    });
+
+    it('extracts usage from raw metadata when structured output returns parsed payload only', async () => {
+      const dto: GenerateAIFormDto = { prompt: 'Create a feedback form', mode: 'generate' };
+      mockChatModel.withStructuredOutput.mockReturnValue({
+        invoke: jest.fn().mockResolvedValue({
+          parsed: validForm,
+          raw: {
+            response_metadata: {
+              tokenUsage: {
+                promptTokens: 12,
+                completionTokens: 8,
+                totalTokens: 20,
+              },
+            },
+          },
+        }),
+      });
+
+      const result = await aiService.generate(dto);
+
+      expect(result.usage).toEqual({
+        model: 'unknown',
+        promptTokens: 12,
+        completionTokens: 8,
+        totalTokens: 20,
       });
     });
   });

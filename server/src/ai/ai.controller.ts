@@ -10,6 +10,10 @@ import {
 } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 
+type UsageTrackingRequest = Request & {
+  trackUsage?: (usage: unknown) => void | Promise<void>;
+};
+
 @ApiTags('ai')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
@@ -60,14 +64,30 @@ export class AiController {
         res.end();
       } catch {}
     });
+    const usageTrackingReq = req as UsageTrackingRequest;
 
     try {
       for await (const step of this.aiService.generateWithSteps(dto)) {
         if (clientClosed) break;
         res.write(`data: ${JSON.stringify(step)}\n\n`);
         // Optional: EE plugin attaches req.trackUsage to record token usage for streaming
-        if (step.usage && typeof (req as any).trackUsage === 'function') {
-          (req as any).trackUsage(step.usage);
+        if (step.usage && typeof usageTrackingReq.trackUsage === 'function') {
+          try {
+            // Keep hook errors isolated so SSE success state stays consistent.
+            void Promise.resolve(usageTrackingReq.trackUsage(step.usage)).catch(
+              (trackUsageError: unknown) => {
+                console.error(
+                  '[AI Generate Stream] trackUsage hook rejected:',
+                  trackUsageError,
+                );
+              },
+            );
+          } catch (trackUsageError: unknown) {
+            console.error(
+              '[AI Generate Stream] trackUsage hook threw:',
+              trackUsageError,
+            );
+          }
         }
       }
       if (!clientClosed) res.end();

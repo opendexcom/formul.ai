@@ -13,18 +13,35 @@ export interface GenerationStep {
 }
 
 function extractUsageFromResponse(raw: any): LlmUsage | undefined {
-  const usage = raw?.usage ?? raw?.response_metadata?.usage;
+  const usage =
+    raw?.usage ??
+    raw?.usage_metadata ??
+    raw?.response_metadata?.usage ??
+    raw?.response_metadata?.tokenUsage;
   if (!usage) return undefined;
 
-  const promptTokens = usage.prompt_tokens ?? usage.promptTokens;
-  const completionTokens = usage.completion_tokens ?? usage.completionTokens;
+  const promptTokens =
+    usage.prompt_tokens ??
+    usage.promptTokens ??
+    usage.input_tokens ??
+    usage.inputTokens;
+  const completionTokens =
+    usage.completion_tokens ??
+    usage.completionTokens ??
+    usage.output_tokens ??
+    usage.outputTokens;
   const totalTokens = usage.total_tokens ?? usage.totalTokens;
   if (promptTokens == null && completionTokens == null && totalTokens == null) {
     return undefined;
   }
 
   return {
-    model: raw.model ?? usage.model ?? 'unknown',
+    model:
+      raw?.model ??
+      raw?.response_metadata?.model_name ??
+      raw?.response_metadata?.model ??
+      usage?.model ??
+      'unknown',
     promptTokens,
     completionTokens,
     totalTokens: totalTokens ?? (promptTokens ?? 0) + (completionTokens ?? 0),
@@ -285,12 +302,14 @@ ${dto.currentForm ? '\n- Preserve the original form ID and metadata where applic
       additionalProperties: false
     };
 
-    // LangChain with structured output - returns parsed object, usage in response_metadata
-    const structuredModel = this.chatModel.withStructuredOutput(schema);
+    // includeRaw preserves provider metadata (token usage) alongside parsed output
+    const structuredModel = this.chatModel.withStructuredOutput(schema, {
+      includeRaw: true,
+    });
     const res = await structuredModel.invoke(prompt);
-    const content = JSON.stringify(res);
-    // withStructuredOutput may not expose raw response; try to get usage from res if it has metadata
-    const usage = extractUsageFromResponse(res);
+    const parsed = res?.parsed ?? res;
+    const content = JSON.stringify(parsed);
+    const usage = extractUsageFromResponse(res?.raw) ?? extractUsageFromResponse(res);
     return { content, usage };
   }
 
