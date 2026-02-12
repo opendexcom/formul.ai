@@ -35,21 +35,5 @@
   ],
   "author": "",
   "license": "MIT",
-  "packageManager": "pnpm@10.23.0",
-  "pnpm2": {
-    "overrides": {
-      "nth-check": "^2.1.1",
-      "glob": "^10.5.0",
-      "webpack-dev-server": "^4.15.2",
-      "postcss": "^8.4.31",
-      "js-yaml": "^4.1.1",
-      "esbuild": "^0.25.0",
-      "lodash@>=4.0.0 <=4.17.22": ">=4.17.23",
-      "diff@>=4.0.0 <4.0.4": ">=4.0.4",
-      "webpack@>=5.49.0 <=5.104.0": ">=5.104.1",
-      "webpack@>=5.49.0 <5.104.0": ">=5.104.0",
-      "langsmith@>=0.3.41 <0.4.6": ">=0.4.6",
-      "axios@<=1.13.4": ">=1.13.5"
-    }
-  }
+  "packageManager": "pnpm@10.23.0"
 }
