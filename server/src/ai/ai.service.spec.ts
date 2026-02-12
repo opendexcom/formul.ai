@@ -59,12 +59,12 @@ describe('AiService', () => {
   });
 
   describe('generate', () => {
-    it('returns form with usage when LLM provides usage metadata', async () => {
+    it('returns form and usage separately when LLM provides usage metadata', async () => {
       const dto: GenerateAIFormDto = { prompt: 'Create a feedback form', mode: 'generate' };
 
       const result = await aiService.generate(dto);
 
-      expect(result).toMatchObject({
+      expect(result.form).toMatchObject({
         title: validForm.title,
         description: validForm.description,
         questions: expect.any(Array),
@@ -138,6 +138,7 @@ describe('AiService', () => {
 
       const result = await aiService.generate(dto);
 
+      expect(result.form).toBeDefined();
       expect(result.usage).toEqual({
         model: 'unknown',
         promptTokens: 12,

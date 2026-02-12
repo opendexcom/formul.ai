@@ -28,7 +28,7 @@ export class AiController {
   @ApiResponse({
     status: 200,
     description:
-      'Form with title, description, questions. Optional usage: { model, promptTokens?, completionTokens?, totalTokens? }',
+      'Response: { form: { title, description, questions }, usage?: { model, promptTokens?, completionTokens?, totalTokens? } }',
   })
   async generate(@Body() dto: GenerateAIFormDto) {
     return this.aiService.generate(dto);

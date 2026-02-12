@@ -133,7 +133,7 @@ Guidelines:
     const { content, usage } = await this.invokeModelWithUsage(prompt);
     const parsed = JSON.parse(content);
     const form = this.validateAndSanitizeForm(parsed);
-    return { ...form, usage };
+    return { form, usage };
   }
 
   /**
