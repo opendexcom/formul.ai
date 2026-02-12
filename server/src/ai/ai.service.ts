@@ -2,12 +2,51 @@ import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { GenerateAIFormDto } from './dto/generate-ai-form.dto';
 import { GuardianService } from './guardian.service';
 import { BadRequestException } from '@nestjs/common';
+import { LlmUsage } from './llm.types';
 
 export interface GenerationStep {
   step: string;
   message: string;
   status: 'pending' | 'in-progress' | 'completed' | 'error';
   data?: any;
+  usage?: LlmUsage;
+}
+
+function extractUsageFromResponse(raw: any): LlmUsage | undefined {
+  const usage =
+    raw?.usage ??
+    raw?.usage_metadata ??
+    raw?.response_metadata?.usage ??
+    raw?.response_metadata?.tokenUsage;
+  if (!usage) return undefined;
+
+  const promptTokens =
+    usage.prompt_tokens ??
+    usage.promptTokens ??
+    usage.input_tokens ??
+    usage.inputTokens;
+  const completionTokens =
+    usage.completion_tokens ??
+    usage.completionTokens ??
+    usage.output_tokens ??
+    usage.outputTokens;
+  const totalTokens = usage.total_tokens ?? usage.totalTokens;
+  if (promptTokens == null && completionTokens == null && totalTokens == null) {
+    return undefined;
+  }
+
+  return {
+    model:
+      raw?.model ??
+      raw?.response_metadata?.model_name ??
+      raw?.response_metadata?.model ??
+      usage?.model ??
+      'unknown',
+    promptTokens,
+    completionTokens,
+    totalTokens:
+      totalTokens ?? ((promptTokens ?? 0) + (completionTokens ?? 0)),
+  };
 }
 
 @Injectable()
@@ -17,7 +56,8 @@ export class AiService {
 
   constructor(private readonly guardianService: GuardianService) {
     // Determine provider from environment
-    this.provider = (process.env.LLM_PROVIDER as 'openai' | 'ollama') || 'openai';
+    this.provider =
+      (process.env.LLM_PROVIDER as 'openai' | 'ollama') || 'openai';
 
     try {
       if (this.provider === 'ollama') {
@@ -27,14 +67,18 @@ export class AiService {
       }
     } catch (e) {
       console.error(`Failed to initialize LangChain with ${this.provider}:`, e);
-      throw new InternalServerErrorException('AI service initialization failed');
+      throw new InternalServerErrorException(
+        'AI service initialization failed',
+      );
     }
   }
 
   private initializeOpenAI() {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
-      console.warn('OPENAI_API_KEY not configured. AI service will not be available.');
+      console.warn(
+        'OPENAI_API_KEY not configured. AI service will not be available.',
+      );
       return;
     }
 
@@ -43,7 +87,7 @@ export class AiService {
     this.chatModel = new ChatOpenAI({
       apiKey,
       model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
-      temperature: parseFloat(process.env.LLM_TEMPERATURE || '0.7')
+      temperature: parseFloat(process.env.LLM_TEMPERATURE || '0.7'),
     });
   }
 
@@ -62,7 +106,9 @@ export class AiService {
 
   async generate(dto: GenerateAIFormDto) {
     if (!this.chatModel) {
-      throw new InternalServerErrorException(`AI provider (${this.provider}) is not configured. Check your environment variables.`);
+      throw new InternalServerErrorException(
+        `AI provider (${this.provider}) is not configured. Check your environment variables.`,
+      );
     }
 
     // Security Check
@@ -71,8 +117,9 @@ export class AiService {
       throw new BadRequestException(`Request rejected: ${validation.reason}`);
     }
 
-    const prompt = dto.mode === 'refine' && dto.currentForm
-      ? `You are a form builder assistant. The user has a form and wants to refine it.
+    const prompt =
+      dto.mode === 'refine' && dto.currentForm
+        ? `You are a form builder assistant. The user has a form and wants to refine it.
 
 Current form:
 ${JSON.stringify(dto.currentForm, null, 2)}
@@ -80,7 +127,7 @@ ${JSON.stringify(dto.currentForm, null, 2)}
 User's refinement request: ${dto.prompt}
 
 Update the form based on the user's request. Adjust questions, add new ones, remove unwanted ones, or modify properties as requested.`
-      : `You are a form builder assistant. Generate a structured form based on the user's description.
+        : `You are a form builder assistant. Generate a structured form based on the user's description.
 
 User wants to create: ${dto.prompt}
 
@@ -92,17 +139,22 @@ Guidelines:
 - Use clear, concise question titles
 - Add helpful descriptions where needed`;
 
-    const content = await this.invokeModel(prompt);
+    const { content, usage } = await this.invokeModelWithUsage(prompt);
     const parsed = JSON.parse(content);
-    return this.validateAndSanitizeForm(parsed);
+    const form = this.validateAndSanitizeForm(parsed);
+    return { form, usage };
   }
 
   /**
    * Generate form with streaming step-by-step RAG process
    */
-  async *generateWithSteps(dto: GenerateAIFormDto): AsyncGenerator<GenerationStep> {
+  async *generateWithSteps(
+    dto: GenerateAIFormDto,
+  ): AsyncGenerator<GenerationStep> {
     if (!this.chatModel) {
-      throw new InternalServerErrorException(`AI provider (${this.provider}) is not configured. Check your environment variables.`);
+      throw new InternalServerErrorException(
+        `AI provider (${this.provider}) is not configured. Check your environment variables.`,
+      );
     }
 
     // Security Check
@@ -111,7 +163,7 @@ Guidelines:
       yield {
         step: 'error',
         message: `Security check failed: ${validation.reason}`,
-        status: 'error'
+        status: 'error',
       };
       return;
     }
@@ -121,7 +173,11 @@ Guidelines:
       : '\n\nThis is a new form being created from scratch.';
 
     // Step 1: Analyze request and create strategy
-    yield { step: 'analyze', message: 'Analyzing form requirements...', status: 'in-progress' };
+    yield {
+      step: 'analyze',
+      message: 'Analyzing form requirements...',
+      status: 'in-progress',
+    };
 
     const strategyPrompt = `You are a form design strategist. Analyze the user's request and create a strategy for building the form.
 ${currentFormContext}
@@ -137,18 +193,24 @@ ${dto.currentForm ? '5. What should be kept, modified, or removed from the exist
 
 Important: Respond ONLY with a valid JSON object (no backticks, no prose). Return a JSON object with this shape: { purpose: string, audience: string, dataPoints: string[], questionTypes: Record<string, string>, considerations: string[]${dto.currentForm ? ', modifications: { keep: string[], modify: string[], remove: string[], add: string[] }' : ''} }`;
 
-    const strategyContent = await this.invokeModelRaw(strategyPrompt);
+    const { content: strategyContent, usage: analyzeUsage } =
+      await this.invokeModelRawWithUsage(strategyPrompt);
     const strategy = JSON.parse(strategyContent);
 
     yield {
       step: 'analyze',
       message: `Strategy created: ${strategy.purpose}`,
       status: 'completed',
-      data: strategy
+      data: strategy,
+      usage: analyzeUsage,
     };
 
     // Step 2: Generate question list
-    yield { step: 'questions', message: 'Preparing questions based on strategy...', status: 'in-progress' };
+    yield {
+      step: 'questions',
+      message: 'Preparing questions based on strategy...',
+      status: 'in-progress',
+    };
 
     const questionsPrompt = `Based on the following strategy, generate a list of questions.
 ${currentFormContext}
@@ -160,18 +222,24 @@ For each question, specify: title, type, description, whether it's required, and
 ${dto.currentForm ? 'Keep questions from the current form that are still relevant, and modify or add new ones as needed.' : ''}
 Important: Respond ONLY with a valid JSON array of question objects (no backticks, no prose). Return a JSON array of questions.`;
 
-    const questionsContent = await this.invokeModelRaw(questionsPrompt);
+    const { content: questionsContent, usage: questionsUsage } =
+      await this.invokeModelRawWithUsage(questionsPrompt);
     const questionsList = JSON.parse(questionsContent);
 
     yield {
       step: 'questions',
       message: `Generated ${questionsList.length} questions`,
       status: 'completed',
-      data: questionsList
+      data: questionsList,
+      usage: questionsUsage,
     };
 
     // Step 3: Optimize question types
-    yield { step: 'optimize', message: 'Optimizing question types for better UX...', status: 'in-progress' };
+    yield {
+      step: 'optimize',
+      message: 'Optimizing question types for better UX...',
+      status: 'in-progress',
+    };
 
     const optimizePrompt = `Review and optimize these questions for user experience and data collection efficiency.
 ${currentFormContext}
@@ -188,18 +256,24 @@ ${dto.currentForm ? '- Changes from the original form are intentional and improv
 
 Important: Respond ONLY with a valid JSON array of question objects (no backticks, no prose). Return optimized questions as a JSON array.`;
 
-    const optimizedContent = await this.invokeModelRaw(optimizePrompt);
+    const { content: optimizedContent, usage: optimizeUsage } =
+      await this.invokeModelRawWithUsage(optimizePrompt);
     const optimizedQuestions = JSON.parse(optimizedContent);
 
     yield {
       step: 'optimize',
       message: 'Questions optimized for better user experience',
       status: 'completed',
-      data: optimizedQuestions
+      data: optimizedQuestions,
+      usage: optimizeUsage,
     };
 
     // Step 4: Generate final form
-    yield { step: 'generate', message: 'Generating final form structure...', status: 'in-progress' };
+    yield {
+      step: 'generate',
+      message: 'Generating final form structure...',
+      status: 'in-progress',
+    };
 
     const finalPrompt = `Create the final form structure.
 ${currentFormContext}
@@ -214,7 +288,8 @@ Generate a complete form with:
 - The optimized questions list
 ${dto.currentForm ? '\n- Preserve the original form ID and metadata where applicable' : ''}`;
 
-    const finalContent = await this.invokeModel(finalPrompt);
+    const { content: finalContent, usage } =
+      await this.invokeModelWithUsage(finalPrompt);
     const parsed = JSON.parse(finalContent);
     const finalForm = this.validateAndSanitizeForm(parsed);
 
@@ -222,11 +297,14 @@ ${dto.currentForm ? '\n- Preserve the original form ID and metadata where applic
       step: 'generate',
       message: 'Form generated successfully!',
       status: 'completed',
-      data: finalForm
+      data: finalForm,
+      usage,
     };
   }
 
-  private async invokeModel(prompt: string): Promise<string> {
+  private async invokeModelWithUsage(
+    prompt: string,
+  ): Promise<{ content: string; usage?: LlmUsage }> {
     if (!this.chatModel) {
       throw new InternalServerErrorException('AI provider not initialized');
     }
@@ -246,38 +324,73 @@ ${dto.currentForm ? '\n- Preserve the original form ID and metadata where applic
               description: { type: 'string' },
               type: {
                 type: 'string',
-                enum: ['text', 'textarea', 'multiple_choice', 'checkbox', 'dropdown', 'email', 'number', 'date', 'time', 'rating']
+                enum: [
+                  'text',
+                  'textarea',
+                  'multiple_choice',
+                  'checkbox',
+                  'dropdown',
+                  'email',
+                  'number',
+                  'date',
+                  'time',
+                  'rating',
+                ],
               },
-              canBeOther: { type: 'boolean', description: 'Whether the question can have a "Other" option instead of other option directly in options list' },
+              canBeOther: {
+                type: 'boolean',
+                description:
+                  'Whether the question can have a "Other" option instead of other option directly in options list',
+              },
               required: { type: 'boolean' },
-              options: { type: 'array', items: { type: 'string' }, description: 'List of options for the question, without "Other" option' },
-              order: { type: 'number' }
+              options: {
+                type: 'array',
+                items: { type: 'string' },
+                description:
+                  'List of options for the question, without "Other" option',
+              },
+              order: { type: 'number' },
             },
             required: ['id', 'title', 'type', 'required', 'order'],
-            additionalProperties: false
-          }
-        }
+            additionalProperties: false,
+          },
+        },
       },
       required: ['title', 'description', 'questions'],
-      additionalProperties: false
+      additionalProperties: false,
     };
 
-    // LangChain with structured output
-    const structuredModel = this.chatModel.withStructuredOutput(schema);
+    // includeRaw preserves provider metadata (token usage) alongside parsed output
+    const structuredModel = this.chatModel.withStructuredOutput(schema, {
+      includeRaw: true,
+    });
     const res = await structuredModel.invoke(prompt);
-    return JSON.stringify(res);
+    const parsed = res?.parsed ?? res;
+    const content = JSON.stringify(parsed);
+    const usage =
+      extractUsageFromResponse(res?.raw) ?? extractUsageFromResponse(res);
+    return { content, usage };
   }
 
-  private async invokeModelRaw(prompt: string, useJsonFormat: boolean = true): Promise<string> {
+  private async invokeModelRawWithUsage(
+    prompt: string,
+    useJsonFormat: boolean = true,
+  ): Promise<{ content: string; usage?: LlmUsage }> {
     if (!this.chatModel) {
       throw new InternalServerErrorException('AI provider not initialized');
     }
 
     // For RAG steps, use LangChain with JSON mode for flexibility
-    // For plain text responses, don't use JSON mode
-    const options = useJsonFormat ? { response_format: { type: 'json_object' } } : {};
+    const options = useJsonFormat
+      ? { response_format: { type: 'json_object' } }
+      : {};
     const res = await this.chatModel.invoke(prompt, options);
-    return typeof res.content === 'string' ? res.content : JSON.stringify(res.content);
+    const content =
+      typeof res.content === 'string'
+        ? res.content
+        : JSON.stringify(res.content);
+    const usage = extractUsageFromResponse(res);
+    return { content, usage };
   }
 
   /**
@@ -286,7 +399,10 @@ ${dto.currentForm ? '\n- Preserve the original form ID and metadata where applic
    * @param prompt The prompt to analyze
    * @param skipValidation Set to true for internal/trusted calls (e.g., analytics processing)
    */
-  async analyzeText(prompt: string, skipValidation: boolean = false): Promise<string> {
+  async analyzeText(
+    prompt: string,
+    skipValidation: boolean = false,
+  ): Promise<string> {
     // Security Check - skip for internal/trusted calls
     if (!skipValidation) {
       const validation = await this.guardianService.validatePrompt(prompt);
@@ -294,7 +410,26 @@ ${dto.currentForm ? '\n- Preserve the original form ID and metadata where applic
         throw new BadRequestException(`Request rejected: ${validation.reason}`);
       }
     }
-    return this.invokeModelRaw(prompt);
+    const { content } = await this.invokeModelRawWithUsage(prompt);
+    return content;
+  }
+
+  /**
+   * Analyze text with usage metadata. Use when EE needs to track tokens (e.g. analytics).
+   * Defaults to JSON format, but can be disabled for plain-text generations.
+   */
+  async analyzeTextWithUsage(
+    prompt: string,
+    skipValidation: boolean = false,
+    useJsonFormat: boolean = true,
+  ): Promise<{ content: string; usage?: LlmUsage }> {
+    if (!skipValidation) {
+      const validation = await this.guardianService.validatePrompt(prompt);
+      if (!validation.isSafe) {
+        throw new BadRequestException(`Request rejected: ${validation.reason}`);
+      }
+    }
+    return this.invokeModelRawWithUsage(prompt, useJsonFormat);
   }
 
   /**
@@ -331,15 +466,21 @@ ${dto.currentForm ? '\n- Preserve the original form ID and metadata where applic
         : this.chatModel;
 
       // Track results with their original indices
-      const results: Array<{ index: number; content: string | null; error?: any }> =
-        prompts.map((_, index) => ({ index, content: null }));
+      const results: Array<{
+        index: number;
+        content: string | null;
+        error?: any;
+      }> = prompts.map((_, index) => ({ index, content: null }));
 
       const skipValidation = options?.skipValidation ?? false;
 
       // Process in waves with retry logic
       for (let i = 0; i < prompts.length; i += maxConcurrency) {
         const batch = prompts.slice(i, i + maxConcurrency);
-        const batchIndices = Array.from({ length: batch.length }, (_, idx) => i + idx);
+        const batchIndices = Array.from(
+          { length: batch.length },
+          (_, idx) => i + idx,
+        );
 
         let safePrompts: string[] = [];
         let safeIndices: number[] = [];
@@ -350,10 +491,13 @@ ${dto.currentForm ? '\n- Preserve the original form ID and metadata where applic
           safeIndices = batchIndices;
         } else {
           // Validate batch prompts first
-          const validatedBatch = await Promise.all(batch.map(async (prompt, idx) => {
-            const validation = await this.guardianService.validatePrompt(prompt);
-            return { prompt, validation, originalIndex: batchIndices[idx] };
-          }));
+          const validatedBatch = await Promise.all(
+            batch.map(async (prompt, idx) => {
+              const validation =
+                await this.guardianService.validatePrompt(prompt);
+              return { prompt, validation, originalIndex: batchIndices[idx] };
+            }),
+          );
 
           for (const item of validatedBatch) {
             if (!item.validation.isSafe) {
@@ -361,7 +505,7 @@ ${dto.currentForm ? '\n- Preserve the original form ID and metadata where applic
               results[item.originalIndex].content = JSON.stringify({
                 error: 'unsafe_content',
                 reason: item.validation.reason,
-                riskType: item.validation.riskType
+                riskType: item.validation.riskType,
               });
             } else {
               safePrompts.push(item.prompt);
@@ -378,24 +522,28 @@ ${dto.currentForm ? '\n- Preserve the original form ID and metadata where applic
             modelToUse,
             useStructuredOutput,
             options,
-            maxRetries
+            maxRetries,
           );
         }
       }
 
       // Check if any prompts failed after all retries
-      const failed = results.filter(r => r.content === null);
+      const failed = results.filter((r) => r.content === null);
       if (failed.length > 0) {
-        console.error(`Failed to process ${failed.length}/${prompts.length} prompts after ${maxRetries} retries`);
+        console.error(
+          `Failed to process ${failed.length}/${prompts.length} prompts after ${maxRetries} retries`,
+        );
         throw new InternalServerErrorException(
-          `Failed to process ${failed.length} prompts. First error: ${failed[0].error?.message || 'Unknown error'}`
+          `Failed to process ${failed.length} prompts. First error: ${failed[0].error?.message || 'Unknown error'}`,
         );
       }
 
-      return results.map(r => r.content!);
+      return results.map((r) => r.content!);
     } catch (error) {
       console.error('Error in batch analysis:', error);
-      throw new InternalServerErrorException('Failed to batch analyze text with AI');
+      throw new InternalServerErrorException(
+        'Failed to batch analyze text with AI',
+      );
     }
   }
 
@@ -406,61 +554,73 @@ ${dto.currentForm ? '\n- Preserve the original form ID and metadata where applic
     modelToUse: any,
     useStructuredOutput: boolean,
     options: any,
-    maxRetries: number
+    maxRetries: number,
   ): Promise<void> {
     let retryCount = 0;
     let remainingPrompts: Array<{ prompt: string; originalIndex: number }> =
-      batch.map((prompt, idx) => ({ prompt, originalIndex: batchIndices[idx] }));
+      batch.map((prompt, idx) => ({
+        prompt,
+        originalIndex: batchIndices[idx],
+      }));
 
     while (remainingPrompts.length > 0 && retryCount <= maxRetries) {
-      const batchPromises = remainingPrompts.map(async ({ prompt, originalIndex }) => {
-        try {
-          let response;
-          if (useStructuredOutput) {
-            // When using structured output, schema is already bound
-            response = await modelToUse.invoke(prompt, {
-              temperature: options?.temperature ?? 0.3,
-              max_tokens: options?.maxTokens ?? 4000,
-            });
-            // withStructuredOutput returns parsed object, so stringify it
-            const content = JSON.stringify(response);
+      const batchPromises = remainingPrompts.map(
+        async ({ prompt, originalIndex }) => {
+          try {
+            let response;
+            if (useStructuredOutput) {
+              // When using structured output, schema is already bound
+              response = await modelToUse.invoke(prompt, {
+                temperature: options?.temperature ?? 0.3,
+                max_tokens: options?.maxTokens ?? 4000,
+              });
+              // withStructuredOutput returns parsed object, so stringify it
+              const content = JSON.stringify(response);
 
-            // Validate it's valid JSON
-            JSON.parse(content);
+              // Validate it's valid JSON
+              JSON.parse(content);
 
-            return { originalIndex, content, success: true };
-          } else {
-            // Fallback to json_object mode without schema
-            response = await modelToUse.invoke(prompt, {
-              temperature: options?.temperature ?? 0.3,
-              max_tokens: options?.maxTokens ?? 4000,
-              response_format: { type: 'json_object' }
-            });
-            const content = typeof response.content === 'string'
-              ? response.content
-              : JSON.stringify(response.content);
+              return { originalIndex, content, success: true };
+            } else {
+              // Fallback to json_object mode without schema
+              response = await modelToUse.invoke(prompt, {
+                temperature: options?.temperature ?? 0.3,
+                max_tokens: options?.maxTokens ?? 4000,
+                response_format: { type: 'json_object' },
+              });
+              const content =
+                typeof response.content === 'string'
+                  ? response.content
+                  : JSON.stringify(response.content);
 
-            // Validate it's valid JSON
-            JSON.parse(content);
+              // Validate it's valid JSON
+              JSON.parse(content);
 
-            return { originalIndex, content, success: true };
+              return { originalIndex, content, success: true };
+            }
+          } catch (error) {
+            console.warn(
+              `[Retry ${retryCount}/${maxRetries}] Failed to process prompt at index ${originalIndex}:`,
+              error.message,
+            );
+            return { originalIndex, content: null, success: false, error };
           }
-        } catch (error) {
-          console.warn(`[Retry ${retryCount}/${maxRetries}] Failed to process prompt at index ${originalIndex}:`, error.message);
-          return { originalIndex, content: null, success: false, error };
-        }
-      });
+        },
+      );
 
       const batchResults = await Promise.all(batchPromises);
 
       // Update results and prepare retry list
-      const failedPrompts: Array<{ prompt: string; originalIndex: number }> = [];
+      const failedPrompts: Array<{ prompt: string; originalIndex: number }> =
+        [];
       for (const result of batchResults) {
         if (result.success) {
           results[result.originalIndex].content = result.content;
         } else {
           results[result.originalIndex].error = result.error;
-          const failedPrompt = remainingPrompts.find(p => p.originalIndex === result.originalIndex);
+          const failedPrompt = remainingPrompts.find(
+            (p) => p.originalIndex === result.originalIndex,
+          );
           if (failedPrompt) {
             failedPrompts.push(failedPrompt);
           }
@@ -470,9 +630,11 @@ ${dto.currentForm ? '\n- Preserve the original form ID and metadata where applic
       remainingPrompts = failedPrompts;
       if (remainingPrompts.length > 0) {
         retryCount++;
-        console.log(`Retrying ${remainingPrompts.length} failed prompts (attempt ${retryCount}/${maxRetries})...`);
+        console.log(
+          `Retrying ${remainingPrompts.length} failed prompts (attempt ${retryCount}/${maxRetries})...`,
+        );
         // Small delay before retry
-        await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+        await new Promise((resolve) => setTimeout(resolve, 1000 * retryCount));
       }
     }
   }
@@ -484,7 +646,16 @@ ${dto.currentForm ? '\n- Preserve the original form ID and metadata where applic
 
     const mapType = (t: string): string => {
       const all = [
-        'text', 'textarea', 'multiple_choice', 'checkbox', 'dropdown', 'email', 'number', 'date', 'time', 'rating'
+        'text',
+        'textarea',
+        'multiple_choice',
+        'checkbox',
+        'dropdown',
+        'email',
+        'number',
+        'date',
+        'time',
+        'rating',
       ];
       return all.includes(t) ? t : 'text';
     };
@@ -496,7 +667,11 @@ ${dto.currentForm ? '\n- Preserve the original form ID and metadata where applic
       type: mapType(q.type),
       canBeOther: q.canBeOther || false,
       required: typeof q.required === 'boolean' ? q.required : false,
-      options: ['multiple_choice', 'checkbox', 'dropdown'].includes(mapType(q.type)) ? (q.options || ['Option 1']) : undefined,
+      options: ['multiple_choice', 'checkbox', 'dropdown'].includes(
+        mapType(q.type),
+      )
+        ? q.options || ['Option 1']
+        : undefined,
       order: typeof q.order === 'number' ? q.order : idx,
       validation: q.validation || undefined,
     }));

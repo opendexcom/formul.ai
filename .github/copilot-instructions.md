@@ -65,7 +65,7 @@ FormulAI is an intelligent survey platform that combines intuitive form building
 - Lucide icons, custom UI components
 
 ### Backend
-- NestJS 10, TypeScript 5, Node.js 18+
+- NestJS 10, TypeScript 5, Node.js 20+
 - Bull queues (Redis), Mongoose ODM
 - JWT authentication, Swagger API docs
 - OpenAI GPT-4o integration
