@@ -83,35 +83,96 @@ describe('AiService', () => {
   });
 
   describe('generateWithSteps', () => {
-    it('yields final step with usage when LLM provides usage metadata', async () => {
-      const strategyJson = { purpose: 'test', audience: 'users', dataPoints: [], questionTypes: {}, considerations: [] };
-      const questionsJson = [{ id: 'q1', title: 'Q', type: 'text', required: true, order: 0 }];
+    it('yields usage on all steps when LLM provides usage metadata', async () => {
+      const strategyJson = {
+        purpose: 'test',
+        audience: 'users',
+        dataPoints: [],
+        questionTypes: {},
+        considerations: [],
+      };
+      const questionsJson = [
+        { id: 'q1', title: 'Q', type: 'text', required: true, order: 0 },
+      ];
 
+      // Three raw invocations for analyze, questions, optimize
       mockChatModel.invoke
-        .mockResolvedValueOnce({ content: JSON.stringify(strategyJson), response_metadata: { usage: { prompt_tokens: 5, completion_tokens: 5 } } })
-        .mockResolvedValueOnce({ content: JSON.stringify(questionsJson), response_metadata: { usage: { prompt_tokens: 5, completion_tokens: 5 } } })
-        .mockResolvedValueOnce({ content: JSON.stringify(questionsJson), response_metadata: { usage: { prompt_tokens: 5, completion_tokens: 5 } } });
+        .mockResolvedValueOnce({
+          content: JSON.stringify(strategyJson),
+          response_metadata: {
+            usage: { prompt_tokens: 5, completion_tokens: 5, total_tokens: 10 },
+          },
+        })
+        .mockResolvedValueOnce({
+          content: JSON.stringify(questionsJson),
+          response_metadata: {
+            usage: { prompt_tokens: 6, completion_tokens: 4, total_tokens: 10 },
+          },
+        })
+        .mockResolvedValueOnce({
+          content: JSON.stringify(questionsJson),
+          response_metadata: {
+            usage: { prompt_tokens: 7, completion_tokens: 3, total_tokens: 10 },
+          },
+        });
 
+      // Final structured invocation for the generated form
       mockChatModel.withStructuredOutput.mockReturnValue({
         invoke: jest.fn().mockResolvedValue({
           parsed: validForm,
           raw: {
             response_metadata: {
-              usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 },
+              usage: {
+                prompt_tokens: 10,
+                completion_tokens: 20,
+                total_tokens: 30,
+              },
             },
           },
         }),
       });
 
-      const dto: GenerateAIFormDto = { prompt: 'Create a form', mode: 'generate' };
+      const dto: GenerateAIFormDto = {
+        prompt: 'Create a form',
+        mode: 'generate',
+      };
       const steps: any[] = [];
       for await (const step of aiService.generateWithSteps(dto)) {
         steps.push(step);
       }
 
-      const finalStep = steps.find((s) => s.step === 'generate' && s.status === 'completed');
-      expect(finalStep).toBeDefined();
-      expect(finalStep.usage).toEqual({
+      const analyzeStep = steps.find(
+        (s) => s.step === 'analyze' && s.status === 'completed',
+      );
+      const questionsStep = steps.find(
+        (s) => s.step === 'questions' && s.status === 'completed',
+      );
+      const optimizeStep = steps.find(
+        (s) => s.step === 'optimize' && s.status === 'completed',
+      );
+      const finalStep = steps.find(
+        (s) => s.step === 'generate' && s.status === 'completed',
+      );
+
+      expect(analyzeStep?.usage).toEqual({
+        model: 'unknown',
+        promptTokens: 5,
+        completionTokens: 5,
+        totalTokens: 10,
+      });
+      expect(questionsStep?.usage).toEqual({
+        model: 'unknown',
+        promptTokens: 6,
+        completionTokens: 4,
+        totalTokens: 10,
+      });
+      expect(optimizeStep?.usage).toEqual({
+        model: 'unknown',
+        promptTokens: 7,
+        completionTokens: 3,
+        totalTokens: 10,
+      });
+      expect(finalStep?.usage).toEqual({
         model: 'unknown',
         promptTokens: 10,
         completionTokens: 20,
