@@ -57,6 +57,8 @@ cp server/.env.example server/.env
 
 # 3. Start the system
 docker compose up -d
+# or via package script
+pnpm run docker:up
 ```
 
 Access the services:

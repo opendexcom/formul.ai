@@ -16,11 +16,11 @@
     "build:client": "pnpm --filter client build",
     "build:server": "pnpm --filter server build",
     "install:all": "pnpm install -w",
-    "docker:up": "docker-compose up -d",
-    "docker:down": "docker-compose down",
-    "docker:logs": "docker-compose logs -f",
-    "db:start": "docker-compose up -d mongodb",
-    "db:stop": "docker-compose stop mongodb",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f",
+    "db:start": "docker compose up -d mongodb",
+    "db:stop": "docker compose stop mongodb",
     "db:admin": "echo MongoDB Admin: http://localhost:8081"
   },
   "devDependencies": {

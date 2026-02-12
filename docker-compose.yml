@@ -88,7 +88,7 @@ services:
       - redis
     networks:
       - formulai-network
-    command: [ "pnpm", "start:worker:prod" ]
+    command: [ "pnpm", "run", "worker:prod" ]
   gateway:
     build:
       context: .

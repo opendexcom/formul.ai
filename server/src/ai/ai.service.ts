@@ -27,7 +27,7 @@ function extractUsageFromResponse(raw: any): LlmUsage | undefined {
     model: raw.model ?? usage.model ?? 'unknown',
     promptTokens,
     completionTokens,
-    totalTokens: totalTokens || undefined,
+    totalTokens: totalTokens ?? undefined,
   };
 }
 
