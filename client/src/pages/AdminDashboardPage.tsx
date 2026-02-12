@@ -21,9 +21,10 @@ const AdminDashboardPage: React.FC = () => {
   // via window enumeration; removed on unmount or when user is no longer admin.
   const apiBaseUrl =
     import.meta.env.VITE_API_BASE_URL || `${window.location.origin}/api`;
+  const isAdmin = Boolean(user?.roles?.includes('admin'));
   useEffect(() => {
     const win = window as Window & { __FORMULAI_API_BASE_URL__?: string };
-    if (loading || !user?.roles?.includes('admin')) {
+    if (loading || !isAdmin) {
       return () => {
         delete win.__FORMULAI_API_BASE_URL__;
       };
@@ -38,7 +39,7 @@ const AdminDashboardPage: React.FC = () => {
     return () => {
       delete win.__FORMULAI_API_BASE_URL__;
     };
-  }, [apiBaseUrl, loading, user?.roles]);
+  }, [apiBaseUrl, loading, isAdmin]);
 
   // Mount EE admin when ee-root is in the DOM and __ADMIN_MODULE__ is available.
   // Polling is capped at MAX_POLL_MS via a single timeout; only the timeout sets
