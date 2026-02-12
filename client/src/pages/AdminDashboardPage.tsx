@@ -35,13 +35,20 @@ const AdminDashboardPage: React.FC = () => {
       return false;
     };
 
-    if (tryMount()) return;
+    let interval: ReturnType<typeof setInterval> | null = null;
+    if (!tryMount()) {
+      interval = setInterval(() => {
+        if (tryMount() && interval) {
+          clearInterval(interval);
+          interval = null;
+        }
+      }, 200);
+    }
 
-    const interval = setInterval(() => {
-      if (tryMount()) clearInterval(interval);
-    }, 200);
     return () => {
-      clearInterval(interval);
+      if (interval) {
+        clearInterval(interval);
+      }
       if (typeof unmountRef.current === 'function') {
         unmountRef.current();
         unmountRef.current = null;
