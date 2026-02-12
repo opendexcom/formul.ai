@@ -3,6 +3,8 @@ import { useAuth } from '../context/AuthContext';
 import { apiClient } from '../services/apiClient';
 import authService from '../services/authService';
 import { Eye, EyeOff, Sparkles, Users, BarChart3 } from 'lucide-react';
+import { validatePassword } from '../utils/passwordValidation';
+import { PasswordStrengthIndicator } from '../components/ui/PasswordStrengthIndicator';
 
 const LandingPage: React.FC = () => {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -67,10 +69,18 @@ const LandingPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setError('');
     setSuccessMessage('');
 
+    if (isSignUp) {
+      const { valid, errors } = validatePassword(formData.password);
+      if (!valid) {
+        setError(errors.length > 0 ? errors.join('. ') : 'Password does not meet the requirements.');
+        return;
+      }
+    }
+
+    setLoading(true);
     try {
       if (isSignUp) {
         await register(formData.email, formData.password, formData.firstName, formData.lastName);
@@ -265,6 +275,13 @@ const LandingPage: React.FC = () => {
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
+                {isSignUp && (
+                  <PasswordStrengthIndicator
+                    password={formData.password}
+                    showRuleChecks
+                    showHelperText
+                  />
+                )}
                 {!isSignUp && (
                   <div className="mt-2 text-right">
                     <button
