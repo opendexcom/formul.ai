@@ -114,7 +114,11 @@ const AdminDashboardPage: React.FC = () => {
             {adminLoadFailed ? (
               <>
                 <span>Admin dashboard could not be loaded.</span>
-                <span className="text-sm">Ensure the admin plugin is loaded or try refreshing.</span>
+                <span className="text-sm">
+                  Ensure the EE frontend is running on port 3002{' '}
+                  <code className="text-xs bg-gray-200 px-1 rounded">cd ee-frontend && pnpm dev</code>{' '}
+                  and the admin plugin is loaded. Try refreshing.
+                </span>
               </>
             ) : (
               <span>Loading admin dashboard...</span>
