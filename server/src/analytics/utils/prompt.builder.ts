@@ -5,7 +5,7 @@ import { Form } from '../../schemas/form.schema';
 
 /**
  * Prompt Builder Utility
- * 
+ *
  * Responsible for constructing LLM prompts for various analytics tasks:
  * - Topic extraction (in-vivo coding)
  * - Sentiment analysis (overall per response)
@@ -15,22 +15,26 @@ import { Form } from '../../schemas/form.schema';
  */
 @Injectable()
 export class PromptBuilder {
-  
   /**
    * Build prompt for extracting topics from responses using in-vivo coding
    */
-  buildTopicExtractionPrompt(responses: ResponseDocument[], form: Form): string {
+  buildTopicExtractionPrompt(
+    responses: ResponseDocument[],
+    form: Form,
+  ): string {
     const responsesData = responses.map((r) => {
       const normalizedAnswers = r.answers
-        .map(ans => {
-          const question = form.questions.find(q => q.id === ans.questionId);
+        .map((ans) => {
+          const question = form.questions.find((q) => q.id === ans.questionId);
           const qType = question?.type;
 
           // Only include textual answers by default
           const isTextual = qType === 'text' || qType === 'textarea';
 
           // Prefer precomputed normalized value if present
-          const normalized = (ans as any).metadata?.normalizedValue as string | undefined;
+          const normalized = (ans as any).metadata?.normalizedValue as
+            | string
+            | undefined;
           // Normalize value to a string
           let displayValue: string = normalized ?? '';
           const v = (ans as any).value;
@@ -40,7 +44,8 @@ export class PromptBuilder {
             displayValue = displayValue || v.filter(Boolean).join(', ');
           } else if (v && typeof v === 'object') {
             // Common case: { other: "..." } or choice objects
-            displayValue = displayValue || (v.other ?? v.label ?? JSON.stringify(v));
+            displayValue =
+              displayValue || (v.other ?? v.label ?? JSON.stringify(v));
           } else if (typeof v === 'number' || typeof v === 'boolean') {
             displayValue = displayValue || String(v);
           }
@@ -53,17 +58,21 @@ export class PromptBuilder {
           return {
             questionId: ans.questionId,
             questionTitle: question?.title,
-            value: displayValue
+            value: displayValue,
           };
         })
-        .filter(Boolean) as Array<{ questionId: string; questionTitle?: string; value: string }>;
+        .filter(Boolean) as Array<{
+        questionId: string;
+        questionTitle?: string;
+        value: string;
+      }>;
 
-      const combinedText = normalizedAnswers.map(a => a.value).join('\n');
+      const combinedText = normalizedAnswers.map((a) => a.value).join('\n');
 
       return {
-        responseId: (r._id as Types.ObjectId).toString(),
+        responseId: r._id.toString(),
         answers: normalizedAnswers,
-        combinedText
+        combinedText,
       };
     });
 
@@ -106,20 +115,25 @@ RULES:
    * Build prompt for analyzing OVERALL sentiment per response
    * Note: Per-question sentiment is calculated mathematically later
    */
-  buildOverallSentimentPrompt(responses: ResponseDocument[], form: Form): string {
+  buildOverallSentimentPrompt(
+    responses: ResponseDocument[],
+    form: Form,
+  ): string {
     // Get rating questions for context
-    const ratingQuestions = form.questions.filter(q => q.type === 'rating');
-    
+    const ratingQuestions = form.questions.filter((q) => q.type === 'rating');
+
     const responsesData = responses.map((r) => {
       const normalizedAnswers = r.answers
-        .map(ans => {
-          const question = form.questions.find(q => q.id === ans.questionId);
+        .map((ans) => {
+          const question = form.questions.find((q) => q.id === ans.questionId);
           const qType = question?.type;
 
           const isTextual = qType === 'text' || qType === 'textarea';
 
           // Prefer precomputed normalized value if present
-          const normalized = (ans as any).metadata?.normalizedValue as string | undefined;
+          const normalized = (ans as any).metadata?.normalizedValue as
+            | string
+            | undefined;
           let displayValue: string = normalized ?? '';
           const v = (ans as any).value;
           if (typeof v === 'string') {
@@ -127,7 +141,8 @@ RULES:
           } else if (Array.isArray(v)) {
             displayValue = displayValue || v.filter(Boolean).join(', ');
           } else if (v && typeof v === 'object') {
-            displayValue = displayValue || (v.other ?? v.label ?? JSON.stringify(v));
+            displayValue =
+              displayValue || (v.other ?? v.label ?? JSON.stringify(v));
           } else if (typeof v === 'number' || typeof v === 'boolean') {
             displayValue = displayValue || String(v);
           }
@@ -139,36 +154,43 @@ RULES:
           return {
             questionId: ans.questionId,
             questionTitle: question?.title,
-            value: displayValue
+            value: displayValue,
           };
         })
-        .filter(Boolean) as Array<{ questionId: string; questionTitle?: string; value: string }>;
+        .filter(Boolean) as Array<{
+        questionId: string;
+        questionTitle?: string;
+        value: string;
+      }>;
 
       // Extract rating answers separately
-      const ratingAnswers = ratingQuestions.map(rq => {
-        const answer = r.answers.find(a => a.questionId === rq.id);
-        if (answer?.value != null) {
-          return {
-            questionTitle: rq.title,
-            value: answer.value
-          };
-        }
-        return null;
-      }).filter(Boolean);
+      const ratingAnswers = ratingQuestions
+        .map((rq) => {
+          const answer = r.answers.find((a) => a.questionId === rq.id);
+          if (answer?.value != null) {
+            return {
+              questionTitle: rq.title,
+              value: answer.value,
+            };
+          }
+          return null;
+        })
+        .filter(Boolean);
 
-      const combinedText = normalizedAnswers.map(a => a.value).join('\n');
+      const combinedText = normalizedAnswers.map((a) => a.value).join('\n');
 
       return {
-        responseId: (r._id as Types.ObjectId).toString(),
+        responseId: r._id.toString(),
         answers: normalizedAnswers,
         ratingAnswers: ratingAnswers.length > 0 ? ratingAnswers : undefined,
-        combinedText
+        combinedText,
       };
     });
 
-    const ratingContext = ratingQuestions.length > 0 
-      ? `\nRATING QUESTIONS IN THIS SURVEY:\n${ratingQuestions.map(q => `- "${q.title}"`).join('\n')}\n\nIMPORTANT: Consider rating values when determining sentiment. Interpret what each rating means based on the question context (e.g., a low rating for "How satisfied are you?" indicates negative sentiment, while a low rating for "How stressful is your job?" might indicate positive sentiment).`
-      : '';
+    const ratingContext =
+      ratingQuestions.length > 0
+        ? `\nRATING QUESTIONS IN THIS SURVEY:\n${ratingQuestions.map((q) => `- "${q.title}"`).join('\n')}\n\nIMPORTANT: Consider rating values when determining sentiment. Interpret what each rating means based on the question context (e.g., a low rating for "How satisfied are you?" indicates negative sentiment, while a low rating for "How stressful is your job?" might indicate positive sentiment).`
+        : '';
 
     return `CRITICAL: You MUST return ONLY valid JSON. No explanations, no markdown, no prose.
 
@@ -209,17 +231,20 @@ RULES:
   /**
    * Build prompt for extracting representative quotes from responses
    */
-  buildQuoteExtractionPrompt(responses: ResponseDocument[], form: Form): string {
+  buildQuoteExtractionPrompt(
+    responses: ResponseDocument[],
+    form: Form,
+  ): string {
     const responsesData = responses.map((r) => ({
-      responseId: (r._id as Types.ObjectId).toString(),
-      answers: r.answers.map(ans => {
-        const question = form.questions.find(q => q.id === ans.questionId);
-        return { 
-          questionId: ans.questionId, 
-          questionTitle: question?.title, 
-          value: ans.value 
+      responseId: r._id.toString(),
+      answers: r.answers.map((ans) => {
+        const question = form.questions.find((q) => q.id === ans.questionId);
+        return {
+          questionId: ans.questionId,
+          questionTitle: question?.title,
+          value: ans.value,
         };
-      })
+      }),
     }));
 
     return `CRITICAL: You MUST return ONLY valid JSON. No explanations, no markdown, no prose.
@@ -310,12 +335,20 @@ RULES:
     topicQuotes: Array<{ topic: string; quote: string; count: number }>,
     closedQuestionStats: any[],
     closedQuestionInsights: any[],
-    negativeTopics?: Array<{ topic: string; negativePercentage: number; count: number }>,
+    negativeTopics?: Array<{
+      topic: string;
+      negativePercentage: number;
+      count: number;
+    }>,
     trends?: {
       emergingTopics?: Array<{ topic: string; description: string }>;
       decliningTopics?: Array<{ topic: string; description: string }>;
-      sentimentShifts?: Array<{ topic: string; direction: string; description: string }>;
-    }
+      sentimentShifts?: Array<{
+        topic: string;
+        direction: string;
+        description: string;
+      }>;
+    },
   ): string {
     const formContext = {
       title: form.title,
@@ -335,14 +368,15 @@ RULES:
       closedQuestions: closedQuestionStats,
       closedQuestionInsights,
       negativeTopics: negativeTopics || [],
-      trends: trends || {}
+      trends: trends || {},
     };
 
     // Build negative topics section
-    const negativeTopicsSection = analyticsContext.negativeTopics.length > 0
-      ? `\nTOPICS WITH CONCERNING SENTIMENT (require attention):
+    const negativeTopicsSection =
+      analyticsContext.negativeTopics.length > 0
+        ? `\nTOPICS WITH CONCERNING SENTIMENT (require attention):
 ${analyticsContext.negativeTopics.map((nt: any) => `- "${nt.topic}": ${nt.negativePercentage}% negative (${nt.count} responses)`).join('\n')}`
-      : '';
+        : '';
 
     // Build trends section
     let trendsSection = '';
@@ -374,18 +408,31 @@ ANALYSIS RESULTS:
 - Main topics discussed: ${analyticsContext.topTopics.join(', ')}
 - Sentiment: ${analyticsContext.sentiment.positive}% positive, ${analyticsContext.sentiment.neutral}% neutral, ${analyticsContext.sentiment.negative}% negative
 
-${analyticsContext.closedQuestions.length > 0 ? `CLOSED QUESTION RESPONSES:
-${analyticsContext.closedQuestions.map((d: any) => {
-  if (d.questionType === 'rating' && d.averageRating !== undefined) {
-    return `${d.question} (Rating): Average ${d.averageRating}/5 - Distribution: ${d.topAnswers.map((a: any) => `${a.value} stars (${a.percentage}%)`).join(', ')}`;
-  }
-  return `${d.question}: ${d.topAnswers.map((a: any) => `${a.value} (${a.percentage}%)`).join(', ')}`;
-}).join('\n')}` : ''}
+${
+  analyticsContext.closedQuestions.length > 0
+    ? `CLOSED QUESTION RESPONSES:
+${analyticsContext.closedQuestions
+  .map((d: any) => {
+    if (d.questionType === 'rating' && d.averageRating !== undefined) {
+      return `${d.question} (Rating): Average ${d.averageRating}/5 - Distribution: ${d.topAnswers.map((a: any) => `${a.value} stars (${a.percentage}%)`).join(', ')}`;
+    }
+    return `${d.question}: ${d.topAnswers.map((a: any) => `${a.value} (${a.percentage}%)`).join(', ')}`;
+  })
+  .join('\n')}`
+    : ''
+}
 
-${analyticsContext.closedQuestionInsights.length > 0 ? `TOPIC PATTERNS BY RESPONSE:
-${analyticsContext.closedQuestionInsights.map((di: any) => 
-  `• ${di.answer} (${di.count} responses) primarily discuss ${di.topTopic} (${di.topicPercentage}% of their topics)`
-).join('\n')}` : ''}
+${
+  analyticsContext.closedQuestionInsights.length > 0
+    ? `TOPIC PATTERNS BY RESPONSE:
+${analyticsContext.closedQuestionInsights
+  .map(
+    (di: any) =>
+      `• ${di.answer} (${di.count} responses) primarily discuss ${di.topTopic} (${di.topicPercentage}% of their topics)`,
+  )
+  .join('\n')}`
+    : ''
+}
 
 Sample responses from top topics:
 ${analyticsContext.topicQuotes.map((tq: any) => `• ${tq.topic} (${tq.count} responses): "${tq.quote}"`).join('\n')}
