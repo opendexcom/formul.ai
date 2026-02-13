@@ -1,4 +1,6 @@
 import { Injectable, Logger, DynamicModule } from '@nestjs/common';
+import { resolve } from 'path';
+import { pathToFileURL } from 'url';
 import {
   FormulAIPlugin,
   PluginConfig,
@@ -84,10 +86,14 @@ export class PluginLoaderService {
     } catch (npmError) {
       // Try loading from custom plugin directory or default local directory
       try {
-        const pluginDir = process.env.PLUGIN_DIR || '../../plugins';
-        const localPath = `${pluginDir}/${pluginName}/dist/index.js`;
-        this.logger.log(`Attempting to load plugin ${pluginName} from local path ${localPath}...`);
-        const pluginModule = await import(localPath);
+        const pluginDir =
+          process.env.PLUGIN_DIR || resolve(__dirname, '../../plugins');
+        const localPath = resolve(pluginDir, pluginName, 'dist', 'index.js');
+        const localUrl = pathToFileURL(localPath).href;
+        this.logger.log(
+          `Attempting to load plugin ${pluginName} from local path ${localPath}...`,
+        );
+        const pluginModule = await import(localUrl);
         // Handle both ES module and CommonJS exports
         const PluginClass = pluginModule.default.default || pluginModule;
         return new PluginClass(config.options);
