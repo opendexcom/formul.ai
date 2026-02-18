@@ -112,11 +112,16 @@ const AIFormChat: React.FC<AIFormChatProps> = ({ currentForm, onFormGenerated })
         }),
       });
 
-      if (!response.ok) throw new Error('Failed to generate form');
+      if (!response.ok) {
+        throw new Error('Failed to generate form');
+      }
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
-      if (!reader) throw new Error('No response stream');
+
+      if (!reader) {
+        throw new Error('No response stream');
+      }
 
       let buffer = '';
 
@@ -135,11 +140,9 @@ const AIFormChat: React.FC<AIFormChatProps> = ({ currentForm, onFormGenerated })
 
             try {
               const step: ProcessingStep = JSON.parse(data);
-
               if (step.status === 'error') {
                 setErrorMessage(step.message || 'An error occurred');
               }
-
               setProcessingSteps(prev => {
                 const existing = prev.findIndex(s => s.step === step.step);
                 if (existing >= 0) {
@@ -201,15 +204,21 @@ const AIFormChat: React.FC<AIFormChatProps> = ({ currentForm, onFormGenerated })
 
   return (
     <div className="flex flex-col h-full bg-gray-50">
+      {/* Messages Area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((message) => (
-          <div key={message.id} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-[80%] rounded-lg px-4 py-2 ${message.type === 'user'
+          <div
+            key={message.id}
+            className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
+          >
+            <div
+              className={`max-w-[80%] rounded-lg px-4 py-2 ${message.type === 'user'
                 ? 'bg-blue-600 text-white'
                 : message.type === 'system'
                   ? 'bg-red-50 text-red-900 border border-red-200'
                   : 'bg-white text-gray-900 border border-gray-200'
-                }`}>
+                }`}
+            >
               <p className="text-sm whitespace-pre-wrap">{message.content}</p>
               <span className="text-xs opacity-70 mt-1 block">
                 {message.timestamp.toLocaleTimeString()}
@@ -218,6 +227,7 @@ const AIFormChat: React.FC<AIFormChatProps> = ({ currentForm, onFormGenerated })
           </div>
         ))}
 
+        {/* Processing Steps */}
         {isProcessing && processingSteps.length > 0 && (
           <div className="bg-white rounded-lg border border-gray-200 p-4">
             <div className="space-y-2">
@@ -236,6 +246,7 @@ const AIFormChat: React.FC<AIFormChatProps> = ({ currentForm, onFormGenerated })
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Error Notice and Retry */}
       {errorMessage && !isProcessing && (
         <div className="border-t border-gray-200 bg-white p-3 flex items-center justify-between">
           <span className="text-sm text-red-600 truncate">{errorMessage}</span>
@@ -248,45 +259,39 @@ const AIFormChat: React.FC<AIFormChatProps> = ({ currentForm, onFormGenerated })
         </div>
       )}
 
+      {/* Input Area */}
       <div className="border-t border-gray-200 bg-white p-4">
-        <div className="flex items-end gap-2 w-full">
+        <div className="flex gap-2">
           <textarea
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Describe the form you want to create or how to modify it..."
-            className="flex-1 min-w-0 resize-none border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="flex-1 resize-none border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             rows={2}
             disabled={isProcessing}
           />
-
           <button
             onClick={handleSend}
             disabled={!input.trim() || isProcessing}
-            className="h-10 w-10 shrink-0 flex items-center justify-center rounded-full bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
-            aria-label="Send message"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             {isProcessing ? (
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                <span>Processing...</span>
+              </>
             ) : (
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M5 12h14M12 5l7 7-7 7"
-                />
-              </svg>
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                <span>Generate</span>
+              </>
             )}
           </button>
         </div>
-
         <p className="text-xs text-gray-500 mt-2">
           Press Enter to send, Shift+Enter for new line
         </p>
