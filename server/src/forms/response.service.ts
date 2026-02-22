@@ -21,10 +21,22 @@ export class ResponseService {
     const { formId, responses, respondentEmail, ipAddress, userAgent } = createResponseDto;
 
     // Convert the responses object to Answer array format
-    const answers = Object.entries(responses).map(([questionId, value]) => ({
-      questionId,
-      value,
-    }));
+    const answers = Object.entries(responses).map(([questionId, value]) => {
+      // Normalize "Other" answers: extract the custom value into metadata
+      if (value && typeof value === 'object' && !Array.isArray(value) && 'other' in value) {
+        return {
+          questionId,
+          value,
+          metadata: {
+            normalizedValue: (value as { other: string }).other,
+          },
+        };
+      }
+      return {
+        questionId,
+        value,
+      };
+    });
 
     // Check if response has text content for analytics
     const hasTextContent = answers.some(answer => {
@@ -34,6 +46,10 @@ export class ResponseService {
       }
       if (Array.isArray(value)) {
         return value.some(v => typeof v === 'string' && v.trim().length > 0);
+      }
+      // Treat "Other" custom values as text content
+      if (value && typeof value === 'object' && 'other' in value) {
+        return typeof value.other === 'string' && value.other.trim().length > 0;
       }
       return false;
     });
@@ -121,9 +137,15 @@ export class ResponseService {
         analytics[answer.questionId].responses.push(answer.value);
 
         // Count occurrences of each value (useful for multiple choice, etc.)
-        const valueKey = Array.isArray(answer.value) 
-          ? answer.value.join(', ') 
-          : String(answer.value);
+        // Normalize "Other" answers: use the custom value for grouping
+        let valueKey: string;
+        if (answer.value && typeof answer.value === 'object' && !Array.isArray(answer.value) && 'other' in answer.value) {
+          valueKey = `Other: ${answer.value.other}`;
+        } else {
+          valueKey = Array.isArray(answer.value) 
+            ? answer.value.join(', ') 
+            : String(answer.value);
+        }
         
         analytics[answer.questionId].valueCount[valueKey] = 
           (analytics[answer.questionId].valueCount[valueKey] || 0) + 1;

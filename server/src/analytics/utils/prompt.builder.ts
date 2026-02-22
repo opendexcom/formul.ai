@@ -214,10 +214,16 @@ RULES:
       responseId: (r._id as Types.ObjectId).toString(),
       answers: r.answers.map(ans => {
         const question = form.questions.find(q => q.id === ans.questionId);
+        // Normalize "Other" answers: use the custom value string, not the raw object
+        const v = (ans as any).value;
+        let displayValue = v;
+        if (v && typeof v === 'object' && !Array.isArray(v) && 'other' in v) {
+          displayValue = (ans as any).metadata?.normalizedValue ?? v.other ?? '';
+        }
         return { 
           questionId: ans.questionId, 
           questionTitle: question?.title, 
-          value: ans.value 
+          value: displayValue 
         };
       })
     }));

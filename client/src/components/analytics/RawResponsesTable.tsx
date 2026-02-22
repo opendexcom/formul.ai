@@ -1,9 +1,19 @@
-import { CheckCircle, Circle, ThumbsUp, ThumbsDown, Minus, Tag } from 'lucide-react';
-import { FormData } from '../../services/formsService';
+import {
+  CheckCircle,
+  Circle,
+  ThumbsUp,
+  ThumbsDown,
+  Minus,
+  Tag,
+} from "lucide-react";
+import { FormData } from "../../services/formsService";
 
 interface ResponseData {
   _id: string;
-  answers: { questionId: string; value: string | number | string[] | boolean | null }[];
+  answers: {
+    questionId: string;
+    value: string | number | string[] | boolean | null;
+  }[];
   submittedAt: Date | string;
   respondentEmail?: string;
   ipAddress?: string;
@@ -31,27 +41,40 @@ interface RawResponsesTableProps {
 export const RawResponsesTable: React.FC<RawResponsesTableProps> = ({
   form,
   responses,
-  showAnalyticsStatus = false
+  showAnalyticsStatus = false,
 }) => {
   if (responses.length === 0) {
     return null;
   }
 
   // Only show Email column if any response includes respondentEmail
-  const includeEmail = responses.some(r => !!r.respondentEmail);
+  const includeEmail = responses.some((r) => !!r.respondentEmail);
 
   // Calculate status counts
-  const analyzedCount = responses.filter(r => r.metadata?.processedForAnalytics).length;
-  const pendingCount = responses.filter(r => r.metadata?.processingTaskId && !r.metadata?.processedForAnalytics).length;
-  const notStartedCount = responses.filter(r => !r.metadata?.processingTaskId && !r.metadata?.processedForAnalytics && r.metadata?.hasTextContent).length;
-  const notAnalyzedCount = responses.filter(r => !r.metadata?.hasTextContent).length;
+  const analyzedCount = responses.filter(
+    (r) => r.metadata?.processedForAnalytics,
+  ).length;
+  const pendingCount = responses.filter(
+    (r) => r.metadata?.processingTaskId && !r.metadata?.processedForAnalytics,
+  ).length;
+  const notStartedCount = responses.filter(
+    (r) =>
+      !r.metadata?.processingTaskId &&
+      !r.metadata?.processedForAnalytics &&
+      r.metadata?.hasTextContent,
+  ).length;
+  const notAnalyzedCount = responses.filter(
+    (r) => !r.metadata?.hasTextContent,
+  ).length;
 
   return (
     <div className="mt-8 bg-white rounded-lg shadow-sm border">
       <div className="p-6 border-b border-gray-200">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">All Responses</h2>
+            <h2 className="text-lg font-semibold text-gray-900">
+              All Responses
+            </h2>
             <p className="text-sm text-gray-600 mt-1">
               Complete list of all form submissions
             </p>
@@ -60,15 +83,11 @@ export const RawResponsesTable: React.FC<RawResponsesTableProps> = ({
             <div className="flex items-center gap-4 text-sm">
               <div className="flex items-center gap-2">
                 <CheckCircle className="w-4 h-4 text-green-600" />
-                <span className="text-gray-700">
-                  {analyzedCount} analyzed
-                </span>
+                <span className="text-gray-700">{analyzedCount} analyzed</span>
               </div>
               <div className="flex items-center gap-2">
                 <Circle className="w-4 h-4 text-amber-500" />
-                <span className="text-gray-700">
-                  {pendingCount} pending
-                </span>
+                <span className="text-gray-700">{pendingCount} pending</span>
               </div>
               <div className="flex items-center gap-2">
                 <Circle className="w-4 h-4 text-gray-400" />
@@ -104,8 +123,11 @@ export const RawResponsesTable: React.FC<RawResponsesTableProps> = ({
                   Email
                 </th>
               )}
-              {form.questions.map(question => (
-                <th key={question.id} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              {form.questions.map((question) => (
+                <th
+                  key={question.id}
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
                   {question.title}
                 </th>
               ))}
@@ -123,33 +145,46 @@ export const RawResponsesTable: React.FC<RawResponsesTableProps> = ({
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {responses.map((response, index) => {
-              const isProcessed = response.metadata?.processedForAnalytics === true;
-              const isPending = response.metadata?.processingTaskId && !isProcessed;
+              const isProcessed =
+                response.metadata?.processedForAnalytics === true;
+              const isPending =
+                response.metadata?.processingTaskId && !isProcessed;
               const hasText = response.metadata?.hasTextContent === true;
 
               return (
-                <tr key={response._id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                <tr
+                  key={response._id}
+                  className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}
+                >
                   {showAnalyticsStatus && (
                     <td className="px-6 py-4 whitespace-nowrap">
                       {isProcessed ? (
                         <div className="flex items-center gap-2">
                           <CheckCircle className="w-4 h-4 text-green-600" />
-                          <span className="text-xs text-green-700 font-medium">Analyzed</span>
+                          <span className="text-xs text-green-700 font-medium">
+                            Analyzed
+                          </span>
                         </div>
                       ) : isPending ? (
                         <div className="flex items-center gap-2">
                           <Circle className="w-4 h-4 text-amber-500 animate-pulse" />
-                          <span className="text-xs text-amber-700 font-medium">Pending</span>
+                          <span className="text-xs text-amber-700 font-medium">
+                            Pending
+                          </span>
                         </div>
                       ) : hasText ? (
                         <div className="flex items-center gap-2">
                           <Circle className="w-4 h-4 text-gray-400" />
-                          <span className="text-xs text-gray-600">Not started</span>
+                          <span className="text-xs text-gray-600">
+                            Not started
+                          </span>
                         </div>
                       ) : (
                         <div className="flex items-center gap-2">
                           <Circle className="w-4 h-4 text-gray-400" />
-                          <span className="text-xs text-gray-600">Not analyzed</span>
+                          <span className="text-xs text-gray-600">
+                            Not analyzed
+                          </span>
                         </div>
                       )}
                     </td>
@@ -159,15 +194,34 @@ export const RawResponsesTable: React.FC<RawResponsesTableProps> = ({
                   </td>
                   {includeEmail && (
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {response.respondentEmail || '-'}
+                      {response.respondentEmail || "-"}
                     </td>
                   )}
-                  {form.questions.map(question => {
-                    const answer = response.answers.find(a => a.questionId === question.id);
-                    const value = answer ? answer.value : '';
+                  {form.questions.map((question) => {
+                    const answer = response.answers.find(
+                      (a) => a.questionId === question.id,
+                    );
+                    const value = answer ? answer.value : "";
+
+                    let displayValue: string = "";
+                    if (Array.isArray(value)) {
+                      displayValue = value.join(", ");
+                    } else if (value && typeof value === "object") {
+                      if ("other" in value) {
+                        displayValue = `Other: ${(value as any).other}`;
+                      } else {
+                        displayValue = JSON.stringify(value);
+                      }
+                    } else {
+                      displayValue = String(value ?? "");
+                    }
+
                     return (
-                      <td key={question.id} className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
-                        {Array.isArray(value) ? value.join(', ') : String(value)}
+                      <td
+                        key={question.id}
+                        className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate"
+                      >
+                        {displayValue}
                       </td>
                     );
                   })}
@@ -175,23 +229,33 @@ export const RawResponsesTable: React.FC<RawResponsesTableProps> = ({
                     <td className="px-6 py-4 whitespace-nowrap">
                       {response.metadata?.overallSentiment?.label ? (
                         <div className="flex items-center gap-2">
-                          {response.metadata.overallSentiment.label === 'positive' ? (
+                          {response.metadata.overallSentiment.label ===
+                          "positive" ? (
                             <ThumbsUp className="w-4 h-4 text-green-600" />
-                          ) : response.metadata.overallSentiment.label === 'negative' ? (
+                          ) : response.metadata.overallSentiment.label ===
+                            "negative" ? (
                             <ThumbsDown className="w-4 h-4 text-red-600" />
                           ) : (
                             <Minus className="w-4 h-4 text-gray-500" />
                           )}
-                          <span className={`text-xs font-medium capitalize ${
-                            response.metadata.overallSentiment.label === 'positive' ? 'text-green-700' :
-                            response.metadata.overallSentiment.label === 'negative' ? 'text-red-700' :
-                            'text-gray-600'
-                          }`}>
+                          <span
+                            className={`text-xs font-medium capitalize ${
+                              response.metadata.overallSentiment.label ===
+                              "positive"
+                                ? "text-green-700"
+                                : response.metadata.overallSentiment.label ===
+                                    "negative"
+                                  ? "text-red-700"
+                                  : "text-gray-600"
+                            }`}
+                          >
                             {response.metadata.overallSentiment.label}
                           </span>
                           {response.metadata.overallSentiment.emotionalTone && (
                             <span className="text-xs text-gray-500">
-                              ({response.metadata.overallSentiment.emotionalTone})
+                              (
+                              {response.metadata.overallSentiment.emotionalTone}
+                              )
                             </span>
                           )}
                         </div>
@@ -202,17 +266,20 @@ export const RawResponsesTable: React.FC<RawResponsesTableProps> = ({
                   )}
                   {showAnalyticsStatus && (
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {response.metadata?.canonicalTopics && response.metadata.canonicalTopics.length > 0 ? (
+                      {response.metadata?.canonicalTopics &&
+                      response.metadata.canonicalTopics.length > 0 ? (
                         <div className="flex items-center gap-1">
-                          {response.metadata.canonicalTopics.slice(0, 3).map((topic, idx) => (
-                            <span
-                              key={idx}
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700 whitespace-nowrap"
-                            >
-                              <Tag className="w-3 h-3" />
-                              {topic}
-                            </span>
-                          ))}
+                          {response.metadata.canonicalTopics
+                            .slice(0, 3)
+                            .map((topic, idx) => (
+                              <span
+                                key={idx}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700 whitespace-nowrap"
+                              >
+                                <Tag className="w-3 h-3" />
+                                {topic}
+                              </span>
+                            ))}
                           {response.metadata.canonicalTopics.length > 3 && (
                             <span className="text-xs text-gray-500 whitespace-nowrap">
                               +{response.metadata.canonicalTopics.length - 3}

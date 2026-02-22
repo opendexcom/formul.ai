@@ -55,6 +55,13 @@ The data model is designed for depth and performance, specifically in the `Form`
 ### Smart Caching
 The `Form` document includes a sophisticated `analytics` field that acts as a persistent cache. This avoids re-calculating expensive AI insights on every read.
 
+### Response Data Structures
+To ensure robust analytics and seamless LLM integration, responses are structured systematically:
+* **Standard Closed Questions:** Values are stored as plain strings or an array of strings (e.g., `"Option A"` or `["Option A", "Option B"]`).
+* **"Other" Custom Values:** For closed questions (Dropdown, Multiple Choice, Checkbox) where `canBeOther` is enabled, user-provided custom text is stored as an object: `{ other: "user custom text" }`.
+  * The backend's `ResponseService` automatically extracts this custom text into `metadata.normalizedValue` upon submission.
+  * The `PromptBuilder` uses this normalized value to ensure LLMs (for RAG and Analytics) receive the exact text provided by the respondent rather than the generic label (e.g., "Other", "Inne").
+
 ### Analytics Capabilities (Stored in `Form.analytics`)
 *   **Topic Analysis:**
     *   Identifies dominant, emerging, and saturated topics.

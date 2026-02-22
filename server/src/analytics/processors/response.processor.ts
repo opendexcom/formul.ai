@@ -50,9 +50,25 @@ export class ResponseProcessor {
     // 1. Claim unprocessed responses (get list and send event to reset frontend to "Not started")
   const claimResult = await this.claimUnprocessedResponses(formId as Types.ObjectId, taskId, progressCallback, allowedResponseIds);
     
-    // 2. Filter to text vs empty responses using pre-calculated metadata
-    const textResponses = claimResult.filter(r => r.metadata.hasTextContent);
-    const emptyResponses = claimResult.filter(r => !r.metadata.hasTextContent);
+    // 2. Filter to text vs empty responses using robust check (handles old responses)
+    const textResponses = claimResult.filter(r => {
+      if (r.metadata.hasTextContent) return true;
+      
+      // Dynamic fallback for older responses or missing metadata
+      return r.answers.some(ans => {
+        const value = ans.value as any;
+        if (typeof value === 'string' && value.trim().length > 0) return true;
+        if (Array.isArray(value)) {
+          return value.some(v => typeof v === 'string' && v.trim().length > 0);
+        }
+        if (value && typeof value === 'object' && 'other' in value) {
+          return typeof value.other === 'string' && value.other.trim().length > 0;
+        }
+        return false;
+      });
+    });
+
+    const emptyResponses = claimResult.filter(r => !textResponses.find(tr => tr._id.equals(r._id)));
 
     // 3. Mark empty responses as processed immediately (no analysis needed)
     if (emptyResponses.length > 0) {

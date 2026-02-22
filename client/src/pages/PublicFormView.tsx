@@ -1,11 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { Send, AlertCircle, CheckCircle } from 'lucide-react';
-import { FormData, Question, QuestionType } from '../services/formsService';
-import { Button, LoadingSpinner, Alert } from '../components/ui';
+import React, { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { Send, AlertCircle, CheckCircle } from "lucide-react";
+import { FormData, Question, QuestionType } from "../services/formsService";
+import { Button, LoadingSpinner, Alert } from "../components/ui";
 
 interface FormResponse {
-  [questionId: string]: string | number | string[] | boolean | null;
+  [questionId: string]:
+    | string
+    | number
+    | string[]
+    | boolean
+    | { other: string }
+    | null;
 }
 
 const PublicFormView: React.FC = () => {
@@ -15,9 +21,11 @@ const PublicFormView: React.FC = () => {
   const [responses, setResponses] = useState<FormResponse>({});
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [submitted, setSubmitted] = useState(false);
-  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const [validationErrors, setValidationErrors] = useState<
+    Record<string, string>
+  >({});
   const [currentPage, setCurrentPage] = useState(0);
   const questionsPerPage = 5;
 
@@ -30,39 +38,47 @@ const PublicFormView: React.FC = () => {
   const loadPublicForm = async (id: string) => {
     try {
       setLoading(true);
-      setError('');
+      setError("");
 
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api'}/public/forms/${id}`);
+      const response = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL || "http://localhost:3001/api"}/public/forms/${id}`,
+      );
 
       if (!response.ok) {
         if (response.status === 404) {
-          throw new Error('Form not found');
+          throw new Error("Form not found");
         } else if (response.status === 403) {
-          throw new Error('This form is not publicly available or is no longer accepting responses');
+          throw new Error(
+            "This form is not publicly available or is no longer accepting responses",
+          );
         } else {
-          throw new Error('Failed to load form');
+          throw new Error("Failed to load form");
         }
       }
 
       const formData = await response.json();
       setForm(formData);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to load form';
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to load form";
       setError(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleInputChange = (questionId: string, value: string | number | string[] | boolean) => {
-    setResponses(prev => ({
+  const handleInputChange = (
+    questionId: string,
+    value: string | number | string[] | boolean | { other: string },
+  ) => {
+    setResponses((prev) => ({
       ...prev,
-      [questionId]: value
+      [questionId]: value,
     }));
 
     // Clear validation error when user starts typing
     if (validationErrors[questionId]) {
-      setValidationErrors(prev => {
+      setValidationErrors((prev) => {
         const { [questionId]: removed, ...rest } = prev;
         return rest;
       });
@@ -74,9 +90,12 @@ const PublicFormView: React.FC = () => {
 
     const errors: Record<string, string> = {};
 
-    form.questions.forEach(question => {
-      if (question.required && (!responses[question.id] || responses[question.id] === '')) {
-        errors[question.id] = 'This field is required';
+    form.questions.forEach((question) => {
+      if (
+        question.required &&
+        (!responses[question.id] || responses[question.id] === "")
+      ) {
+        errors[question.id] = "This field is required";
       }
 
       // Add specific validation based on question type
@@ -84,13 +103,16 @@ const PublicFormView: React.FC = () => {
         switch (question.type) {
           case QuestionType.EMAIL:
             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (typeof responses[question.id] === 'string' && !emailRegex.test(responses[question.id] as string)) {
-              errors[question.id] = 'Please enter a valid email address';
+            if (
+              typeof responses[question.id] === "string" &&
+              !emailRegex.test(responses[question.id] as string)
+            ) {
+              errors[question.id] = "Please enter a valid email address";
             }
             break;
           case QuestionType.NUMBER:
             if (isNaN(Number(responses[question.id]))) {
-              errors[question.id] = 'Please enter a valid number';
+              errors[question.id] = "Please enter a valid number";
             }
             break;
         }
@@ -110,19 +132,22 @@ const PublicFormView: React.FC = () => {
 
     try {
       setSubmitting(true);
-      setError('');
+      setError("");
 
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api'}/public/forms/${formId}/responses`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const response = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL || "http://localhost:3001/api"}/public/forms/${formId}/responses`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            formId,
+            responses,
+            submittedAt: new Date().toISOString(),
+          }),
         },
-        body: JSON.stringify({
-          formId,
-          responses,
-          submittedAt: new Date().toISOString(),
-        }),
-      });
+      );
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -132,12 +157,13 @@ const PublicFormView: React.FC = () => {
       await response.json();
 
       if (!response.ok) {
-        throw new Error('Failed to submit response');
+        throw new Error("Failed to submit response");
       }
 
       setSubmitted(true);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to submit response';
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to submit response";
       setError(errorMessage);
     } finally {
       setSubmitting(false);
@@ -145,11 +171,12 @@ const PublicFormView: React.FC = () => {
   };
 
   const renderQuestion = (question: Question) => {
-    const value = responses[question.id] ?? '';
+    const value = responses[question.id] ?? "";
     const hasError = validationErrors[question.id];
 
-    const inputClasses = `w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${hasError ? 'border-red-300' : 'border-gray-300'
-      }`;
+    const inputClasses = `w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+      hasError ? "border-red-300" : "border-gray-300"
+    }`;
 
     switch (question.type) {
       case QuestionType.TEXT:
@@ -226,12 +253,49 @@ const PublicFormView: React.FC = () => {
                   name={question.id}
                   value={option}
                   checked={value === option}
-                  onChange={(e) => handleInputChange(question.id, e.target.value)}
+                  onChange={(e) =>
+                    handleInputChange(question.id, e.target.value)
+                  }
                   className="text-blue-600 focus:ring-blue-500"
                 />
                 <span>{option}</span>
               </label>
             ))}
+            {question.canBeOther && (
+              <label className="flex items-center space-x-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name={question.id}
+                  value="__other__"
+                  checked={
+                    typeof value === "object" &&
+                    value !== null &&
+                    !Array.isArray(value) &&
+                    "other" in value
+                  }
+                  onChange={() => handleInputChange(question.id, { other: "" })}
+                  className="text-blue-600 focus:ring-blue-500"
+                />
+                <span>Other</span>
+              </label>
+            )}
+            {typeof value === "object" &&
+              value !== null &&
+              !Array.isArray(value) &&
+              "other" in value && (
+                <div className="ml-6 mt-2">
+                  <input
+                    type="text"
+                    className={inputClasses}
+                    value={(value as { other: string }).other}
+                    onChange={(e) =>
+                      handleInputChange(question.id, { other: e.target.value })
+                    }
+                    placeholder="Please specify..."
+                    autoFocus
+                  />
+                </div>
+              )}
           </div>
         );
 
@@ -247,9 +311,15 @@ const PublicFormView: React.FC = () => {
                   onChange={(e) => {
                     const currentValues = Array.isArray(value) ? value : [];
                     if (e.target.checked) {
-                      handleInputChange(question.id, [...currentValues, option]);
+                      handleInputChange(question.id, [
+                        ...currentValues,
+                        option,
+                      ]);
                     } else {
-                      handleInputChange(question.id, currentValues.filter(v => v !== option));
+                      handleInputChange(
+                        question.id,
+                        currentValues.filter((v) => v !== option),
+                      );
                     }
                   }}
                   className="text-blue-600 focus:ring-blue-500"
@@ -257,30 +327,100 @@ const PublicFormView: React.FC = () => {
                 <span>{option}</span>
               </label>
             ))}
+            {question.canBeOther && (
+              <label className="flex items-center space-x-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={
+                    typeof value === "object" &&
+                    value !== null &&
+                    !Array.isArray(value) &&
+                    "other" in value
+                  }
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      handleInputChange(question.id, { other: "" });
+                    } else {
+                      handleInputChange(question.id, []);
+                    }
+                  }}
+                  className="text-blue-600 focus:ring-blue-500"
+                />
+                <span>Other</span>
+              </label>
+            )}
+            {typeof value === "object" &&
+              value !== null &&
+              !Array.isArray(value) &&
+              "other" in value && (
+                <div className="ml-6 mt-2">
+                  <input
+                    type="text"
+                    className={inputClasses}
+                    value={(value as { other: string }).other}
+                    onChange={(e) =>
+                      handleInputChange(question.id, { other: e.target.value })
+                    }
+                    placeholder="Please specify..."
+                    autoFocus
+                  />
+                </div>
+              )}
           </div>
         );
 
       case QuestionType.DROPDOWN:
         return (
-          <select
-            className={inputClasses}
-            value={value as string}
-            onChange={(e) => handleInputChange(question.id, e.target.value)}
-          >
-            <option value="">Select an option</option>
-            {question.options?.map((option, index) => (
-              <option key={index} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
+          <div className="space-y-3">
+            <select
+              className={inputClasses}
+              value={
+                typeof value === "object" && value !== null
+                  ? "__other__"
+                  : (value as string)
+              }
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === "__other__") {
+                  handleInputChange(question.id, { other: "" });
+                } else {
+                  handleInputChange(question.id, val);
+                }
+              }}
+            >
+              <option value="">Select an option</option>
+              {question.options?.map((option, index) => (
+                <option key={index} value={option}>
+                  {option}
+                </option>
+              ))}
+              {question.canBeOther && <option value="__other__">Other</option>}
+            </select>
+            {typeof value === "object" &&
+              value !== null &&
+              "other" in value && (
+                <input
+                  type="text"
+                  className={inputClasses}
+                  value={(value as { other: string }).other}
+                  onChange={(e) =>
+                    handleInputChange(question.id, { other: e.target.value })
+                  }
+                  placeholder="Please specify..."
+                  autoFocus
+                />
+              )}
+          </div>
         );
 
       case QuestionType.RATING:
         const minRating = Number(question.validation?.min?.value) || 1;
         const maxRating = Number(question.validation?.max?.value) || 5;
-        const ratingRange = Array.from({ length: maxRating - minRating + 1 }, (_, i) => minRating + i);
-        
+        const ratingRange = Array.from(
+          { length: maxRating - minRating + 1 },
+          (_, i) => minRating + i,
+        );
+
         return (
           <div className="flex items-center space-x-1">
             {ratingRange.map((rating) => (
@@ -289,7 +429,7 @@ const PublicFormView: React.FC = () => {
                 type="button"
                 onClick={() => handleInputChange(question.id, rating)}
                 className={`w-8 h-8 ${
-                  Number(value) >= rating ? 'text-yellow-400' : 'text-gray-300'
+                  Number(value) >= rating ? "text-yellow-400" : "text-gray-300"
                 } hover:text-yellow-400 transition-colors`}
               >
                 <svg fill="currentColor" viewBox="0 0 24 24">
@@ -329,14 +469,10 @@ const PublicFormView: React.FC = () => {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full">
-          <Alert
-            type="error"
-            message={error}
-            className="mb-4"
-          />
+          <Alert type="error" message={error} className="mb-4" />
           <Button
             variant="secondary"
-            onClick={() => navigate('/')}
+            onClick={() => navigate("/")}
             className="w-full"
           >
             Go Home
@@ -360,7 +496,7 @@ const PublicFormView: React.FC = () => {
             </p>
             <Button
               variant="secondary"
-              onClick={() => navigate('/')}
+              onClick={() => navigate("/")}
               className="w-full"
             >
               Go Home
@@ -376,18 +512,22 @@ const PublicFormView: React.FC = () => {
   const totalPages = Math.ceil(form.questions.length / questionsPerPage);
   const currentQuestions = form.questions
     .sort((a, b) => a.order - b.order)
-    .slice(currentPage * questionsPerPage, (currentPage + 1) * questionsPerPage);
-  
-  const progressPercentage = form.settings?.showProgressBar 
+    .slice(
+      currentPage * questionsPerPage,
+      (currentPage + 1) * questionsPerPage,
+    );
+
+  const progressPercentage = form.settings?.showProgressBar
     ? Math.round(((currentPage + 1) / Math.max(totalPages, 1)) * 100)
     : 0;
 
   return (
-    <div 
+    <div
       className="min-h-screen p-8"
-      style={{ 
-        backgroundColor: form.settings?.customTheme?.backgroundColor || '#F9FAFB',
-        fontFamily: form.settings?.customTheme?.fontFamily || 'Inter'
+      style={{
+        backgroundColor:
+          form.settings?.customTheme?.backgroundColor || "#F9FAFB",
+        fontFamily: form.settings?.customTheme?.fontFamily || "Inter",
       }}
     >
       <div className="max-w-3xl mx-auto">
@@ -403,7 +543,8 @@ const PublicFormView: React.FC = () => {
                 className="h-2 rounded-full transition-all duration-300"
                 style={{
                   width: `${progressPercentage}%`,
-                  backgroundColor: form.settings?.customTheme?.primaryColor || '#3B82F6'
+                  backgroundColor:
+                    form.settings?.customTheme?.primaryColor || "#3B82F6",
                 }}
               />
             </div>
@@ -424,28 +565,37 @@ const PublicFormView: React.FC = () => {
             )}
           </div>
 
-          {error && (
-            <Alert
-              type="error"
-              message={error}
-              className="mb-6"
-            />
-          )}
+          {error && <Alert type="error" message={error} className="mb-6" />}
 
           {/* Questions */}
           {currentQuestions.length === 0 ? (
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
               <div className="text-gray-400 mb-4">
-                <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                <svg
+                  className="w-16 h-16 mx-auto"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1}
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
                 </svg>
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No questions yet</h3>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                No questions yet
+              </h3>
               <p className="text-gray-500">This form has no questions.</p>
             </div>
           ) : (
             currentQuestions.map((question) => (
-              <div key={question.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div
+                key={question.id}
+                className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
+              >
                 <div className="mb-4">
                   <label className="block text-lg font-medium text-gray-900 mb-2">
                     {question.title}
@@ -480,21 +630,24 @@ const PublicFormView: React.FC = () => {
                   {totalPages > 1 && currentPage > 0 && (
                     <button
                       type="button"
-                      onClick={() => setCurrentPage(prev => prev - 1)}
+                      onClick={() => setCurrentPage((prev) => prev - 1)}
                       className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
                     >
                       Previous
                     </button>
                   )}
                 </div>
-                
+
                 <div className="flex space-x-4">
                   {totalPages > 1 && currentPage < totalPages - 1 ? (
                     <button
                       type="button"
-                      onClick={() => setCurrentPage(prev => prev + 1)}
+                      onClick={() => setCurrentPage((prev) => prev + 1)}
                       className="px-6 py-2 text-white rounded-md hover:opacity-90"
-                      style={{ backgroundColor: form.settings?.customTheme?.primaryColor || '#3B82F6' }}
+                      style={{
+                        backgroundColor:
+                          form.settings?.customTheme?.primaryColor || "#3B82F6",
+                      }}
                     >
                       Next
                     </button>
@@ -506,9 +659,12 @@ const PublicFormView: React.FC = () => {
                       icon={Send}
                       loading={submitting}
                       disabled={submitting}
-                      style={{ backgroundColor: form.settings?.customTheme?.primaryColor }}
+                      style={{
+                        backgroundColor:
+                          form.settings?.customTheme?.primaryColor,
+                      }}
                     >
-                      {submitting ? 'Submitting...' : 'Submit'}
+                      {submitting ? "Submitting..." : "Submit"}
                     </Button>
                   )}
                 </div>

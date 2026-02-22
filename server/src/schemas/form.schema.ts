@@ -41,6 +41,9 @@ export class Question {
 
   @Prop({ type: Object })
   validation?: Record<string, any>;
+
+  @Prop({ default: false })
+  canBeOther: boolean;
 }
 
 export const QuestionSchema = SchemaFactory.createForClass(Question);

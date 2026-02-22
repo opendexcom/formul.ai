@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { FormData, Question, QuestionType } from '../../services/formsService';
+import React, { useState } from "react";
+import { FormData, Question, QuestionType } from "../../services/formsService";
 
 interface FormPreviewProps {
   form: FormData;
@@ -9,27 +9,30 @@ const FormPreview: React.FC<FormPreviewProps> = ({ form }) => {
   const [responses, setResponses] = useState<Record<string, any>>({});
   const [currentPage, setCurrentPage] = useState(0);
   const questionsPerPage = 5; // For pagination if needed
-  
+
   const totalPages = Math.ceil(form.questions.length / questionsPerPage);
   const currentQuestions = form.questions
     .sort((a, b) => a.order - b.order)
-    .slice(currentPage * questionsPerPage, (currentPage + 1) * questionsPerPage);
+    .slice(
+      currentPage * questionsPerPage,
+      (currentPage + 1) * questionsPerPage,
+    );
 
   const handleInputChange = (questionId: string, value: any) => {
-    setResponses(prev => ({
+    setResponses((prev) => ({
       ...prev,
-      [questionId]: value
+      [questionId]: value,
     }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Form submitted:', responses);
-    alert('Form submitted successfully! (Preview mode)');
+    console.log("Form submitted:", responses);
+    alert("Form submitted successfully! (Preview mode)");
   };
 
   const renderQuestionInput = (question: Question) => {
-    const value = responses[question.id] || '';
+    const value = responses[question.id] || "";
 
     switch (question.type) {
       case QuestionType.TEXT:
@@ -95,19 +98,59 @@ const FormPreview: React.FC<FormPreviewProps> = ({ form }) => {
         return (
           <div className="space-y-3">
             {question.options?.map((option, index) => (
-              <label key={index} className="flex items-center space-x-3 cursor-pointer">
+              <label
+                key={index}
+                className="flex items-center space-x-3 cursor-pointer"
+              >
                 <input
                   type="radio"
                   name={question.id}
                   value={option}
                   checked={value === option}
-                  onChange={(e) => handleInputChange(question.id, e.target.value)}
+                  onChange={(e) =>
+                    handleInputChange(question.id, e.target.value)
+                  }
                   className="text-blue-600 focus:ring-blue-500"
                   required={question.required}
                 />
                 <span className="text-gray-700">{option}</span>
               </label>
             ))}
+            {question.canBeOther && (
+              <label className="flex items-center space-x-3 cursor-pointer">
+                <input
+                  type="radio"
+                  name={question.id}
+                  value="__other__"
+                  checked={
+                    typeof value === "object" &&
+                    value !== null &&
+                    !Array.isArray(value) &&
+                    "other" in value
+                  }
+                  onChange={() => handleInputChange(question.id, { other: "" })}
+                  className="text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-gray-700">Other</span>
+              </label>
+            )}
+            {typeof value === "object" &&
+              value !== null &&
+              !Array.isArray(value) &&
+              "other" in value && (
+                <div className="ml-8 mt-2">
+                  <input
+                    type="text"
+                    className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    value={(value as { other: string }).other}
+                    onChange={(e) =>
+                      handleInputChange(question.id, { other: e.target.value })
+                    }
+                    placeholder="Please specify..."
+                    autoFocus
+                  />
+                </div>
+              )}
           </div>
         );
 
@@ -115,7 +158,10 @@ const FormPreview: React.FC<FormPreviewProps> = ({ form }) => {
         return (
           <div className="space-y-3">
             {question.options?.map((option, index) => (
-              <label key={index} className="flex items-center space-x-3 cursor-pointer">
+              <label
+                key={index}
+                className="flex items-center space-x-3 cursor-pointer"
+              >
                 <input
                   type="checkbox"
                   value={option}
@@ -124,7 +170,7 @@ const FormPreview: React.FC<FormPreviewProps> = ({ form }) => {
                     const currentValues = Array.isArray(value) ? value : [];
                     const newValues = e.target.checked
                       ? [...currentValues, option]
-                      : currentValues.filter(v => v !== option);
+                      : currentValues.filter((v) => v !== option);
                     handleInputChange(question.id, newValues);
                   }}
                   className="text-blue-600 focus:ring-blue-500"
@@ -132,31 +178,101 @@ const FormPreview: React.FC<FormPreviewProps> = ({ form }) => {
                 <span className="text-gray-700">{option}</span>
               </label>
             ))}
+            {question.canBeOther && (
+              <label className="flex items-center space-x-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={
+                    typeof value === "object" &&
+                    value !== null &&
+                    !Array.isArray(value) &&
+                    "other" in value
+                  }
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      handleInputChange(question.id, { other: "" });
+                    } else {
+                      handleInputChange(question.id, []);
+                    }
+                  }}
+                  className="text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-gray-700">Other</span>
+              </label>
+            )}
+            {typeof value === "object" &&
+              value !== null &&
+              !Array.isArray(value) &&
+              "other" in value && (
+                <div className="ml-8 mt-2">
+                  <input
+                    type="text"
+                    className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    value={(value as { other: string }).other}
+                    onChange={(e) =>
+                      handleInputChange(question.id, { other: e.target.value })
+                    }
+                    placeholder="Please specify..."
+                    autoFocus
+                  />
+                </div>
+              )}
           </div>
         );
 
       case QuestionType.DROPDOWN:
         return (
-          <select
-            value={value}
-            onChange={(e) => handleInputChange(question.id, e.target.value)}
-            className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            required={question.required}
-          >
-            <option value="">Choose an option</option>
-            {question.options?.map((option, index) => (
-              <option key={index} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
+          <div className="space-y-3">
+            <select
+              value={
+                typeof value === "object" && value !== null
+                  ? "__other__"
+                  : (value as string)
+              }
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === "__other__") {
+                  handleInputChange(question.id, { other: "" });
+                } else {
+                  handleInputChange(question.id, val);
+                }
+              }}
+              className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              required={question.required}
+            >
+              <option value="">Choose an option</option>
+              {question.options?.map((option, index) => (
+                <option key={index} value={option}>
+                  {option}
+                </option>
+              ))}
+              {question.canBeOther && <option value="__other__">Other</option>}
+            </select>
+            {typeof value === "object" &&
+              value !== null &&
+              "other" in value && (
+                <input
+                  type="text"
+                  className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  value={(value as { other: string }).other}
+                  onChange={(e) =>
+                    handleInputChange(question.id, { other: e.target.value })
+                  }
+                  placeholder="Please specify..."
+                  autoFocus
+                />
+              )}
+          </div>
         );
 
       case QuestionType.RATING:
         const minRating = Number(question.validation?.min?.value) || 1;
         const maxRating = Number(question.validation?.max?.value) || 5;
-        const ratingRange = Array.from({ length: maxRating - minRating + 1 }, (_, i) => minRating + i);
-        
+        const ratingRange = Array.from(
+          { length: maxRating - minRating + 1 },
+          (_, i) => minRating + i,
+        );
+
         return (
           <div className="flex items-center space-x-1">
             {ratingRange.map((rating) => (
@@ -165,7 +281,7 @@ const FormPreview: React.FC<FormPreviewProps> = ({ form }) => {
                 type="button"
                 onClick={() => handleInputChange(question.id, rating)}
                 className={`w-8 h-8 ${
-                  value >= rating ? 'text-yellow-400' : 'text-gray-300'
+                  value >= rating ? "text-yellow-400" : "text-gray-300"
                 } hover:text-yellow-400 transition-colors`}
               >
                 <svg fill="currentColor" viewBox="0 0 24 24">
@@ -185,30 +301,47 @@ const FormPreview: React.FC<FormPreviewProps> = ({ form }) => {
     }
   };
 
-  const progressPercentage = form.settings.showProgressBar 
+  const progressPercentage = form.settings.showProgressBar
     ? Math.round(((currentPage + 1) / Math.max(totalPages, 1)) * 100)
     : 0;
 
   return (
-    <div 
+    <div
       className="min-h-screen p-8"
-      style={{ 
-        backgroundColor: form.settings.customTheme?.backgroundColor || '#F9FAFB',
-        fontFamily: form.settings.customTheme?.fontFamily || 'Inter'
+      style={{
+        backgroundColor:
+          form.settings.customTheme?.backgroundColor || "#F9FAFB",
+        fontFamily: form.settings.customTheme?.fontFamily || "Inter",
       }}
     >
       <div className="max-w-3xl mx-auto">
         {/* Preview Mode Banner */}
         <div className="bg-blue-100 border border-blue-300 rounded-lg p-4 mb-6">
           <div className="flex items-center space-x-2">
-            <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            <svg
+              className="w-5 h-5 text-blue-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+              />
             </svg>
             <span className="text-blue-800 font-medium">Preview Mode</span>
           </div>
           <p className="text-blue-700 text-sm mt-1">
-            This is how your form will appear to respondents. Submissions will not be saved.
+            This is how your form will appear to respondents. Submissions will
+            not be saved.
           </p>
         </div>
 
@@ -224,7 +357,8 @@ const FormPreview: React.FC<FormPreviewProps> = ({ form }) => {
                 className="h-2 rounded-full transition-all duration-300"
                 style={{
                   width: `${progressPercentage}%`,
-                  backgroundColor: form.settings.customTheme?.primaryColor || '#3B82F6'
+                  backgroundColor:
+                    form.settings.customTheme?.primaryColor || "#3B82F6",
                 }}
               />
             </div>
@@ -249,16 +383,33 @@ const FormPreview: React.FC<FormPreviewProps> = ({ form }) => {
           {currentQuestions.length === 0 ? (
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
               <div className="text-gray-400 mb-4">
-                <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                <svg
+                  className="w-16 h-16 mx-auto"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1}
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
                 </svg>
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No questions yet</h3>
-              <p className="text-gray-500">Add some questions to see the preview</p>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                No questions yet
+              </h3>
+              <p className="text-gray-500">
+                Add some questions to see the preview
+              </p>
             </div>
           ) : (
             currentQuestions.map((question) => (
-              <div key={question.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div
+                key={question.id}
+                className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
+              >
                 <div className="mb-4">
                   <label className="block text-lg font-medium text-gray-900 mb-2">
                     {question.title}
@@ -285,21 +436,24 @@ const FormPreview: React.FC<FormPreviewProps> = ({ form }) => {
                   {totalPages > 1 && currentPage > 0 && (
                     <button
                       type="button"
-                      onClick={() => setCurrentPage(prev => prev - 1)}
+                      onClick={() => setCurrentPage((prev) => prev - 1)}
                       className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
                     >
                       Previous
                     </button>
                   )}
                 </div>
-                
+
                 <div className="flex space-x-4">
                   {totalPages > 1 && currentPage < totalPages - 1 ? (
                     <button
                       type="button"
-                      onClick={() => setCurrentPage(prev => prev + 1)}
+                      onClick={() => setCurrentPage((prev) => prev + 1)}
                       className="px-6 py-2 text-white rounded-md hover:opacity-90"
-                      style={{ backgroundColor: form.settings.customTheme?.primaryColor || '#3B82F6' }}
+                      style={{
+                        backgroundColor:
+                          form.settings.customTheme?.primaryColor || "#3B82F6",
+                      }}
                     >
                       Next
                     </button>
@@ -307,7 +461,10 @@ const FormPreview: React.FC<FormPreviewProps> = ({ form }) => {
                     <button
                       type="submit"
                       className="px-6 py-2 text-white rounded-md hover:opacity-90"
-                      style={{ backgroundColor: form.settings.customTheme?.primaryColor || '#3B82F6' }}
+                      style={{
+                        backgroundColor:
+                          form.settings.customTheme?.primaryColor || "#3B82F6",
+                      }}
                     >
                       Submit
                     </button>

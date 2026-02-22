@@ -62,6 +62,7 @@ interface Question {
   required: boolean;
   options?: string[];
   order: number;
+  canBeOther?: boolean;
 }
 
 interface Form {
@@ -344,11 +345,17 @@ function generateFallbackValue(question: Question): any {
       return randomTexts.slice(0, 2 + Math.floor(Math.random() * 3)).join(' ');
     case QuestionType.MULTIPLE_CHOICE:
     case QuestionType.DROPDOWN:
+      if (question.canBeOther && Math.random() < 0.25) {
+        return { other: `Custom option for ${question.title}` };
+      }
       if (question.options && question.options.length > 0) {
         return question.options[Math.floor(Math.random() * question.options.length)];
       }
       return 'Option A';
     case QuestionType.CHECKBOX:
+      if (question.canBeOther && Math.random() < 0.25) {
+        return { other: `Custom check for ${question.title}` };
+      }
       if (question.options && question.options.length > 0) {
         const count = 1 + Math.floor(Math.random() * Math.min(3, question.options.length));
         const shuffled = [...question.options].sort(() => Math.random() - 0.5);
@@ -375,15 +382,15 @@ function generateFallbackValue(question: Question): any {
 }
 
 // Check if response has text content
-function hasTextContent(answers: Answer[], questions: Question[]): boolean {
-  return answers.some((answer) => {
-    const question = questions.find((q) => q.id === answer.questionId);
-    if (!question) return false;
-    return (
-      (question.type === QuestionType.TEXT || question.type === QuestionType.TEXTAREA) &&
-      typeof answer.value === 'string' &&
-      answer.value.trim().length > 0
-    );
+function hasTextContent(answers: Answer[]): boolean {
+  return answers.some((ans) => {
+    const v = ans.value;
+    if (typeof v === 'string' && v.trim().length > 0) return true;
+    if (Array.isArray(v)) return v.some((i) => typeof i === 'string' && i.trim().length > 0);
+    if (v && typeof v === 'object' && !Array.isArray(v) && 'other' in v) {
+      return (v as { other: string }).other.trim().length > 0;
+    }
+    return false;
   });
 }
 
@@ -598,7 +605,22 @@ async function main() {
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
     } else {
-      answers = generateFallbackResponse(form);
+      answers = form.questions.map((question) => {
+        const value = generateFallbackValue(question);
+        const answer: any = {
+          questionId: question.id,
+          value,
+        };
+
+        // Normalize "Other" answers
+        if (value && typeof value === 'object' && !Array.isArray(value) && 'other' in value) {
+          answer.metadata = {
+            normalizedValue: (value as { other: string }).other,
+          };
+        }
+
+        return answer;
+      });
     }
 
     generatedCounts[currentSentiment]++;
@@ -608,7 +630,7 @@ async function main() {
       answers,
       submittedAt: new Date(Date.now() - Math.floor(Math.random() * 30 * 24 * 60 * 60 * 1000)), // Random date within last 30 days
       metadata: {
-        hasTextContent: hasTextContent(answers, form.questions),
+        hasTextContent: hasTextContent(answers),
         processedForAnalytics: false,
         extractedKeywords: [],
       },
