@@ -39,6 +39,11 @@ import { DeadLetterConsumer } from './dead-letter.consumer';
           removeOnComplete: 1000,
           removeOnFail: false,
         },
+        settings: {
+          lockDuration: 300000,
+          stalledInterval: 300000,
+          maxStalledCount: 5,
+        },
       },
       {
         name: QueueName.RESPONSE_PROCESSING,
@@ -47,6 +52,11 @@ import { DeadLetterConsumer } from './dead-letter.consumer';
           backoff: { type: 'exponential', delay: 5000 },
           removeOnComplete: 1000,
           removeOnFail: false,
+        },
+        settings: {
+          lockDuration: 300000,
+          stalledInterval: 300000,
+          maxStalledCount: 5,
         },
       },
       {
@@ -57,6 +67,11 @@ import { DeadLetterConsumer } from './dead-letter.consumer';
           removeOnComplete: 1000,
           removeOnFail: false,
         },
+        settings: {
+          lockDuration: 300000,
+          stalledInterval: 300000,
+          maxStalledCount: 5,
+        },
       },
       {
         name: QueueName.AGGREGATION,
@@ -66,6 +81,11 @@ import { DeadLetterConsumer } from './dead-letter.consumer';
           removeOnComplete: 1000,
           removeOnFail: false,
         },
+        settings: {
+          lockDuration: 300000,
+          stalledInterval: 300000,
+          maxStalledCount: 5,
+        },
       },
       {
         name: QueueName.AI_GENERATION,
@@ -74,6 +94,11 @@ import { DeadLetterConsumer } from './dead-letter.consumer';
           backoff: { type: 'exponential', delay: 5000 },
           removeOnComplete: 1000,
           removeOnFail: false,
+        },
+        settings: {
+          lockDuration: 300000,
+          stalledInterval: 300000,
+          maxStalledCount: 5,
         },
       },
       {
