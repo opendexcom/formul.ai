@@ -219,6 +219,16 @@ const PublicFormView: React.FC = () => {
             className={inputClasses}
             value={value as string | number}
             onChange={(e) => handleInputChange(question.id, e.target.value)}
+            onBlur={(e) => {
+              if (e.target.value !== '' && isNaN(Number(e.target.value))) {
+                setValidationErrors(prev => ({ ...prev, [question.id]: 'Please enter a valid number' }));
+              } else {
+                setValidationErrors(prev => {
+                  const { [question.id]: removed, ...rest } = prev;
+                  return rest;
+                });
+              }
+            }}
             placeholder="Enter a number"
           />
         );

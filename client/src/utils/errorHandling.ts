@@ -1,20 +1,39 @@
 import axios, { AxiosError } from 'axios';
 
+/** Response body shape for NestJS validation (400) and other API errors */
+interface ApiErrorData {
+  message?: string | string[];
+  error?: string;
+}
+
+/**
+ * Normalizes API error message (NestJS sends validation errors as message: string[]).
+ * Strips trailing periods from each segment and joins with ". " so single- and multi-element
+ * arrays are handled consistently (no trailing period kept only for single errors).
+ */
+function normalizeMessage(message: string | string[]): string {
+  if (!Array.isArray(message)) return message;
+  const segments = message.map((m) =>
+    typeof m === 'string' ? m.replace(/\.+$/, '').trim() : String(m),
+  );
+  return segments.join('. ');
+}
+
 /**
  * Extracts a user-friendly error message from various error types
  */
 export const getErrorMessage = (error: unknown): string => {
   if (axios.isAxiosError(error)) {
-    const axiosError = error as AxiosError<{ message?: string; error?: string }>;
+    const axiosError = error as AxiosError<ApiErrorData>;
 
-    // Try to extract message from response
+    // Try to extract message from response (e.g. 400 validation from backend)
     if (axiosError.response?.data) {
       const data = axiosError.response.data;
       if (typeof data === 'string') {
         return data;
       }
-      if (data.message) {
-        return data.message;
+      if (data.message !== undefined && data.message !== null) {
+        return normalizeMessage(data.message);
       }
       if (data.error) {
         return typeof data.error === 'string' ? data.error : JSON.stringify(data.error);

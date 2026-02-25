@@ -11,6 +11,8 @@ import PublicFormView from './pages/PublicFormView';
 import EmailConfirmation from './pages/EmailConfirmation';
 import ResetPassword from './pages/ResetPassword';
 import AdminSettings from './pages/AdminSettings';
+import AdminDashboardPage from './pages/AdminDashboardPage';
+import UserBillingPage from './pages/UserBillingPage';
 import './App.css';
 
 // Protected Route Component
@@ -116,6 +118,22 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <AdminSettings />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin"
+                element={
+                  <ProtectedRoute>
+                    <AdminDashboardPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/settings/billing"
+                element={
+                  <ProtectedRoute>
+                    <UserBillingPage />
                   </ProtectedRoute>
                 }
               />

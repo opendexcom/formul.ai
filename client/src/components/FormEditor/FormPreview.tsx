@@ -7,6 +7,7 @@ interface FormPreviewProps {
 
 const FormPreview: React.FC<FormPreviewProps> = ({ form }) => {
   const [responses, setResponses] = useState<Record<string, any>>({});
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [currentPage, setCurrentPage] = useState(0);
   const questionsPerPage = 5; // For pagination if needed
 
@@ -18,11 +19,38 @@ const FormPreview: React.FC<FormPreviewProps> = ({ form }) => {
       (currentPage + 1) * questionsPerPage,
     );
 
-  const handleInputChange = (questionId: string, value: any) => {
-    setResponses((prev) => ({
+  const handleInputChange = (questionId: string, value: any, questionType?: QuestionType) => {
+    let processedValue = value;
+    
+    if (questionType === QuestionType.NUMBER) {
+      const filtered = value.replace(/[^0-9.-]/g, '');
+      processedValue = filtered;
+    }
+    
+    setResponses(prev => ({
       ...prev,
-      [questionId]: value,
+      [questionId]: processedValue
     }));
+
+    if (questionType === QuestionType.NUMBER && processedValue !== '' && isNaN(Number(processedValue))) {
+      setValidationErrors(prev => ({ ...prev, [questionId]: 'Please enter a valid number' }));
+    } else if (questionType === QuestionType.NUMBER) {
+      setValidationErrors(prev => {
+        const { [questionId]: removed, ...rest } = prev;
+        return rest;
+      });
+    }
+  };
+
+  const validateNumberOnBlur = (questionId: string, value: any) => {
+    if (value !== '' && isNaN(Number(value))) {
+      setValidationErrors(prev => ({ ...prev, [questionId]: 'Please enter a valid number' }));
+    } else {
+      setValidationErrors(prev => {
+        const { [questionId]: removed, ...rest } = prev;
+        return rest;
+      });
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -73,14 +101,20 @@ const FormPreview: React.FC<FormPreviewProps> = ({ form }) => {
 
       case QuestionType.NUMBER:
         return (
-          <input
-            type="number"
-            value={value}
-            onChange={(e) => handleInputChange(question.id, e.target.value)}
-            className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            placeholder="Enter a number"
-            required={question.required}
-          />
+          <div>
+            <input
+              type="number"
+              value={value}
+              onChange={(e) => handleInputChange(question.id, e.target.value, QuestionType.NUMBER)}
+              onBlur={(e) => validateNumberOnBlur(question.id, e.target.value)}
+              className={`w-full p-3 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${validationErrors[question.id] ? 'border-red-300' : 'border-gray-300'}`}
+              placeholder="Enter a number"
+              required={question.required}
+            />
+            {validationErrors[question.id] && (
+              <p className="text-red-500 text-sm mt-1">{validationErrors[question.id]}</p>
+            )}
+          </div>
         );
 
       case QuestionType.DATE:

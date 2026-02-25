@@ -10,6 +10,8 @@ interface HeaderProps {
   className?: string;
 }
 
+const BILLING_POLL_MS = 500;
+
 const Header: React.FC<HeaderProps> = ({
   title = 'FormulAI',
   showUserMenu = true,
@@ -18,7 +20,25 @@ const Header: React.FC<HeaderProps> = ({
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [showAppsMenu, setShowAppsMenu] = useState(false);
+  const [billingAvailable, setBillingAvailable] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Only show Billing link when EE billing module is loaded (EE mode)
+  useEffect(() => {
+    const check = () => {
+      const mod = (window as any).__BILLING_MODULE__;
+      if (mod?.mount) {
+        setBillingAvailable(true);
+        return true;
+      }
+      return false;
+    };
+    if (check()) return;
+    const t = setInterval(() => {
+      if (check()) clearInterval(t);
+    }, BILLING_POLL_MS);
+    return () => clearInterval(t);
+  }, []);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -54,6 +74,15 @@ const Header: React.FC<HeaderProps> = ({
                 Welcome, {user.firstName}
               </span>
 
+              {billingAvailable && (
+                <button
+                  onClick={() => navigate('/settings/billing')}
+                  className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                >
+                  Billing
+                </button>
+              )}
+
               {user.roles?.includes('admin') && (
                 <div className="relative" ref={menuRef}>
                   <button
@@ -75,6 +104,17 @@ const Header: React.FC<HeaderProps> = ({
                       >
                         <div className="flex items-center">
                           <span>Dashboard</span>
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowAppsMenu(false);
+                          navigate('/admin');
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                      >
+                        <div className="flex items-center">
+                          <span>Admin Dashboard</span>
                         </div>
                       </button>
                       <button

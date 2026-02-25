@@ -20,7 +20,7 @@ FormulAI is an intelligent survey platform that combines intuitive form building
 ## 🛠️ Technology Stack
 
 - **Frontend**: React 19, TypeScript 5, Vite, Tailwind CSS
-- **Backend**: NestJS 10, TypeScript 5, Node.js 18+
+- **Backend**: NestJS 10, TypeScript 5, Node.js 20+
 - **Database**: MongoDB 5.0+
 - **Queue System**: Bull (Redis-backed)
 - **AI Integration**: OpenAI GPT-4o
@@ -37,7 +37,7 @@ Layered architecture:
 4. **Queue Layer**: Bull queues for async analytics (orchestration, response processing, topic clustering, aggregation, AI generation)
 5. **Data Layer**: MongoDB with Mongoose ODM
 
-See `docs/ARCHITECTURE.md` for details.
+See `docs/architecture.md` for details.
 
 
 ## 🚀 Quick Start
@@ -57,6 +57,8 @@ cp server/.env.example server/.env
 
 # 3. Start the system
 docker compose up -d
+# or via package script
+pnpm run docker:up
 ```
 
 Access the services:

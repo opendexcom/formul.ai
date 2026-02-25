@@ -1,10 +1,19 @@
-import { Injectable, ConflictException, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { JwtService } from '@nestjs/jwt';
 import { Model } from 'mongoose';
 import * as bcrypt from 'bcryptjs';
 import { User, UserDocument } from '../schemas/user.schema';
-import { RegisterDto, LoginDto, ForgotPasswordDto, ResetPasswordDto } from './dto/auth.dto';
+import {
+  RegisterDto,
+  LoginDto,
+  ForgotPasswordDto,
+  ResetPasswordDto,
+} from './dto/auth.dto';
 
 import { EmailService } from '../forms/email.service';
 import { SettingsService } from '../settings/settings.service';
@@ -17,10 +26,11 @@ export class AuthService {
     private jwtService: JwtService,
     private emailService: EmailService,
     private settingsService: SettingsService,
-  ) { }
+  ) {}
 
   async register(registerDto: RegisterDto) {
-    const isRegistrationAllowed = await this.settingsService.isRegistrationAllowed();
+    const isRegistrationAllowed =
+      await this.settingsService.isRegistrationAllowed();
     if (!isRegistrationAllowed) {
       throw new UnauthorizedException('Registration is currently disabled');
     }
@@ -28,7 +38,9 @@ export class AuthService {
     const { email, password, firstName, lastName } = registerDto;
 
     // Check if user already exists
-    const existingUser = await this.userModel.findOne({ email: { $eq: email } });
+    const existingUser = await this.userModel.findOne({
+      email: { $eq: email },
+    });
     if (existingUser) {
       throw new ConflictException('User with this email already exists');
     }
@@ -53,21 +65,27 @@ export class AuthService {
     await user.save();
 
     // Send confirmation email
-    await this.emailService.sendConfirmationEmail(email, emailVerificationToken);
+    await this.emailService.sendConfirmationEmail(
+      email,
+      emailVerificationToken,
+    );
 
     return {
-      message: 'Registration successful. Please check your email to confirm your account.',
+      message:
+        'Registration successful. Please check your email to confirm your account.',
     };
   }
 
   async confirmEmail(token: string) {
-    const user = await this.userModel.findOne({ emailVerificationToken: { $eq: token } });
+    const user = await this.userModel.findOne({
+      emailVerificationToken: { $eq: token },
+    });
     if (!user) {
       throw new UnauthorizedException('Invalid verification token');
     }
 
     user.isEmailVerified = true;
-    user.emailVerificationToken = null as any;
+    user.emailVerificationToken = undefined;
     await user.save();
 
     return {
@@ -92,7 +110,9 @@ export class AuthService {
 
     // Check if email is verified
     if (!user.isEmailVerified) {
-      throw new UnauthorizedException('Please confirm your email address before logging in');
+      throw new UnauthorizedException(
+        'Please confirm your email address before logging in',
+      );
     }
 
     // Generate JWT token
@@ -112,6 +132,7 @@ export class AuthService {
   }
 
   async validateUser(payload: any): Promise<any> {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     return await this.userModel.findById(payload.sub).select('-password');
   }
 
@@ -119,11 +140,12 @@ export class AuthService {
     const { email } = forgotPasswordDto;
 
     const user = await this.userModel.findOne({ email: { $eq: email } });
-    
+
     // Always return success message to prevent email enumeration
     if (!user) {
       return {
-        message: 'If an account with that email exists, a password reset link has been sent.',
+        message:
+          'If an account with that email exists, a password reset link has been sent.',
       };
     }
 
@@ -140,7 +162,8 @@ export class AuthService {
     await this.emailService.sendPasswordResetEmail(email, resetToken);
 
     return {
-      message: 'If an account with that email exists, a password reset link has been sent.',
+      message:
+        'If an account with that email exists, a password reset link has been sent.',
     };
   }
 
@@ -162,12 +185,13 @@ export class AuthService {
 
     // Update password and clear reset token
     user.password = hashedPassword;
-    user.passwordResetToken = null as any;
-    user.passwordResetExpires = null as any;
+    user.passwordResetToken = undefined;
+    user.passwordResetExpires = undefined;
     await user.save();
 
     return {
-      message: 'Password has been reset successfully. You can now login with your new password.',
+      message:
+        'Password has been reset successfully. You can now login with your new password.',
     };
   }
 }

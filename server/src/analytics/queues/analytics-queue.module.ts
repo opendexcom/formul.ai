@@ -9,8 +9,9 @@ import { TopicClusteringConsumer } from './topic-clustering.consumer';
 import { AggregationConsumer } from './aggregation.consumer';
 import { AIGenerationConsumer } from './ai-generation.consumer';
 import { ProgressService } from './progress.service';
-import { Form, FormSchema } from '../../schemas/form.schema';
-import { Response, ResponseSchema } from '../../schemas/response.schema';
+import { Form } from '../../schemas/form.schema';
+import { Response } from '../../schemas/response.schema';
+import { getCoreSchemaOrThrow } from '../../schemas/core-schema-registry';
 import { AiCoreModule } from '../../ai/ai.module';
 // Analytics providers
 import { ResponseProcessor } from '../processors/response.processor';
@@ -85,8 +86,8 @@ import { DeadLetterConsumer } from './dead-letter.consumer';
       },
     ),
     MongooseModule.forFeature([
-      { name: Form.name, schema: FormSchema },
-      { name: Response.name, schema: ResponseSchema },
+      { name: Form.name, schema: getCoreSchemaOrThrow(Form.name) },
+      { name: Response.name, schema: getCoreSchemaOrThrow(Response.name) },
     ]),
     AiCoreModule,
   ],
