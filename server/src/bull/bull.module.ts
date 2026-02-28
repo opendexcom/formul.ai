@@ -15,6 +15,11 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
           maxRetriesPerRequest: null,
           enableReadyCheck: false,
         },
+        settings: {
+          lockDuration: 300000,
+          stalledInterval: 300000,
+          maxStalledCount: 5,
+        },
       }),
       inject: [ConfigService],
     }),

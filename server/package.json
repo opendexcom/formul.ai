@@ -16,7 +16,7 @@
     "start:prod": "node dist/main",
     "worker": "nest start --entryFile worker",
     "worker:dev": "nest start --watch --entryFile worker",
-    "worker:prod": "node dist/worker",
+    "worker:prod": "node dist/src/worker",
     "start:worker": "pnpm run worker",
     "start:worker:dev": "pnpm run worker:dev",
     "start:worker:prod": "pnpm run worker:prod",
