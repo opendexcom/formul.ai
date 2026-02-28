@@ -8,7 +8,7 @@
     "@types/html2pdf.js": "^0.10.0",
     "axios": "^1.13.5",
     "html2pdf.js": "^0.14.0",
-    "jspdf": "^4.1.0",
+    "jspdf": "^4.2.0",
     "jspdf-autotable": "^5.0.7",
     "lucide-react": "^0.552.0",
     "react": "^19.2.0",
