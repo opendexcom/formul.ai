@@ -8,7 +8,7 @@
     "server"
   ],
   "scripts": {
-    "dev": "concurrently \"pnpm --filter server dev\" \"pnpm --filter client dev\" \"pnpm --filter server worker:dev\"",
+    "dev": "concurrently \"pnpm --filter server dev\" \"pnpm --filter client dev\"",
     "dev:client": "pnpm --filter client dev",
     "dev:server": "pnpm --filter server dev",
     "dev:worker": "pnpm --filter server worker:dev",
