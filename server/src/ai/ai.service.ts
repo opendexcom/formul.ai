@@ -733,21 +733,35 @@ ${dto.currentForm ? '\n- Preserve the original form ID and metadata where applic
         }
         
         if (canBeOther) {
-          const lastOption = options[options.length - 1];
+          // Ensure "other" option is always at the end: move it if it's in the middle
+          let opts = options;
+          const otherIndex = opts.findIndex((opt: string) => opt.startsWith('__OTHER__:'));
+          if (otherIndex >= 0 && otherIndex !== opts.length - 1) {
+            const otherOption = opts[otherIndex];
+            opts = [...opts.filter((_: string, i: number) => i !== otherIndex), otherOption];
+          }
+
+          const lastOption = opts[opts.length - 1];
           const lastIsOther = lastOption.startsWith('__OTHER__:');
-          // Only add prefix to last option when no option already has it (avoid duplicate "other" markers)
-          if (!hasOtherOption && !lastIsOther) {
-            processedOptions = [...options.slice(0, -1), `__OTHER__:${lastOption}`];
+          const hasOtherAfterMove = opts.some((opt: string) => opt.startsWith('__OTHER__:'));
+
+          if (!hasOtherAfterMove && !lastIsOther) {
+            // No option has the prefix - mark last as "other"
+            processedOptions = [...opts.slice(0, -1), `__OTHER__:${lastOption}`];
           } else if (lastIsOther) {
-            // Last option already has the prefix - extract placeholder from label if needed
+            // Last option has the prefix - extract placeholder from label if needed
             const optionLabel = lastOption.substring('__OTHER__:'.length);
             const placeholderMatch = optionLabel.match(/\(([^)]+)\)/);
             if (placeholderMatch && !q.otherPlaceholder) {
               const extractedPlaceholder = placeholderMatch[1];
               const cleanLabel = optionLabel.replace(/\s*\([^)]+\)\s*$/, '').trim();
-              processedOptions = [...options.slice(0, -1), `__OTHER__:${cleanLabel}`];
+              processedOptions = [...opts.slice(0, -1), `__OTHER__:${cleanLabel}`];
               (q as any)._extractedPlaceholder = extractedPlaceholder;
+            } else {
+              processedOptions = opts;
             }
+          } else {
+            processedOptions = opts;
           }
         } else {
           // Remove prefix if canBeOther is false
