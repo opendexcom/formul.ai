@@ -21,6 +21,7 @@ export interface Question {
   type: QuestionType;
   required: boolean;
   canBeOther: boolean;
+  otherPlaceholder?: string;
   options?: string[];
   order: number;
   validation?: Record<string, ValidationRule>;

@@ -106,7 +106,7 @@ const FormCanvas: React.FC<FormCanvasProps> = ({
     const titles = {
       [QuestionType.TEXT]: 'Short Answer',
       [QuestionType.TEXTAREA]: 'Long Answer',
-      [QuestionType.MULTIPLE_CHOICE]: 'Multiple Choice',
+      [QuestionType.MULTIPLE_CHOICE]: 'Single Choice',
       [QuestionType.CHECKBOX]: 'Checkboxes',
       [QuestionType.DROPDOWN]: 'Dropdown',
       [QuestionType.EMAIL]: 'Email',

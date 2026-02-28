@@ -126,18 +126,52 @@ ${JSON.stringify(dto.currentForm, null, 2)}
 
 User's refinement request: ${dto.prompt}
 
-Update the form based on the user's request. Adjust questions, add new ones, remove unwanted ones, or modify properties as requested.`
+Update the form based on the user's request. Adjust questions, add new ones, remove unwanted ones, or modify properties as requested.
+
+IMPORTANT - "Other" Option Support:
+- For single choice (multiple_choice), checkbox, and dropdown questions, you can add an "other" option
+- To enable "other" option, set canBeOther: true
+- When canBeOther is true, the last option in the options array MUST be marked with the special prefix "__OTHER__:" followed by ONLY the label (e.g., "__OTHER__:Other", "__OTHER__:Something else")
+- DO NOT include placeholder text in the option label - the label should be clean (e.g., "Other", "Inne", "Something else")
+- Set otherPlaceholder field separately for the placeholder text (e.g., "Please specify", "Proszę podać")
+- The option label and placeholder are SEPARATE - keep them separate
+- If canBeOther is false, ensure no option has the "__OTHER__:" prefix`
         : `You are a form builder assistant. Generate a structured form based on the user's description.
 
 User wants to create: ${dto.prompt}
 
 Guidelines:
 - Use appropriate question types based on the context
-- For multiple choice, checkbox, and dropdown questions, provide relevant options
+- For single choice (multiple_choice), checkbox, and dropdown questions, provide relevant options
 - Mark important fields as required
 - Include 3-10 questions depending on the form's purpose
 - Use clear, concise question titles
-- Add helpful descriptions where needed`;
+- Add helpful descriptions where needed
+
+IMPORTANT - "Other" Option Support:
+- For single choice (multiple_choice), checkbox, and dropdown questions, you can add an "other" option
+- To enable "other" option, set canBeOther: true
+- When canBeOther is true, the last option in the options array MUST be marked with the special prefix "__OTHER__:" followed by ONLY the label (e.g., "__OTHER__:Other", "__OTHER__:Something else")
+- DO NOT include placeholder text in the option label - use the otherPlaceholder field instead
+- The "other" option label should be clean (e.g., "Other", "Something else", "Inne") - do NOT put placeholder text like "(please specify)" in the label
+- Set otherPlaceholder field separately for the placeholder text that appears in the input field (e.g., "Please specify", "Proszę podać")
+- Example: If you want an "other" option, the options array should end with something like "__OTHER__:Other" and set otherPlaceholder separately
+
+Example question with "other" option:
+{
+  "id": "q1",
+  "title": "What is your favorite color?",
+  "type": "multiple_choice",
+  "required": false,
+  "canBeOther": true,
+  "otherPlaceholder": "Please specify your color",
+  "options": ["Red", "Blue", "Green", "__OTHER__:Other"],
+  "order": 1
+}
+
+CRITICAL: The option label and placeholder are SEPARATE fields:
+- Option label (in options array): Just the text shown in the list (e.g., "Other", "Inne")
+- otherPlaceholder field: The placeholder text for the input field (e.g., "Please specify", "Proszę podać")`;
 
     const { content, usage } = await this.invokeModelWithUsage(prompt);
     const parsed = JSON.parse(content);
@@ -218,7 +252,18 @@ ${currentFormContext}
 Strategy: ${JSON.stringify(strategy, null, 2)}
 User request: ${dto.prompt}
 
-For each question, specify: title, type, description, whether it's required, and options (if applicable).
+For each question, specify: title, type, description, whether it's required, options (if applicable), canBeOther (if applicable), and otherPlaceholder (if canBeOther is true).
+
+IMPORTANT - "Other" Option Support:
+- For single choice (multiple_choice), checkbox, and dropdown questions, you can add an "other" option when users might need to provide a custom answer
+- To enable "other" option, set canBeOther: true
+- When canBeOther is true, the last option in the options array MUST be marked with the special prefix "__OTHER__:" followed by ONLY the label (e.g., "__OTHER__:Other", "__OTHER__:Something else")
+- DO NOT include placeholder text in the option label - use the otherPlaceholder field instead
+- The option label should be clean (e.g., "Other", "Inne", "Something else") - do NOT put "(please specify)" in the label
+- Set otherPlaceholder field separately for the placeholder text (e.g., "Please specify", "Proszę podać")
+- Example: { "canBeOther": true, "otherPlaceholder": "Please specify", "options": ["Option 1", "Option 2", "__OTHER__:Other"] }
+- CRITICAL: Option label and placeholder are SEPARATE fields - keep them separate
+
 ${dto.currentForm ? 'Keep questions from the current form that are still relevant, and modify or add new ones as needed.' : ''}
 Important: Respond ONLY with a valid JSON array of question objects (no backticks, no prose). Return a JSON array of questions.`;
 
@@ -252,7 +297,16 @@ Ensure:
 - Options are comprehensive and mutually exclusive where needed
 - Required fields are appropriate
 - Question order flows logically
+- For single choice (multiple_choice), checkbox, and dropdown questions, consider adding "other" option (canBeOther: true) when users might need to provide custom answers
+- When canBeOther is true, ensure the last option uses "__OTHER__:" prefix (e.g., "__OTHER__:Other")
 ${dto.currentForm ? '- Changes from the original form are intentional and improve the form' : ''}
+
+IMPORTANT - "Other" Option Format:
+- If canBeOther is true, the last option MUST have "__OTHER__:" prefix
+- The option label should be clean (e.g., "__OTHER__:Other", "__OTHER__:Something else") - do NOT include placeholder text in the label
+- Set otherPlaceholder field separately for the placeholder text (e.g., "Please specify")
+- Example: ["Red", "Blue", "__OTHER__:Other"] with otherPlaceholder: "Please specify your color"
+- CRITICAL: Keep the option label and placeholder SEPARATE - do not put placeholder text in the option label
 
 Important: Respond ONLY with a valid JSON array of question objects (no backticks, no prose). Return optimized questions as a JSON array.`;
 
@@ -660,21 +714,62 @@ ${dto.currentForm ? '\n- Preserve the original form ID and metadata where applic
       return all.includes(t) ? t : 'text';
     };
 
-    const questions = form.questions.map((q: any, idx: number) => ({
-      id: q.id || `question_${Date.now()}_${idx}`,
-      title: q.title || 'Untitled Question',
-      description: q.description || undefined,
-      type: mapType(q.type),
-      canBeOther: q.canBeOther || false,
-      required: typeof q.required === 'boolean' ? q.required : false,
-      options: ['multiple_choice', 'checkbox', 'dropdown'].includes(
-        mapType(q.type),
-      )
-        ? q.options || ['Option 1']
-        : undefined,
-      order: typeof q.order === 'number' ? q.order : idx,
-      validation: q.validation || undefined,
-    }));
+    const questions = form.questions.map((q: any, idx: number) => {
+      const questionType = mapType(q.type);
+      const needsOptions = ['multiple_choice', 'checkbox', 'dropdown'].includes(questionType);
+      const options = needsOptions ? (q.options || ['Option 1']) : undefined;
+      
+      // Ensure "other" option has the correct prefix if canBeOther is true
+      let processedOptions = options;
+      let canBeOther = q.canBeOther || false;
+      
+      if (needsOptions && options && options.length > 0) {
+        // Check if any option has the "__OTHER__:" prefix
+        const hasOtherOption = options.some((opt: string) => opt.startsWith('__OTHER__:'));
+        
+        if (hasOtherOption && !canBeOther) {
+          // If prefix exists but canBeOther is false, set canBeOther to true
+          canBeOther = true;
+        }
+        
+        if (canBeOther) {
+          const lastOption = options[options.length - 1];
+          const lastIsOther = lastOption.startsWith('__OTHER__:');
+          // Only add prefix to last option when no option already has it (avoid duplicate "other" markers)
+          if (!hasOtherOption && !lastIsOther) {
+            processedOptions = [...options.slice(0, -1), `__OTHER__:${lastOption}`];
+          } else if (lastIsOther) {
+            // Last option already has the prefix - extract placeholder from label if needed
+            const optionLabel = lastOption.substring('__OTHER__:'.length);
+            const placeholderMatch = optionLabel.match(/\(([^)]+)\)/);
+            if (placeholderMatch && !q.otherPlaceholder) {
+              const extractedPlaceholder = placeholderMatch[1];
+              const cleanLabel = optionLabel.replace(/\s*\([^)]+\)\s*$/, '').trim();
+              processedOptions = [...options.slice(0, -1), `__OTHER__:${cleanLabel}`];
+              (q as any)._extractedPlaceholder = extractedPlaceholder;
+            }
+          }
+        } else {
+          // Remove prefix if canBeOther is false
+          processedOptions = options.map((opt: string) => 
+            opt.startsWith('__OTHER__:') ? opt.substring('__OTHER__:'.length) : opt
+          );
+        }
+      }
+      
+      return {
+        id: q.id || `question_${Date.now()}_${idx}`,
+        title: q.title || 'Untitled Question',
+        description: q.description || undefined,
+        type: questionType,
+        canBeOther: canBeOther,
+        otherPlaceholder: canBeOther ? (q.otherPlaceholder || (q as any)._extractedPlaceholder || undefined) : undefined,
+        required: typeof q.required === 'boolean' ? q.required : false,
+        options: processedOptions,
+        order: typeof q.order === 'number' ? q.order : idx,
+        validation: q.validation || undefined,
+      };
+    });
 
     return {
       title: form.title,

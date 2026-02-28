@@ -33,6 +33,12 @@ export class Question {
   @Prop({ default: false })
   required: boolean;
 
+  @Prop({ default: false })
+  canBeOther?: boolean;
+
+  @Prop()
+  otherPlaceholder?: string;
+
   @Prop({ type: [String] })
   options?: string[];
 
@@ -53,16 +59,19 @@ export class Form {
   @Prop()
   description?: string;
 
-  @Prop({ 
-    type: Types.ObjectId, 
-    ref: 'User', 
+  @Prop({
+    type: Types.ObjectId,
+    ref: 'User',
     required: true,
     validate: {
-      validator: function(v: any) {
-        return Types.ObjectId.isValid(v) && (typeof v === 'string' || v instanceof Types.ObjectId);
+      validator: function (v: any) {
+        return (
+          Types.ObjectId.isValid(v) &&
+          (typeof v === 'string' || v instanceof Types.ObjectId)
+        );
       },
-      message: 'createdBy must be a valid ObjectId'
-    }
+      message: 'createdBy must be a valid ObjectId',
+    },
   })
   createdBy: Types.ObjectId;
 
@@ -105,7 +114,7 @@ export class Form {
     lastUpdated: Date;
     totalResponsesAnalyzed: number;
     cacheVersion: number;
-    
+
     // Methodology metadata
     methodology?: {
       approach: string;
@@ -115,13 +124,25 @@ export class Form {
       dataQualityScore: number;
       limitationsNoted: string[];
     };
-    
+
     // Topic Analysis (GAP 4: Enhanced topics)
     topics: {
-      distribution: Record<string, { count: number; percentage: number; associatedQuestions: string[]; sentimentBreakdown: { positive: number; neutral: number; negative: number } }>;
+      distribution: Record<
+        string,
+        {
+          count: number;
+          percentage: number;
+          associatedQuestions: string[];
+          sentimentBreakdown: {
+            positive: number;
+            neutral: number;
+            negative: number;
+          };
+        }
+      >;
       topTopics: string[];
       topicTrends?: Array<{ date: Date; topics: string[] }>;
-      
+
       // GAP 4: Enhanced structure for Topics & Themes Card
       dominantThemes: Array<{
         theme: string;
@@ -130,7 +151,7 @@ export class Form {
         representativeQuotes: string[];
         relatedQuestions: string[];
       }>;
-      
+
       emergingThemes: Array<{
         theme: string;
         frequency: number;
@@ -138,33 +159,33 @@ export class Form {
         sentiment: { positive: number; neutral: number; negative: number };
         representativeQuotes: string[];
       }>;
-      
+
       counterNarratives: Array<{
         narrative: string;
         frequency: number;
         contrast: string;
       }>;
-      
+
       saturation?: {
         saturated: boolean;
         reasoning: string;
         missingPerspectives: string[];
       };
-      
+
       cooccurrence?: Array<{
         topic1: string;
         topic2: string;
         frequency: number;
         relationship: string;
       }>;
-      
+
       discourseFrames?: Array<{
         frame: string;
         frequency: number;
         characteristics: string;
       }>;
     };
-    
+
     // Sentiment Analysis (GAP 6 & 7: Emotional tones and dominant tags)
     sentiment: {
       overall: {
@@ -173,24 +194,27 @@ export class Form {
         negative: number;
         averageScore: number;
       };
-      byQuestion: Record<string, {
-        positive: number;
-        neutral: number;
-        negative: number;
-        averageScore: number;
-      }>;
+      byQuestion: Record<
+        string,
+        {
+          positive: number;
+          neutral: number;
+          negative: number;
+          averageScore: number;
+        }
+      >;
       trend?: 'improving' | 'stable' | 'declining';
-      
+
       // GAP 6: Emotional tone distribution for Overall Climate Card
       emotionalTones: Array<{
         tone: string;
         percentage: number;
         contexts?: string[];
       }>;
-      
+
       // GAP 7: Dominant topic tags (top 3-5) for Overall Climate Card
       dominantTags: string[];
-      
+
       targets?: Array<{
         target: string;
         avgSentiment: 'positive' | 'neutral' | 'negative';
@@ -198,13 +222,13 @@ export class Form {
         sentimentRange: 'narrow' | 'wide';
         representativeQuotes: string[];
       }>;
-      
+
       patterns?: {
         polarization: string;
         ambivalence: string;
         intensityDistribution: string;
       };
-      
+
       // Topic-sentiment correlations (added for analytics)
       topicCorrelations?: Array<{
         topic: string;
@@ -218,11 +242,15 @@ export class Form {
         responseCount: number;
       }>;
     };
-    
+
     // Overall Response Climate (for Overall Climate Card)
     climate?: {
       positivityScore: number;
-      sentimentBreakdown: { positive: number; neutral: number; negative: number };
+      sentimentBreakdown: {
+        positive: number;
+        neutral: number;
+        negative: number;
+      };
       dominantTendency: string;
       semanticAxis?: {
         left: string;
@@ -230,32 +258,39 @@ export class Form {
         position: number;
       };
     };
-    
+
     // Enhanced Correlation Analysis (GAP 1 & 2)
     correlations: {
       // GAP 1: Question-centric index for O(1) lookup (CRITICAL for Question Explorer)
-      byQuestion: Record<string, {
-        questionTitle: string;
-        correlatesTo: Array<{
-          questionId: string;
+      byQuestion: Record<
+        string,
+        {
           questionTitle: string;
-          correlation: number;
-          type: 'partial' | 'bivariate';
-          controlledFor?: string[];
-          significance: number;
-          effectSize: 'small' | 'medium' | 'large';
-          pattern?: Record<string, Record<string, number>>;
-          insight: string;
-        }>;
-      }>;
-      
+          correlatesTo: Array<{
+            questionId: string;
+            questionTitle: string;
+            correlation: number;
+            type: 'partial' | 'bivariate';
+            controlledFor?: string[];
+            significance: number;
+            effectSize: 'small' | 'medium' | 'large';
+            pattern?: Record<string, Record<string, number>>;
+            insight: string;
+          }>;
+        }
+      >;
+
       // Keep existing for backwards compatibility
       questionPairs: Array<{
         question1Id: string;
         question1Title: string;
         question2Id: string;
         question2Title: string;
-        correlationType: 'numeric' | 'categorical' | 'topic-based' | 'sentiment-based';
+        correlationType:
+          | 'numeric'
+          | 'categorical'
+          | 'topic-based'
+          | 'sentiment-based';
         correlation: number;
         strength: 'strong' | 'moderate' | 'weak' | 'very weak';
         insight: string;
@@ -266,9 +301,9 @@ export class Form {
         effectSize?: 'small' | 'medium' | 'large';
         pattern?: Record<string, Record<string, number>>;
       }>;
-      
+
       topCorrelations: any[];
-      
+
       // NEW: Correlations between closed questions and topics from open questions
       closedQuestionTopics?: Array<{
         questionId: string;
@@ -284,21 +319,21 @@ export class Form {
           responseCount: number;
         }>;
       }>;
-      
+
       topicToRating?: Array<{
         topic: string;
         ratingQuestionId: string;
         averageRating: number;
         correlation: number;
       }>;
-      
+
       sentimentToChoice?: Array<{
         choiceQuestionId: string;
         choice: string;
         averageSentiment: number;
       }>;
     };
-    
+
     // GAP 3: Aggregated quotes for What People Say cards
     quotes: {
       representative: Array<{
@@ -332,7 +367,7 @@ export class Form {
         depth: 'superficial' | 'moderate' | 'deep';
       }>;
     };
-    
+
     // GAP 5: Aggregated deviant cases for Deviant Perspectives Card
     deviantCases: Array<{
       text: string;
@@ -344,11 +379,11 @@ export class Form {
       sentiment: string;
       frequency: number;
     }>;
-    
+
     // Narrative Insights (GAP 8: Enhanced with evidence, confidence, action metadata)
     insights: {
       summary: string;
-      
+
       // GAP 8: Enhanced findings structure for Key Insights Card
       keyFindings: Array<{
         finding: string;
@@ -364,7 +399,7 @@ export class Form {
         methodologicalNote?: string;
         limitations?: string;
       }>;
-      
+
       // GAP 8: Enhanced recommendations structure for Key Insights Card
       recommendations: Array<{
         recommendation: string;
@@ -376,15 +411,21 @@ export class Form {
         rationale?: string;
         requiredActions?: string[];
       }>;
-      
+
       trends?: Array<{
         trend: string;
-        direction: 'up' | 'down' | 'stable' | 'increasing' | 'decreasing' | 'cyclical';
+        direction:
+          | 'up'
+          | 'down'
+          | 'stable'
+          | 'increasing'
+          | 'decreasing'
+          | 'cyclical';
         confidence: number;
         strength?: number;
         evidence?: string;
       }>;
-      
+
       anomalies?: Array<{
         description: string;
         affectedQuestions: string[];
@@ -392,20 +433,20 @@ export class Form {
         possibleExplanations?: string[];
         requiresInvestigation?: boolean;
       }>;
-      
+
       deviantCases?: Array<{
         description: string;
         examples: string[];
         possibleExplanations: string[];
         theoreticalImportance: string;
       }>;
-      
+
       minorityPerspectives?: Array<{
         perspective: string;
         representedBy: string[];
         contrast: string;
       }>;
-      
+
       narrativeShifts?: Array<{
         from: string;
         to: string;
@@ -413,7 +454,7 @@ export class Form {
         possibleReasons: string[];
       }>;
     };
-    
+
     // Temporal Trend Analysis (for tracking changes over time)
     trendAnalysis?: {
       hasEnoughData: boolean;
@@ -450,22 +491,29 @@ export class Form {
         newerPeriod: { start: Date; end: Date; responseCount: number };
       };
     };
-    
+
     // Validation metadata
     validation?: {
       convergences: Array<{ where: string; on: string }>;
-      divergences: Array<{ where: string; divergence: string; possibleReasons: string[] }>;
+      divergences: Array<{
+        where: string;
+        divergence: string;
+        possibleReasons: string[];
+      }>;
       overallConfidence: number;
       limitations: string[];
     };
-    
+
     // Question Statistics (basic, no LLM)
-    questionStats?: Record<string, {
-      responseCount: number;
-      completionRate: number;
-      mostCommon: any;
-      distribution: Record<string, number>;
-    }>;
+    questionStats?: Record<
+      string,
+      {
+        responseCount: number;
+        completionRate: number;
+        mostCommon: any;
+        distribution: Record<string, number>;
+      }
+    >;
   };
 }
 

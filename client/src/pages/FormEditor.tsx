@@ -9,6 +9,7 @@ import { FormData, Question, QuestionType, FormSettings as FormSettingsType } fr
 import formsService from '../services/formsService';
 import { GeneratedForm } from '../services/aiService';
 import { useAuth } from '../context/AuthContext';
+import { migrateQuestionForOther } from '../utils/otherOption';
 
 const FormEditor: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -54,7 +55,9 @@ const FormEditor: React.FC = () => {
     setLoading(true);
     try {
       const formData = await formsService.getForm(formId);
-      setForm(formData);
+      // Migrate questions to ensure "other" options have the special prefix
+      const migratedForm = migrateFormForOtherOptions(formData);
+      setForm(migratedForm);
     } catch (error) {
       console.error('Error loading form:', error);
       // If form not found or error, redirect to dashboard
@@ -62,6 +65,11 @@ const FormEditor: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const migrateFormForOtherOptions = (form: FormData): FormData => {
+    const migratedQuestions = form.questions.map(question => migrateQuestionForOther(question));
+    return { ...form, questions: migratedQuestions };
   };
 
   const saveForm = async () => {
@@ -152,7 +160,7 @@ const FormEditor: React.FC = () => {
     const titles = {
       [QuestionType.TEXT]: 'Short Answer',
       [QuestionType.TEXTAREA]: 'Long Answer',
-      [QuestionType.MULTIPLE_CHOICE]: 'Multiple Choice',
+      [QuestionType.MULTIPLE_CHOICE]: 'Single Choice',
       [QuestionType.CHECKBOX]: 'Checkboxes',
       [QuestionType.DROPDOWN]: 'Dropdown',
       [QuestionType.EMAIL]: 'Email',
