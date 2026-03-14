@@ -1,14 +1,39 @@
-import { Body, Controller, Post, UseGuards, Res, Req } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Post,
+  Req,
+  Res,
+  UploadedFile,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
+import type { Request, Response } from 'express';
 import { AiService } from './ai.service';
 import { GenerateAIFormDto } from './dto/generate-ai-form.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import {
-  ApiBearerAuth,
-  ApiOperation,
-  ApiTags,
-  ApiResponse,
-} from '@nestjs/swagger';
-import type { Request, Response } from 'express';
+
+const MAX_DOCUMENT_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
+
+/** Uploaded file shape from Multer (memory storage) */
+interface UploadedFile {
+  buffer: Buffer;
+  mimetype: string;
+  size: number;
+  originalname?: string;
+}
+/** OpenAI document API accepts PDF only; we restrict to PDF to avoid 400 from the provider */
+const ALLOWED_MIME_TYPES = ['application/pdf'];
 
 type UsageTrackingRequest = Request & {
   trackUsage?: (usage: unknown) => void | Promise<void>;
@@ -107,5 +132,121 @@ export class AiController {
         res.end();
       }
     }
+  }
+
+  @Post('generate-stream-from-document')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_DOCUMENT_SIZE_BYTES } }))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', format: 'binary', description: 'PDF or DOCX file' },
+        prompt: { type: 'string', description: 'Optional instruction' },
+        mode: { type: 'string', enum: ['generate', 'refine'] },
+        currentForm: { type: 'string', description: 'JSON string of current form when refining' },
+      },
+    },
+  })
+  @ApiOperation({ summary: 'Generate form from an uploaded PDF document with streaming' })
+  @ApiResponse({ status: 200, description: 'SSE stream of generation steps' })
+  @ApiResponse({ status: 400, description: 'Invalid or missing file' })
+  async generateStreamFromDocument(
+    @UploadedFile() file: UploadedFile | undefined,
+    @Body('prompt') prompt: string | undefined,
+    @Body('mode') mode: string | undefined,
+    @Body('currentForm') currentFormStr: string | undefined,
+    @Res() res: Response,
+    @Req() req: Request,
+  ) {
+    if (!file?.buffer) {
+      throw new BadRequestException('A PDF document is required');
+    }
+    if (file.size > MAX_DOCUMENT_SIZE_BYTES) {
+      throw new BadRequestException(
+        `File too large. Maximum size is ${MAX_DOCUMENT_SIZE_BYTES / 1024 / 1024} MB`,
+      );
+    }
+    if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
+      throw new BadRequestException(
+        'Invalid file type. Only PDF documents are supported. Please convert your file to PDF and try again.',
+      );
+    }
+
+    const base64 = file.buffer.toString('base64');
+    const dto: GenerateAIFormDto = {
+      prompt: (prompt?.trim() || 'Create a form based on this document.').slice(0, 10000),
+      mode: mode === 'refine' ? 'refine' : 'generate',
+      currentForm: currentFormStr ? safeParseJson(currentFormStr) : undefined,
+      document: {
+        base64,
+        mimetype: file.mimetype,
+        filename: file.originalname,
+      },
+    };
+
+    // Same SSE setup as generate-stream
+    res.status(200);
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.setHeader(
+      'Access-Control-Allow-Origin',
+      process.env.FRONTEND_URL || 'http://localhost:3000',
+    );
+    if (typeof (res as any).flushHeaders === 'function') {
+      (res as any).flushHeaders();
+    }
+
+    let clientClosed = false;
+    req.on('close', () => {
+      clientClosed = true;
+      try {
+        res.end();
+      } catch {}
+    });
+    const usageTrackingReq = req as UsageTrackingRequest;
+
+    try {
+      for await (const step of this.aiService.generateWithSteps(dto)) {
+        if (clientClosed) break;
+        res.write(`data: ${JSON.stringify(step)}\n\n`);
+        if (step.usage && typeof usageTrackingReq.trackUsage === 'function') {
+          try {
+            void Promise.resolve(usageTrackingReq.trackUsage(step.usage)).catch(
+              (trackUsageError: unknown) => {
+                console.error('[AI Generate Stream From Document] trackUsage error:', trackUsageError);
+              },
+            );
+          } catch (trackUsageError: unknown) {
+            console.error('[AI Generate Stream From Document] trackUsage threw:', trackUsageError);
+          }
+        }
+      }
+      if (!clientClosed) res.end();
+    } catch (error: any) {
+      try {
+        const safeErrorMsg = 'An error occurred during form generation';
+        console.error('[AI Generate Stream From Document] Error:', error);
+        res.write(
+          `data: ${JSON.stringify({
+            step: 'error',
+            message: safeErrorMsg,
+            status: 'error',
+          })}\n\n`,
+        );
+      } finally {
+        res.end();
+      }
+    }
+  }
+}
+
+function safeParseJson(str: string): any {
+  try {
+    return JSON.parse(str);
+  } catch {
+    return undefined;
   }
 }

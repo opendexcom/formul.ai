@@ -1,8 +1,8 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException } from '@nestjs/common';
 import { GenerateAIFormDto } from './dto/generate-ai-form.dto';
 import { GuardianService } from './guardian.service';
-import { BadRequestException } from '@nestjs/common';
 import { LlmUsage } from './llm.types';
+import { HumanMessage } from '@langchain/core/messages';
 
 export interface GenerationStep {
   step: string;
@@ -128,6 +128,8 @@ User's refinement request: ${dto.prompt}
 
 Update the form based on the user's request. Adjust questions, add new ones, remove unwanted ones, or modify properties as requested.
 
+Question types (including "comment" for static hints/instructions only; comment has title + description, no options): text, textarea, multiple_choice, checkbox, dropdown, email, number, date, time, rating, comment.
+
 IMPORTANT - "Other" Option Support:
 - For single choice (multiple_choice), checkbox, and dropdown questions, you can add an "other" option
 - To enable "other" option, set canBeOther: true
@@ -141,9 +143,10 @@ IMPORTANT - "Other" Option Support:
 User wants to create: ${dto.prompt}
 
 Guidelines:
-- Use appropriate question types based on the context
+- Use appropriate question types based on the context. Allowed types: text, textarea, multiple_choice, checkbox, dropdown, email, number, date, time, rating, comment.
+- Use type "comment" for static hints or instructions only (no answer collected): set title and description, no options, required is ignored. Use when you need to explain a section, give instructions, or add help text between questions.
 - For single choice (multiple_choice), checkbox, and dropdown questions, provide relevant options
-- Mark important fields as required
+- Mark important fields as required (never use required for type "comment")
 - Include 3-10 questions depending on the form's purpose
 - Use clear, concise question titles
 - Add helpful descriptions where needed
@@ -191,6 +194,25 @@ CRITICAL: The option label and placeholder are SEPARATE fields:
       );
     }
 
+    if (dto.document && this.provider !== 'openai') {
+      yield {
+        step: 'error',
+        message:
+          'Document upload is only supported when using OpenAI. Set LLM_PROVIDER=openai to use this feature.',
+        status: 'error',
+      };
+      return;
+    }
+    if (dto.document && dto.document.mimetype !== 'application/pdf') {
+      yield {
+        step: 'error',
+        message:
+          'Only PDF documents are supported for document upload. Please convert your file to PDF and try again.',
+        status: 'error',
+      };
+      return;
+    }
+
     // Security Check
     const validation = await this.guardianService.validatePrompt(dto.prompt);
     if (!validation.isSafe) {
@@ -221,14 +243,14 @@ User request: ${dto.prompt}
 Create a detailed strategy including:
 1. Form purpose and target audience
 2. Key information to collect
-3. Appropriate question types for each data point
+3. Appropriate question types for each data point (allowed: text, textarea, multiple_choice, checkbox, dropdown, email, number, date, time, rating, comment — use "comment" for static hints or instructions that don't collect an answer)
 4. Validation and UX considerations
 ${dto.currentForm ? '5. What should be kept, modified, or removed from the existing form' : ''}
 
 Important: Respond ONLY with a valid JSON object (no backticks, no prose). Return a JSON object with this shape: { purpose: string, audience: string, dataPoints: string[], questionTypes: Record<string, string>, considerations: string[]${dto.currentForm ? ', modifications: { keep: string[], modify: string[], remove: string[], add: string[] }' : ''} }`;
 
     const { content: strategyContent, usage: analyzeUsage } =
-      await this.invokeModelRawWithUsage(strategyPrompt);
+      await this.invokeModelRawWithUsage(strategyPrompt, true, dto.document);
     const strategy = JSON.parse(strategyContent);
 
     yield {
@@ -254,6 +276,8 @@ User request: ${dto.prompt}
 
 For each question, specify: title, type, description, whether it's required, options (if applicable), canBeOther (if applicable), and otherPlaceholder (if canBeOther is true).
 
+Allowed question types: text, textarea, multiple_choice, checkbox, dropdown, email, number, date, time, rating, comment. Use type "comment" for static hints or instructions only (no answer collected): provide title and description, do not set options or required. Use comment when you need section headers, instructions, or help text between questions.
+
 IMPORTANT - "Other" Option Support:
 - For single choice (multiple_choice), checkbox, and dropdown questions, you can add an "other" option when users might need to provide a custom answer
 - To enable "other" option, set canBeOther: true
@@ -268,7 +292,7 @@ ${dto.currentForm ? 'Keep questions from the current form that are still relevan
 Important: Respond ONLY with a valid JSON array of question objects (no backticks, no prose). Return a JSON array of questions.`;
 
     const { content: questionsContent, usage: questionsUsage } =
-      await this.invokeModelRawWithUsage(questionsPrompt);
+      await this.invokeModelRawWithUsage(questionsPrompt, true, dto.document);
     const questionsList = JSON.parse(questionsContent);
 
     yield {
@@ -293,9 +317,10 @@ Questions: ${JSON.stringify(questionsList, null, 2)}
 Strategy: ${JSON.stringify(strategy, null, 2)}
 
 Ensure:
-- Question types are optimal for the data being collected
+- Question types are optimal for the data being collected (allowed: text, textarea, multiple_choice, checkbox, dropdown, email, number, date, time, rating, comment)
+- Use type "comment" only for static hints/instructions (title + description, no options); do not use required for comment
 - Options are comprehensive and mutually exclusive where needed
-- Required fields are appropriate
+- Required fields are appropriate (never set required for type "comment")
 - Question order flows logically
 - For single choice (multiple_choice), checkbox, and dropdown questions, consider adding "other" option (canBeOther: true) when users might need to provide custom answers
 - When canBeOther is true, ensure the last option uses "__OTHER__:" prefix (e.g., "__OTHER__:Other")
@@ -311,7 +336,7 @@ IMPORTANT - "Other" Option Format:
 Important: Respond ONLY with a valid JSON array of question objects (no backticks, no prose). Return optimized questions as a JSON array.`;
 
     const { content: optimizedContent, usage: optimizeUsage } =
-      await this.invokeModelRawWithUsage(optimizePrompt);
+      await this.invokeModelRawWithUsage(optimizePrompt, true, dto.document);
     const optimizedQuestions = JSON.parse(optimizedContent);
 
     yield {
@@ -343,7 +368,7 @@ Generate a complete form with:
 ${dto.currentForm ? '\n- Preserve the original form ID and metadata where applicable' : ''}`;
 
     const { content: finalContent, usage } =
-      await this.invokeModelWithUsage(finalPrompt);
+      await this.invokeModelWithUsage(finalPrompt, dto.document);
     const parsed = JSON.parse(finalContent);
     const finalForm = this.validateAndSanitizeForm(parsed);
 
@@ -358,6 +383,7 @@ ${dto.currentForm ? '\n- Preserve the original form ID and metadata where applic
 
   private async invokeModelWithUsage(
     prompt: string,
+    document?: { base64: string; mimetype: string; filename?: string },
   ): Promise<{ content: string; usage?: LlmUsage }> {
     if (!this.chatModel) {
       throw new InternalServerErrorException('AI provider not initialized');
@@ -389,6 +415,7 @@ ${dto.currentForm ? '\n- Preserve the original form ID and metadata where applic
                   'date',
                   'time',
                   'rating',
+                  'comment',
                 ],
               },
               canBeOther: {
@@ -414,11 +441,13 @@ ${dto.currentForm ? '\n- Preserve the original form ID and metadata where applic
       additionalProperties: false,
     };
 
-    // includeRaw preserves provider metadata (token usage) alongside parsed output
     const structuredModel = this.chatModel.withStructuredOutput(schema, {
       includeRaw: true,
     });
-    const res = await structuredModel.invoke(prompt);
+    const input = document
+      ? this.buildMessagesWithDocument(prompt, document)
+      : prompt;
+    const res = await structuredModel.invoke(input);
     const parsed = res?.parsed ?? res;
     const content = JSON.stringify(parsed);
     const usage =
@@ -426,19 +455,53 @@ ${dto.currentForm ? '\n- Preserve the original form ID and metadata where applic
     return { content, usage };
   }
 
+  /**
+   * Build LangChain message(s) with optional document attachment (multimodal).
+   * When document is present, returns [HumanMessage] with content array (text + file block).
+   */
+  private buildMessagesWithDocument(
+    prompt: string,
+    document: { base64: string; mimetype: string; filename?: string },
+  ): HumanMessage[] {
+    const filename = document.filename || 'document.pdf';
+    const content: Array<{
+      type: string;
+      text?: string;
+      source_type?: string;
+      data?: string;
+      mime_type?: string;
+      filename?: string;
+      metadata?: { filename?: string; name?: string; title?: string };
+    }> = [
+      { type: 'text', text: prompt },
+      {
+        type: 'file',
+        source_type: 'base64',
+        data: document.base64,
+        mime_type: document.mimetype,
+        filename,
+        metadata: { filename, name: filename, title: filename },
+      },
+    ];
+    return [new HumanMessage({ content })];
+  }
+
   private async invokeModelRawWithUsage(
     prompt: string,
     useJsonFormat: boolean = true,
+    document?: { base64: string; mimetype: string; filename?: string },
   ): Promise<{ content: string; usage?: LlmUsage }> {
     if (!this.chatModel) {
       throw new InternalServerErrorException('AI provider not initialized');
     }
 
-    // For RAG steps, use LangChain with JSON mode for flexibility
     const options = useJsonFormat
       ? { response_format: { type: 'json_object' } }
       : {};
-    const res = await this.chatModel.invoke(prompt, options);
+    const input = document
+      ? this.buildMessagesWithDocument(prompt, document)
+      : prompt;
+    const res = await this.chatModel.invoke(input, options);
     const content =
       typeof res.content === 'string'
         ? res.content
@@ -710,6 +773,7 @@ ${dto.currentForm ? '\n- Preserve the original form ID and metadata where applic
         'date',
         'time',
         'rating',
+        'comment',
       ];
       return all.includes(t) ? t : 'text';
     };

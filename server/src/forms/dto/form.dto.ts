@@ -35,6 +35,7 @@ export class CreateQuestionDto {
       'date',
       'time',
       'rating',
+      'comment',
     ],
   })
   @IsString()
