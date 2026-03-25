@@ -59,6 +59,14 @@ const FormPreview: React.FC<FormPreviewProps> = ({ form }) => {
   };
 
   const renderQuestionInput = (question: Question) => {
+    if (question.type === QuestionType.COMMENT) {
+      return (
+        <div className="text-gray-600 text-sm whitespace-pre-wrap">
+          {question.description || ''}
+        </div>
+      );
+    }
+
     const value = responses[question.id] || '';
 
     switch (question.type) {
@@ -341,20 +349,35 @@ const FormPreview: React.FC<FormPreviewProps> = ({ form }) => {
           ) : (
             currentQuestions.map((question) => (
               <div key={question.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <div className="mb-4">
-                  <label className="block text-lg font-medium text-gray-900 mb-2">
-                    {question.title}
-                    {question.required && (
-                      <span className="text-red-500 ml-1">*</span>
+                {question.type === QuestionType.COMMENT ? (
+                  <>
+                    <div className="text-lg font-medium text-gray-900 mb-1">
+                      {question.title}
+                    </div>
+                    {question.description && (
+                      <p className="text-gray-600 text-sm whitespace-pre-wrap">
+                        {question.description}
+                      </p>
                     )}
-                  </label>
-                  {question.description && (
-                    <p className="text-gray-600 text-sm mb-4">
-                      {question.description}
-                    </p>
-                  )}
-                </div>
-                {renderQuestionInput(question)}
+                  </>
+                ) : (
+                  <>
+                    <div className="mb-4">
+                      <label className="block text-lg font-medium text-gray-900 mb-2">
+                        {question.title}
+                        {question.required && (
+                          <span className="text-red-500 ml-1">*</span>
+                        )}
+                      </label>
+                      {question.description && (
+                        <p className="text-gray-600 text-sm mb-4">
+                          {question.description}
+                        </p>
+                      )}
+                    </div>
+                    {renderQuestionInput(question)}
+                  </>
+                )}
               </div>
             ))
           )}

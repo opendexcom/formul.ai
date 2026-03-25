@@ -15,13 +15,11 @@ FormulAI is an intelligent survey platform that combines intuitive form building
 - JWT authentication, role-based access
 - Scalable queue-based architecture (Bull + Redis)
 
-![AI Analysis of Responses](docs/summary.jpeg)
-
 ## 🛠️ Technology Stack
 
 - **Frontend**: React 19, TypeScript 5, Vite, Tailwind CSS
-- **Backend**: NestJS 10, TypeScript 5, Node.js 20+
-- **Database**: MongoDB 5.0+
+- **Backend**: NestJS 11, TypeScript 5, Node.js 20+
+- **Database**: MongoDB 7.x+
 - **Queue System**: Bull (Redis-backed)
 - **AI Integration**: OpenAI GPT-4o
 - **Authentication**: JWT
@@ -37,7 +35,7 @@ Layered architecture:
 4. **Queue Layer**: Bull queues for async analytics (orchestration, response processing, topic clustering, aggregation, AI generation)
 5. **Data Layer**: MongoDB with Mongoose ODM
 
-See `docs/architecture.md` for details.
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for details.
 
 
 ## 🚀 Quick Start
@@ -86,7 +84,7 @@ Access the frontend at http://localhost:3000.
 
 ## ⚙️ Configuration
 
-The application is configured via environment variables in `server/.env` and `client/.env`.
+The application is configured via environment variables in `server/.env` and `client/.env`. See `server/.env.example` for the full list of server variables.
 
 ### OpenAI Configuration (Required for AI features)
 
@@ -117,7 +115,7 @@ GitHub: [opendexcom/formul.ai](https://github.com/opendexcom/formul.ai)
 
 ## 🤖 Continuous Integration (CI)
 
-GitHub Actions run lint, tests, and build checks for both frontend and backend. See `.github/workflows/` for details.
+GitHub Actions run build and tests for both frontend and backend. See `.github/workflows/` for details.
 
 ## 📜 License
 

@@ -82,6 +82,8 @@ const PublicFormView: React.FC = () => {
     const errors: Record<string, string> = {};
 
     form.questions.forEach(question => {
+      if (question.type === QuestionType.COMMENT) return;
+
       const value = responses[question.id];
       const isEmpty =
         question.type === QuestionType.CHECKBOX
@@ -197,6 +199,14 @@ const PublicFormView: React.FC = () => {
   };
 
   const renderQuestion = (question: Question) => {
+    if (question.type === QuestionType.COMMENT) {
+      return (
+        <div className="text-gray-600 text-sm whitespace-pre-wrap">
+          {question.description || ''}
+        </div>
+      );
+    }
+
     const value = responses[question.id] ?? '';
     const hasError = validationErrors[question.id];
 
@@ -554,27 +564,42 @@ const PublicFormView: React.FC = () => {
           ) : (
             currentQuestions.map((question) => (
               <div key={question.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <div className="mb-4">
-                  <label className="block text-lg font-medium text-gray-900 mb-2">
-                    {question.title}
-                    {question.required && (
-                      <span className="text-red-500 ml-1">*</span>
+                {question.type === QuestionType.COMMENT ? (
+                  <>
+                    <div className="text-lg font-medium text-gray-900 mb-1">
+                      {question.title}
+                    </div>
+                    {question.description && (
+                      <p className="text-gray-600 text-sm whitespace-pre-wrap">
+                        {question.description}
+                      </p>
                     )}
-                  </label>
-                  {question.description && (
-                    <p className="text-gray-600 text-sm mb-4">
-                      {question.description}
-                    </p>
-                  )}
-                </div>
-                {renderQuestion(question)}
-                {validationErrors[question.id] && (
-                  <div className="flex items-center space-x-1 mt-3">
-                    <AlertCircle className="w-4 h-4 text-red-500" />
-                    <span className="text-sm text-red-600">
-                      {validationErrors[question.id]}
-                    </span>
-                  </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="mb-4">
+                      <label className="block text-lg font-medium text-gray-900 mb-2">
+                        {question.title}
+                        {question.required && (
+                          <span className="text-red-500 ml-1">*</span>
+                        )}
+                      </label>
+                      {question.description && (
+                        <p className="text-gray-600 text-sm mb-4">
+                          {question.description}
+                        </p>
+                      )}
+                    </div>
+                    {renderQuestion(question)}
+                    {validationErrors[question.id] && (
+                      <div className="flex items-center space-x-1 mt-3">
+                        <AlertCircle className="w-4 h-4 text-red-500" />
+                        <span className="text-sm text-red-600">
+                          {validationErrors[question.id]}
+                        </span>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             ))

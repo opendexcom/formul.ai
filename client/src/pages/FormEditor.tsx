@@ -168,6 +168,7 @@ const FormEditor: React.FC = () => {
       [QuestionType.DATE]: 'Date',
       [QuestionType.TIME]: 'Time',
       [QuestionType.RATING]: 'Rating',
+      [QuestionType.COMMENT]: 'Hint or instruction',
     };
     return titles[type] || 'Question';
   };
