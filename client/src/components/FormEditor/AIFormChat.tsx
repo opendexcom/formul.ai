@@ -37,12 +37,16 @@ const AIFormChat: React.FC<AIFormChatProps> = ({ currentForm, onFormGenerated })
     },
   ]);
   const [input, setInput] = useState('');
+  const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingSteps, setProcessingSteps] = useState<ProcessingStep[]>([]);
   const [lastPrompt, setLastPrompt] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const ACCEPT_DOCUMENTS = '.pdf,application/pdf';
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -77,19 +81,27 @@ const AIFormChat: React.FC<AIFormChatProps> = ({ currentForm, onFormGenerated })
     }
   };
 
-  const sendPrompt = async (promptText: string) => {
-    if (!promptText.trim() || isProcessing) return;
+  const sendPrompt = async (promptText: string, file: File | null = null) => {
+    const hasText = promptText.trim().length > 0;
+    const hasFile = !!file;
+    if ((!hasText && !hasFile) || isProcessing) return;
+
+    const effectivePrompt = hasText ? promptText.trim() : 'Create a form based on this document.';
+    const userMessageContent = hasFile
+      ? (hasText ? `📎 ${file.name}\n\n${promptText.trim()}` : `📎 ${file.name}`)
+      : promptText;
 
     const userMessage: Message = {
       id: Date.now().toString(),
       type: 'user',
-      content: promptText,
+      content: userMessageContent,
       timestamp: new Date(),
     };
 
     setMessages(prev => [...prev, userMessage]);
-    setLastPrompt(promptText);
+    setLastPrompt(effectivePrompt);
     setInput('');
+    setAttachedFile(null);
     setIsProcessing(true);
     setProcessingSteps([]);
     setErrorMessage(null);
@@ -97,20 +109,38 @@ const AIFormChat: React.FC<AIFormChatProps> = ({ currentForm, onFormGenerated })
     try {
       const token = localStorage.getItem('token');
       const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
-
       const isRefine = !!(currentForm && (currentForm.questions?.length || 0) > 0);
-      const response = await fetch(`${API_BASE_URL}/ai/generate-stream`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          prompt: promptText,
-          mode: isRefine ? 'refine' : 'generate',
-          currentForm,
-        }),
-      });
+
+      let response: Response;
+      if (hasFile) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('prompt', effectivePrompt);
+        formData.append('mode', isRefine ? 'refine' : 'generate');
+        if (currentForm) {
+          formData.append('currentForm', JSON.stringify(currentForm));
+        }
+        response = await fetch(`${API_BASE_URL}/ai/generate-stream-from-document`, {
+          method: 'POST',
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: formData,
+        });
+      } else {
+        response = await fetch(`${API_BASE_URL}/ai/generate-stream`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            prompt: effectivePrompt,
+            mode: isRefine ? 'refine' : 'generate',
+            currentForm,
+          }),
+        });
+      }
 
       if (!response.ok) throw new Error('Failed to generate form');
 
@@ -184,12 +214,24 @@ const AIFormChat: React.FC<AIFormChatProps> = ({ currentForm, onFormGenerated })
   };
 
   const handleSend = async () => {
-    await sendPrompt(input);
+    await sendPrompt(input, attachedFile);
   };
 
   const handleRetry = async () => {
     if (!lastPrompt) return;
-    await sendPrompt(lastPrompt);
+    await sendPrompt(lastPrompt, null);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.type !== 'application/pdf') {
+      setErrorMessage('Only PDF documents are supported. Please convert your file to PDF.');
+      return;
+    }
+    setErrorMessage(null);
+    setAttachedFile(file);
+    e.target.value = '';
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -249,7 +291,44 @@ const AIFormChat: React.FC<AIFormChatProps> = ({ currentForm, onFormGenerated })
       )}
 
       <div className="border-t border-gray-200 bg-white p-4">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={ACCEPT_DOCUMENTS}
+          onChange={handleFileChange}
+          className="hidden"
+          aria-hidden
+        />
+        {attachedFile && (
+          <div className="flex items-center gap-2 mb-2 text-sm">
+            <span className="text-gray-600 truncate flex-1 min-w-0" title={attachedFile.name}>
+              📎 {attachedFile.name}
+            </span>
+            <button
+              type="button"
+              onClick={() => setAttachedFile(null)}
+              className="shrink-0 text-gray-500 hover:text-red-600 p-0.5 rounded"
+              aria-label="Remove attachment"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        )}
         <div className="flex items-end gap-2 w-full">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isProcessing}
+            className="h-10 w-10 shrink-0 flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
+            aria-label="Attach PDF document"
+            title="Attach PDF document"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+            </svg>
+          </button>
           <textarea
             ref={inputRef}
             value={input}
@@ -263,7 +342,7 @@ const AIFormChat: React.FC<AIFormChatProps> = ({ currentForm, onFormGenerated })
 
           <button
             onClick={handleSend}
-            disabled={!input.trim() || isProcessing}
+            disabled={(!input.trim() && !attachedFile) || isProcessing}
             className="h-10 w-10 shrink-0 flex items-center justify-center rounded-full bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
             aria-label="Send message"
           >
@@ -288,7 +367,7 @@ const AIFormChat: React.FC<AIFormChatProps> = ({ currentForm, onFormGenerated })
         </div>
 
         <p className="text-xs text-gray-500 mt-2">
-          Press Enter to send, Shift+Enter for new line
+          Press Enter to send, Shift+Enter for new line. You can attach a PDF document to create a form from it.
         </p>
       </div>
     </div>

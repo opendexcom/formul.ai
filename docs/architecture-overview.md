@@ -26,7 +26,7 @@ The backend is built with **NestJS**, a progressive Node.js framework, ensuring 
 *   **Worker Module:** A dedicated entry point (`worker.ts`) for processing background jobs, ensuring heavy AI tasks don't block the main API.
 
 ### Key Technologies
-*   **Framework:** NestJS v10
+*   **Framework:** NestJS v11
 *   **ODM:** Mongoose (MongoDB)
 *   **Queues:** Bull (Redis-based) for asynchronous task processing.
 *   **Validation:** `class-validator` and `class-transformer`.

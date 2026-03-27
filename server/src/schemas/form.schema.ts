@@ -14,6 +14,7 @@ export enum QuestionType {
   DATE = 'date',
   TIME = 'time',
   RATING = 'rating',
+  COMMENT = 'comment',
 }
 
 @Schema()

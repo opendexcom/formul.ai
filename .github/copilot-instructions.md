@@ -186,10 +186,9 @@ await this.formModel.updateOne(
 5. Explore insights through 13 analytics cards
 
 ## Documentation
-- **Architecture**: See `docs/architecture.md` for detailed system design
+- **Architecture**: See `docs/ARCHITECTURE.md` and `docs/architecture-overview.md` for detailed system design
 - **API Docs**: http://localhost:3001/api/docs (Swagger)
-- **README**: Project overview and business value
-- **TECHNICAL_STACK**: Deployment and infrastructure guide
+- **README**: Project overview and business value; **docker-compose** and **docs/ARCHITECTURE.md** for deployment and infrastructure
 
 ## Common Issues
 

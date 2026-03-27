@@ -512,6 +512,13 @@ const QuestionEditor: React.FC<QuestionEditorProps> = ({
           </div>
         );
 
+      case QuestionType.COMMENT:
+        return (
+          <p className="text-sm text-gray-500 italic">
+            {isSelected ? 'This block is shown as static text to respondents (no answer collected).' : (question.description || 'Add a hint or instruction above.')}
+          </p>
+        );
+
       default:
         return null;
     }
@@ -539,18 +546,22 @@ const QuestionEditor: React.FC<QuestionEditorProps> = ({
           </h3>
         )}
         
-        {isSelected && question.description !== undefined && (
-          <textarea
-            value={question.description || ''}
-            onChange={(e) => onUpdate({ description: e.target.value })}
-            className="mt-2 text-sm text-gray-600 bg-transparent border-none focus:outline-none focus:ring-0 p-0 w-full resize-none"
-            placeholder="Question description (optional)"
-            rows={2}
-          />
+        {(isSelected || question.type === QuestionType.COMMENT) && (question.description !== undefined || isSelected) && (
+          question.type === QuestionType.COMMENT && !isSelected ? (
+            <p className="mt-2 text-sm text-gray-600 whitespace-pre-wrap">{question.description || ''}</p>
+          ) : (
+            <textarea
+              value={question.description || ''}
+              onChange={(e) => onUpdate({ description: e.target.value })}
+              className="mt-2 text-sm text-gray-600 bg-transparent border-none focus:outline-none focus:ring-0 p-0 w-full resize-none"
+              placeholder={question.type === QuestionType.COMMENT ? 'Hint or help text for respondents...' : 'Question description (optional)'}
+              rows={question.type === QuestionType.COMMENT ? 3 : 2}
+            />
+          )
         )}
       </div>
 
-      {/* Question Input */}
+      {/* Question Input (for COMMENT this shows static hint preview) */}
       <div className="mb-4">
         {renderQuestionInput()}
       </div>
@@ -559,17 +570,18 @@ const QuestionEditor: React.FC<QuestionEditorProps> = ({
       {isSelected && (
         <div className="flex items-center justify-between pt-4 border-t border-gray-200">
           <div className="flex items-center space-x-4">
-            <label className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                checked={question.required}
-                onChange={(e) => onUpdate({ required: e.target.checked })}
-                className="text-blue-600"
-              />
-              <span className="text-sm text-gray-700">Required</span>
-            </label>
+            {question.type !== QuestionType.COMMENT && (
+              <label className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  checked={question.required}
+                  onChange={(e) => onUpdate({ required: e.target.checked })}
+                  className="text-blue-600"
+                />
+                <span className="text-sm text-gray-700">Required</span>
+              </label>
+            )}
           </div>
-
           <div className="flex items-center space-x-2">
             <button
               onClick={onDuplicate}
