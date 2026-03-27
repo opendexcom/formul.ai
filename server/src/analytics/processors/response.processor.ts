@@ -234,12 +234,10 @@ export class ResponseProcessor {
           skipValidation: true
         }
       );
-
       console.log(`[ResponseProcessor][${taskId}] Topics result preview:`, results[0].substring(0, 200));
       console.log(`[processChunkInParallel][${taskId}] Raw results lengths:`, results.map(r => r.length));
       
       const parsedTopics = JSON.parse(results[0]);
-    console.log(`[ResponseProcessor][${taskId}] Full topics response (first 1000 chars):`, results[0].substring(0, 1000));
       const parsedSentiment = JSON.parse(results[1]);
       const parsedQuotes = JSON.parse(results[2]);
 

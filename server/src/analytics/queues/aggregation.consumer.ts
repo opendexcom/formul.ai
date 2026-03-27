@@ -29,7 +29,7 @@ export class AggregationConsumer {
     @InjectModel(Response.name) private readonly responseModel: Model<ResponseDocument>,
   ) {}
 
-  @Process({ name: 'aggregate-analytics', concurrency: 2 })
+  @Process('aggregate-analytics')
   async handleAggregation(job: Job<AggregationJobData>) {
     const { taskId, formId } = job.data;
     
@@ -226,7 +226,6 @@ export class AggregationConsumer {
 
     console.log(`[AggregationConsumer][${taskId}] Aggregation complete - stored analytics for ${responses.length} responses`);
 
-    job.progress(100);
     return { 
       success: true, 
       topTopics: topTopics.length,

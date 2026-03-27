@@ -25,18 +25,16 @@ export class ResponseProcessingConsumer {
     private readonly responseModel: Model<ResponseDocument>,
   ) {}
 
-  @Process({ name: 'process-batch', concurrency: 5 })
+  @Process('process-batch')
   async handleBatch(job: Job<ResponseProcessingJobData>) {
     const { taskId, formId, responseIds, batchIndex, totalBatches } = job.data;
     console.log(`[ResponseProcessingConsumer][${taskId}] Starting batch ${batchIndex + 1}/${totalBatches} with ${responseIds.length} responses`);
-    
     await this.progressService.publishProgress({
       taskId,
       type: 'progress',
       message: `Processing batch ${batchIndex + 1}/${totalBatches}`,
       progress: Math.round(((batchIndex + 1) / totalBatches) * 40),
     });
-    // Fetch the form document using formId
     const form = await this.formModel.findById(formId).exec();
     if (!form) {
       throw new Error('Form document not found for response processing');
@@ -46,7 +44,7 @@ export class ResponseProcessingConsumer {
       taskId,
       (update) => this.progressService.publishProgress({
         taskId,
-        type: update.type, // Pass through all event types (progress, responses_processing, responses_processed, etc.)
+        type: update.type,
         message: update.message,
         progress: update.progress,
         stats: update.stats,
@@ -54,7 +52,6 @@ export class ResponseProcessingConsumer {
       }),
       responseIds
     );
-    job.progress(100);
     return { success: true, batchIndex, processedCount: responseIds.length };
   }
 

@@ -28,8 +28,16 @@ export class AIGenerationConsumer {
     @InjectModel(Response.name) private readonly responseModel: Model<ResponseDocument>,
   ) {}
 
-  @Process({ name: 'generate-summary', concurrency: 3 })
-  async handleSummary(job: Job<AIGenerationJobData>) {
+  @Process('generate-insights')
+  async handleInsights(job: Job<AIGenerationJobData>) {
+    const { generationType } = job.data;
+    if (generationType === 'summary') return this.handleSummary(job);
+    if (generationType === 'findings') return this.handleFindings(job);
+    if (generationType === 'recommendations') return this.handleRecommendations(job);
+    throw new Error(`Unknown generationType: ${generationType}`);
+  }
+
+  private async handleSummary(job: Job<AIGenerationJobData>) {
     const { taskId, formId } = job.data;
     
     await this.progressService.publishProgress({
@@ -132,13 +140,10 @@ export class AIGenerationConsumer {
       message: 'Summary saved',
       progress: 79,
     });
-
-    job.progress(100);
     return { success: true, summaryLength: summary.length };
   }
 
-  @Process({ name: 'generate-findings', concurrency: 3 })
-  async handleFindings(job: Job<AIGenerationJobData>) {
+  private async handleFindings(job: Job<AIGenerationJobData>) {
     const { taskId, formId } = job.data;
     
     await this.progressService.publishProgress({
@@ -236,13 +241,10 @@ export class AIGenerationConsumer {
       message: `Key findings saved (${findings.length})`,
       progress: 84,
     });
-
-    job.progress(100);
     return { success: true, findingsCount: findings.length };
   }
 
-  @Process({ name: 'generate-recommendations', concurrency: 3 })
-  async handleRecommendations(job: Job<AIGenerationJobData>) {
+  private async handleRecommendations(job: Job<AIGenerationJobData>) {
     const { taskId, formId } = job.data;
     
     await this.progressService.publishProgress({
@@ -342,8 +344,6 @@ export class AIGenerationConsumer {
     ).exec();
 
     console.log(`[AIGenerationConsumer][${taskId}] Recommendations generated and saved (${recommendations.length} recommendations)`);
-
-    job.progress(100);
     return { success: true, recommendationsCount: recommendations.length };
   }
 

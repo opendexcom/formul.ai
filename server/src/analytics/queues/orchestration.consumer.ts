@@ -201,23 +201,23 @@ export class OrchestrationConsumer {
     // AI generation jobs now load data directly from form.analytics
     // No need to pass inputData - they fetch from MongoDB
     const jobs = await Promise.all([
-      this.aiGenerationQueue.add('generate-summary', {
+      this.aiGenerationQueue.add('generate-insights', {
         taskId,
         formId,
         generationType: 'summary',
-        inputData: {}, // Empty - consumer loads from DB
+        inputData: {},
       }),
-      this.aiGenerationQueue.add('generate-findings', {
+      this.aiGenerationQueue.add('generate-insights', {
         taskId,
         formId,
         generationType: 'findings',
-        inputData: {}, // Empty - consumer loads from DB
+        inputData: {},
       }),
-      this.aiGenerationQueue.add('generate-recommendations', {
+      this.aiGenerationQueue.add('generate-insights', {
         taskId,
         formId,
         generationType: 'recommendations',
-        inputData: {}, // Empty - consumer loads from DB
+        inputData: {},
       }),
     ]);
     await this.waitForJobs(jobs, taskId, 75, 95, { label: 'AI insights generation', unit: 'items' });
