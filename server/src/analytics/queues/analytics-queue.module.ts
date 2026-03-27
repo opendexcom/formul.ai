@@ -41,7 +41,7 @@ import { DeadLetterConsumer } from './dead-letter.consumer';
         },
         settings: {
           lockDuration: 300000,
-          stalledInterval: 300000,
+          stalledInterval: 15000,
           maxStalledCount: 5,
         },
       },
@@ -55,7 +55,7 @@ import { DeadLetterConsumer } from './dead-letter.consumer';
         },
         settings: {
           lockDuration: 300000,
-          stalledInterval: 300000,
+          stalledInterval: 15000,
           maxStalledCount: 5,
         },
       },
@@ -69,7 +69,7 @@ import { DeadLetterConsumer } from './dead-letter.consumer';
         },
         settings: {
           lockDuration: 300000,
-          stalledInterval: 300000,
+          stalledInterval: 15000,
           maxStalledCount: 5,
         },
       },
@@ -83,7 +83,7 @@ import { DeadLetterConsumer } from './dead-letter.consumer';
         },
         settings: {
           lockDuration: 300000,
-          stalledInterval: 300000,
+          stalledInterval: 15000,
           maxStalledCount: 5,
         },
       },
@@ -97,7 +97,7 @@ import { DeadLetterConsumer } from './dead-letter.consumer';
         },
         settings: {
           lockDuration: 300000,
-          stalledInterval: 300000,
+          stalledInterval: 15000,
           maxStalledCount: 5,
         },
       },
