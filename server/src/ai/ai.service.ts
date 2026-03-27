@@ -490,6 +490,7 @@ ${dto.currentForm ? '\n- Preserve the original form ID and metadata where applic
     prompt: string,
     useJsonFormat: boolean = true,
     document?: { base64: string; mimetype: string; filename?: string },
+    timeoutMs: number = 120000,
   ): Promise<{ content: string; usage?: LlmUsage }> {
     if (!this.chatModel) {
       throw new InternalServerErrorException('AI provider not initialized');
@@ -501,13 +502,39 @@ ${dto.currentForm ? '\n- Preserve the original form ID and metadata where applic
     const input = document
       ? this.buildMessagesWithDocument(prompt, document)
       : prompt;
-    const res = await this.chatModel.invoke(input, options);
-    const content =
-      typeof res.content === 'string'
-        ? res.content
-        : JSON.stringify(res.content);
-    const usage = extractUsageFromResponse(res);
-    return { content, usage };
+    type ChatResponse = {
+      content: string | unknown[];
+      usage_metadata?: unknown;
+      response_metadata?: unknown;
+      raw?: unknown;
+    };
+    const model = this.chatModel as {
+      invoke: (
+        input: string | HumanMessage[],
+        options?: Record<string, unknown>,
+      ) => Promise<ChatResponse>;
+    };
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await model.invoke(input, {
+        ...options,
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      const content =
+        typeof res.content === 'string'
+          ? res.content
+          : JSON.stringify(res.content);
+      const usage = extractUsageFromResponse(res);
+      return { content, usage };
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (controller.signal.aborted) {
+        throw new Error(`AI invoke timed out after ${timeoutMs}ms`);
+      }
+      throw error;
+    }
   }
 
   /**
@@ -566,6 +593,7 @@ ${dto.currentForm ? '\n- Preserve the original form ID and metadata where applic
       schema?: any; // JSON Schema for structured output
       maxRetries?: number; // Max retries per failed prompt
       skipValidation?: boolean; // Skip Guardian validation for internal/trusted calls
+      timeoutMs?: number; // Max ms per prompt before aborting (default: 120000)
     },
   ): Promise<string[]> {
     if (!this.chatModel) {
@@ -673,6 +701,8 @@ ${dto.currentForm ? '\n- Preserve the original form ID and metadata where applic
     options: any,
     maxRetries: number,
   ): Promise<void> {
+    const timeoutMs = options?.timeoutMs ?? 120000; // 2 minute default per prompt
+
     let retryCount = 0;
     let remainingPrompts: Array<{ prompt: string; originalIndex: number }> =
       batch.map((prompt, idx) => ({
@@ -685,12 +715,32 @@ ${dto.currentForm ? '\n- Preserve the original form ID and metadata where applic
         async ({ prompt, originalIndex }) => {
           try {
             let response;
+            const invokeWithAbortableTimeout = async <T>(
+              invokeFn: (signal: AbortSignal) => Promise<T>,
+            ): Promise<T> => {
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+              try {
+                const result = await invokeFn(controller.signal);
+                clearTimeout(timeoutId);
+                return result;
+              } catch (err) {
+                clearTimeout(timeoutId);
+                if (controller.signal.aborted) {
+                  throw new Error(`AI invoke timed out after ${timeoutMs}ms`);
+                }
+                throw err;
+              }
+            };
             if (useStructuredOutput) {
               // When using structured output, schema is already bound
-              response = await modelToUse.invoke(prompt, {
-                temperature: options?.temperature ?? 0.3,
-                max_tokens: options?.maxTokens ?? 4000,
-              });
+              response = await invokeWithAbortableTimeout((signal) =>
+                modelToUse.invoke(prompt, {
+                  temperature: options?.temperature ?? 0.3,
+                  max_tokens: options?.maxTokens ?? 4000,
+                  signal,
+                }),
+              );
               // withStructuredOutput returns parsed object, so stringify it
               const content = JSON.stringify(response);
 
@@ -700,11 +750,14 @@ ${dto.currentForm ? '\n- Preserve the original form ID and metadata where applic
               return { originalIndex, content, success: true };
             } else {
               // Fallback to json_object mode without schema
-              response = await modelToUse.invoke(prompt, {
-                temperature: options?.temperature ?? 0.3,
-                max_tokens: options?.maxTokens ?? 4000,
-                response_format: { type: 'json_object' },
-              });
+              response = await invokeWithAbortableTimeout((signal) =>
+                modelToUse.invoke(prompt, {
+                  temperature: options?.temperature ?? 0.3,
+                  max_tokens: options?.maxTokens ?? 4000,
+                  response_format: { type: 'json_object' },
+                  signal,
+                }),
+              );
               const content =
                 typeof response.content === 'string'
                   ? response.content

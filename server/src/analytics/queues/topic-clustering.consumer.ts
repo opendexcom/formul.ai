@@ -15,7 +15,7 @@ export class TopicClusteringConsumer {
     private readonly deadLetterService: DeadLetterService,
   ) {}
 
-  @Process({ name: 'cluster-topics', concurrency: 2 })
+  @Process('cluster-topics')
   async handleClustering(job: Job<TopicClusteringJobData>) {
     const { taskId, formId } = job.data;
     console.log(`[TopicClusteringConsumer][${taskId}] Starting topic clustering job for form ${formId}`);
@@ -39,7 +39,6 @@ export class TopicClusteringConsumer {
         stats: update.stats,
       }),
     );
-    job.progress(100);
     console.log(`[TopicClusteringConsumer][${taskId}] Topic clustering completed: ${result.canonicalTopics.length} canonical topics`);
     return { success: true, canonicalTopicsCount: result.canonicalTopics.length };
   }
