@@ -19,11 +19,19 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
+import { pathToFileURL } from 'url';
 import { AiService } from './ai.service';
 import { GenerateAIFormDto } from './dto/generate-ai-form.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 
 const MAX_DOCUMENT_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
+const MAX_DOCUMENT_CONTEXT_CHARS = 50000;
+const MAX_EXTRACTED_TEXT_CHARS = 40000;
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = pathToFileURL(
+  require.resolve('pdfjs-dist/legacy/build/pdf.worker.min.mjs'),
+).toString();
 
 /** Uploaded file shape from Multer (memory storage) */
 interface UploadedFile {
@@ -172,17 +180,59 @@ export class AiController {
         'Invalid file type. Only PDF documents are supported. Please convert your file to PDF and try again.',
       );
     }
+    const buffer = file.buffer;
+    const doc = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise;
+    const totalPages = doc.numPages;
+    const metadataResult = await doc.getMetadata().catch(() => ({
+      info: null,
+      metadata: null,
+    }));
+    const extractedPages: string[] = [];
+    for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+      const page = await doc.getPage(pageNum);
+      const textContent = await page.getTextContent();
+      const pageText = (textContent.items as Array<{ str?: string }>)
+        .map((item) => item.str ?? '')
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      if (pageText) {
+        extractedPages.push(`[Page ${pageNum}] ${pageText}`);
+      }
+      page.cleanup();
+    }
+    await doc.destroy();
 
-    const base64 = file.buffer.toString('base64');
+    const metadataAny = metadataResult.metadata as unknown as { getAll?: () => unknown } | null;
+    const rawMetadata =
+      metadataAny && typeof metadataAny.getAll === 'function'
+        ? metadataAny.getAll()
+        : metadataResult.metadata;
+    const extractedText = extractedPages
+      .join('\n')
+      .slice(0, MAX_EXTRACTED_TEXT_CHARS);
+    const documentContext = JSON.stringify(
+      {
+        filename: file.originalname || 'document.pdf',
+        pages: totalPages,
+        info: metadataResult.info,
+        metadata: rawMetadata,
+      },
+      null,
+      2,
+    );
+    const userPrompt = (prompt?.trim() || 'Create a form based on this document.').slice(0, 10000);
+    const promptWithDocumentContext = `${userPrompt}
+
+Document metadata:
+${documentContext}
+
+Document text:
+${extractedText || '[No extractable text found in PDF]'}`.slice(0, MAX_DOCUMENT_CONTEXT_CHARS);
     const dto: GenerateAIFormDto = {
-      prompt: (prompt?.trim() || 'Create a form based on this document.').slice(0, 10000),
+      prompt: promptWithDocumentContext,
       mode: mode === 'refine' ? 'refine' : 'generate',
       currentForm: currentFormStr ? safeParseJson(currentFormStr) : undefined,
-      document: {
-        base64,
-        mimetype: file.mimetype,
-        filename: file.originalname,
-      },
     };
 
     // Same SSE setup as generate-stream

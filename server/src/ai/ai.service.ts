@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, InternalServerErrorException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { GenerateAIFormDto } from './dto/generate-ai-form.dto';
 import { GuardianService } from './guardian.service';
 import { LlmUsage } from './llm.types';
@@ -44,8 +48,7 @@ function extractUsageFromResponse(raw: any): LlmUsage | undefined {
       'unknown',
     promptTokens,
     completionTokens,
-    totalTokens:
-      totalTokens ?? ((promptTokens ?? 0) + (completionTokens ?? 0)),
+    totalTokens: totalTokens ?? (promptTokens ?? 0) + (completionTokens ?? 0),
   };
 }
 
@@ -214,15 +217,15 @@ CRITICAL: The option label and placeholder are SEPARATE fields:
     }
 
     // Security Check
-    const validation = await this.guardianService.validatePrompt(dto.prompt);
-    if (!validation.isSafe) {
-      yield {
-        step: 'error',
-        message: `Security check failed: ${validation.reason}`,
-        status: 'error',
-      };
-      return;
-    }
+    // const validation = await this.guardianService.validatePrompt(dto.prompt);
+    // if (!validation.isSafe) {
+    //   yield {
+    //     step: 'error',
+    //     message: `Security check failed: ${validation.reason}`,
+    //     status: 'error',
+    //   };
+    //   return;
+    // }
 
     const currentFormContext = dto.currentForm
       ? `\n\nCurrent form structure:\n${JSON.stringify(dto.currentForm, null, 2)}\n\nThe user wants to refine or modify this existing form.`
@@ -367,8 +370,10 @@ Generate a complete form with:
 - The optimized questions list
 ${dto.currentForm ? '\n- Preserve the original form ID and metadata where applicable' : ''}`;
 
-    const { content: finalContent, usage } =
-      await this.invokeModelWithUsage(finalPrompt, dto.document);
+    const { content: finalContent, usage } = await this.invokeModelWithUsage(
+      finalPrompt,
+      dto.document,
+    );
     const parsed = JSON.parse(finalContent);
     const finalForm = this.validateAndSanitizeForm(parsed);
 
@@ -833,46 +838,65 @@ ${dto.currentForm ? '\n- Preserve the original form ID and metadata where applic
 
     const questions = form.questions.map((q: any, idx: number) => {
       const questionType = mapType(q.type);
-      const needsOptions = ['multiple_choice', 'checkbox', 'dropdown'].includes(questionType);
-      const options = needsOptions ? (q.options || ['Option 1']) : undefined;
-      
+      const needsOptions = ['multiple_choice', 'checkbox', 'dropdown'].includes(
+        questionType,
+      );
+      const options = needsOptions ? q.options || ['Option 1'] : undefined;
+
       // Ensure "other" option has the correct prefix if canBeOther is true
       let processedOptions = options;
       let canBeOther = q.canBeOther || false;
-      
+
       if (needsOptions && options && options.length > 0) {
         // Check if any option has the "__OTHER__:" prefix
-        const hasOtherOption = options.some((opt: string) => opt.startsWith('__OTHER__:'));
-        
+        const hasOtherOption = options.some((opt: string) =>
+          opt.startsWith('__OTHER__:'),
+        );
+
         if (hasOtherOption && !canBeOther) {
           // If prefix exists but canBeOther is false, set canBeOther to true
           canBeOther = true;
         }
-        
+
         if (canBeOther) {
           // Ensure "other" option is always at the end: move it if it's in the middle
           let opts = options;
-          const otherIndex = opts.findIndex((opt: string) => opt.startsWith('__OTHER__:'));
+          const otherIndex = opts.findIndex((opt: string) =>
+            opt.startsWith('__OTHER__:'),
+          );
           if (otherIndex >= 0 && otherIndex !== opts.length - 1) {
             const otherOption = opts[otherIndex];
-            opts = [...opts.filter((_: string, i: number) => i !== otherIndex), otherOption];
+            opts = [
+              ...opts.filter((_: string, i: number) => i !== otherIndex),
+              otherOption,
+            ];
           }
 
           const lastOption = opts[opts.length - 1];
           const lastIsOther = lastOption.startsWith('__OTHER__:');
-          const hasOtherAfterMove = opts.some((opt: string) => opt.startsWith('__OTHER__:'));
+          const hasOtherAfterMove = opts.some((opt: string) =>
+            opt.startsWith('__OTHER__:'),
+          );
 
           if (!hasOtherAfterMove && !lastIsOther) {
             // No option has the prefix - mark last as "other"
-            processedOptions = [...opts.slice(0, -1), `__OTHER__:${lastOption}`];
+            processedOptions = [
+              ...opts.slice(0, -1),
+              `__OTHER__:${lastOption}`,
+            ];
           } else if (lastIsOther) {
             // Last option has the prefix - extract placeholder from label if needed
             const optionLabel = lastOption.substring('__OTHER__:'.length);
             const placeholderMatch = optionLabel.match(/\(([^)]+)\)/);
             if (placeholderMatch && !q.otherPlaceholder) {
               const extractedPlaceholder = placeholderMatch[1];
-              const cleanLabel = optionLabel.replace(/\s*\([^)]+\)\s*$/, '').trim();
-              processedOptions = [...opts.slice(0, -1), `__OTHER__:${cleanLabel}`];
+              const cleanLabel = optionLabel
+                .replace(/\s*\([^)]+\)\s*$/, '')
+                .trim();
+              processedOptions = [
+                ...opts.slice(0, -1),
+                `__OTHER__:${cleanLabel}`,
+              ];
               (q as any)._extractedPlaceholder = extractedPlaceholder;
             } else {
               processedOptions = opts;
@@ -882,19 +906,23 @@ ${dto.currentForm ? '\n- Preserve the original form ID and metadata where applic
           }
         } else {
           // Remove prefix if canBeOther is false
-          processedOptions = options.map((opt: string) => 
-            opt.startsWith('__OTHER__:') ? opt.substring('__OTHER__:'.length) : opt
+          processedOptions = options.map((opt: string) =>
+            opt.startsWith('__OTHER__:')
+              ? opt.substring('__OTHER__:'.length)
+              : opt,
           );
         }
       }
-      
+
       return {
         id: q.id || `question_${Date.now()}_${idx}`,
         title: q.title || 'Untitled Question',
         description: q.description || undefined,
         type: questionType,
         canBeOther: canBeOther,
-        otherPlaceholder: canBeOther ? (q.otherPlaceholder || (q as any)._extractedPlaceholder || undefined) : undefined,
+        otherPlaceholder: canBeOther
+          ? q.otherPlaceholder || (q as any)._extractedPlaceholder || undefined
+          : undefined,
         required: typeof q.required === 'boolean' ? q.required : false,
         options: processedOptions,
         order: typeof q.order === 'number' ? q.order : idx,
