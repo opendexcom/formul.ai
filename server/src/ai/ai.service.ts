@@ -217,15 +217,15 @@ CRITICAL: The option label and placeholder are SEPARATE fields:
     }
 
     // Security Check
-    // const validation = await this.guardianService.validatePrompt(dto.prompt);
-    // if (!validation.isSafe) {
-    //   yield {
-    //     step: 'error',
-    //     message: `Security check failed: ${validation.reason}`,
-    //     status: 'error',
-    //   };
-    //   return;
-    // }
+    const validation = await this.guardianService.validatePrompt(dto.prompt);
+    if (!validation.isSafe) {
+      yield {
+        step: 'error',
+        message: `Security check failed: ${validation.reason}`,
+        status: 'error',
+      };
+      return;
+    }
 
     const currentFormContext = dto.currentForm
       ? `\n\nCurrent form structure:\n${JSON.stringify(dto.currentForm, null, 2)}\n\nThe user wants to refine or modify this existing form.`
