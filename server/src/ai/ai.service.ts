@@ -16,6 +16,15 @@ export interface GenerationStep {
   usage?: LlmUsage;
 }
 
+/** True when prompt was built by generate-stream-from-document (PDF extract + metadata). */
+function isPromptFromExtractedPdfDocument(prompt: string): boolean {
+  return (
+    typeof prompt === 'string' &&
+    prompt.includes('Document metadata:') &&
+    prompt.includes('Document text:')
+  );
+}
+
 function extractUsageFromResponse(raw: any): LlmUsage | undefined {
   const usage =
     raw?.usage ??
@@ -231,6 +240,16 @@ CRITICAL: The option label and placeholder are SEPARATE fields:
       ? `\n\nCurrent form structure:\n${JSON.stringify(dto.currentForm, null, 2)}\n\nThe user wants to refine or modify this existing form.`
       : '\n\nThis is a new form being created from scratch.';
 
+    const fromExtractedPdf = isPromptFromExtractedPdfDocument(dto.prompt);
+    const extractedPdfStrategyNotes = fromExtractedPdf
+      ? `
+The user message includes text extracted from a PDF form or document. For this case:
+- Treat that extract as the primary source of truth for which fields exist and how they are labeled.
+- Prefer covering the document's fields and structure over inventing a shorter or more "creative" form.
+- Do not add questions for topics that do not appear as fields or sections in the extract unless the user explicitly asks.
+`
+      : '';
+
     // Step 1: Analyze request and create strategy
     yield {
       step: 'analyze',
@@ -240,7 +259,7 @@ CRITICAL: The option label and placeholder are SEPARATE fields:
 
     const strategyPrompt = `You are a form design strategist. Analyze the user's request and create a strategy for building the form.
 ${currentFormContext}
-
+${extractedPdfStrategyNotes}
 User request: ${dto.prompt}
 
 Create a detailed strategy including:
@@ -273,8 +292,9 @@ Important: Respond ONLY with a valid JSON object (no backticks, no prose). Retur
 
     const questionsPrompt = `Based on the following strategy, generate a list of questions.
 ${currentFormContext}
+${fromExtractedPdf ? `When the user request contains PDF extract text: derive each question from actual labels, tables, and choice lists in that text. Do not invent multiple_choice/checkbox/dropdown options that are not explicitly indicated there; use text or textarea instead when choices are unclear.
 
-Strategy: ${JSON.stringify(strategy, null, 2)}
+` : ''}Strategy: ${JSON.stringify(strategy, null, 2)}
 User request: ${dto.prompt}
 
 For each question, specify: title, type, description, whether it's required, options (if applicable), canBeOther (if applicable), and otherPlaceholder (if canBeOther is true).
@@ -322,12 +342,22 @@ Strategy: ${JSON.stringify(strategy, null, 2)}
 Ensure:
 - Question types are optimal for the data being collected (allowed: text, textarea, multiple_choice, checkbox, dropdown, email, number, date, time, rating, comment)
 - Use type "comment" only for static hints/instructions (title + description, no options); do not use required for comment
-- Options are comprehensive and mutually exclusive where needed
-- Required fields are appropriate (never set required for type "comment")
+${
+  fromExtractedPdf
+    ? `- For choice-based questions, keep options strictly faithful to the user request / source text; do not add plausible extra choices. If the source did not enumerate answers, convert to text or textarea rather than forcing a dropdown.
+`
+    : `- Options are comprehensive and mutually exclusive where needed
+`
+}- Required fields are appropriate (never set required for type "comment")
 - Question order flows logically
-- For single choice (multiple_choice), checkbox, and dropdown questions, consider adding "other" option (canBeOther: true) when users might need to provide custom answers
+${
+  fromExtractedPdf
+    ? `- For PDF-sourced forms, do not add an "other" option (canBeOther) unless the source document explicitly includes one.
+`
+    : `- For single choice (multiple_choice), checkbox, and dropdown questions, consider adding "other" option (canBeOther: true) when users might need to provide custom answers
 - When canBeOther is true, ensure the last option uses "__OTHER__:" prefix (e.g., "__OTHER__:Other")
-${dto.currentForm ? '- Changes from the original form are intentional and improve the form' : ''}
+`
+}${dto.currentForm ? '- Changes from the original form are intentional and improve the form' : ''}
 
 IMPORTANT - "Other" Option Format:
 - If canBeOther is true, the last option MUST have "__OTHER__:" prefix
@@ -368,7 +398,11 @@ Generate a complete form with:
 - A compelling title that reflects the form's purpose
 - A clear description explaining what the form collects and why
 - The optimized questions list
-${dto.currentForm ? '\n- Preserve the original form ID and metadata where applicable' : ''}`;
+${dto.currentForm ? '\n- Preserve the original form ID and metadata where applicable' : ''}${
+      fromExtractedPdf
+        ? '\n- When the user request includes PDF extract text, keep titles aligned with field and section labels from the document where possible (do not replace them with overly generic wording).'
+        : ''
+    }`;
 
     const { content: finalContent, usage } = await this.invokeModelWithUsage(
       finalPrompt,

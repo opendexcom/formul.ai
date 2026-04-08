@@ -253,32 +253,81 @@ export class AiController {
     const userPrompt = (
       prompt?.trim() || 'Create a form based on this document.'
     ).slice(0, 10000);
-    const strictOptionsRules = `
+    const documentFormRules = `
 ## STRICT PARSING RULES — READ BEFORE GENERATING ANY OUTPUT
 
-### 2. SKIP ALL GRAY / OFFICE-FILLED FIELDS
-The PDF form header states: "POLA JASNE WYPEŁNIA SKŁADAJĄCY, POLA CIEMNE WYPEŁNIA URZĄD"
-→ Gray/dark fields are filled by the tax office. DO NOT include them.
-→ Specifically: fields like "Nr dokumentu" and "Status" are gray → SKIP entirely.
-→ Only generate questions for white/light fields that the submitter fills in.
+---
+
+### 1. IDENTIFY FORM STRUCTURE FIRST
+Before generating any questions, scan the entire PDF and identify:
+- All named sections/chapters (e.g. "Section A", "Part II", "Dane podatnika")
+- All tables with repeating rows
+- Fields visually distinguished as "office use only" (gray background, hatching, labels like "Do not write below", "For official use", "Wypełnia urząd", "Не заполняется", etc.)
+- Checkboxes, radio groups, dropdowns vs. free-text inputs
+- Required vs. optional fields (if indicated)
 
 ---
 
-### 3. TABLE FIELDS — DO NOT FLATTEN
-If the PDF contains a table (e.g. Section D: "Rodzaje przychodów"), do NOT collapse all rows into a single question.
-Instead, generate one pair of questions (Przychody + Koszty) PER TABLE ROW, like this:
-- title: "Odpłatne zbycie papierów wartościowych – Przychody", type: "number"
-- title: "Odpłatne zbycie papierów wartościowych – Koszty uzyskania przychodów", type: "number"
-Repeat for every row in the table. Include the "Razem / Suma" row as well.
+### 2. SKIP NON-SUBMITTER FIELDS
+Some fields are reserved for staff/office use. Skip them entirely — do NOT generate questions for:
+- Fields explicitly labeled as "office use only", "do not fill", "staff only", "wypełnia urząd", or equivalent in any language
+- Fields visually marked as non-submitter (dark/gray shading, striped background, bordered "office" zones)
+- Auto-calculated or pre-printed values (e.g. sequential document numbers, barcodes, stamps)
+
+If you are unsure whether a field is submitter-facing, include it with a note in the hint field.
 
 ---
 
-### 4. STRICT RULES FOR OPTIONS
-- Do NOT invent answer options. Options MUST come ONLY from the PDF text.
-- Do NOT add "Inny" / "Other" unless the PDF explicitly lists it.
-- If a field has exactly 2 possible answers in the PDF, output EXACTLY those 2 — nothing more.
-- If you cannot confidently extract options from the PDF text, fall back to type "text" instead of guessing.
-- Do NOT set canBeOther: true unless the PDF explicitly shows an "Other/Inny" option.
+### 3. TABLES — EXPAND ROWS, DO NOT FLATTEN
+If the PDF contains a table where each row represents a distinct category/item:
+- Generate one question PER ROW PER COLUMN that a submitter fills in
+- Use the pattern: "[Row label] – [Column label]" as the question title
+- Example: "Foreign income – Amount", "Foreign income – Tax paid"
+- Always include summary/total rows ("Total", "Razem", "Итого") as separate questions
+- Do NOT merge all rows into a single open-ended field
+
+If the table has a dynamic/unknown number of rows (e.g. "List all employers"), generate a repeatable question group instead of fixed rows.
+
+---
+
+### 4. FIELD TYPE INFERENCE
+Infer the field type from visual and textual cues in the PDF:
+
+| Cue in PDF | Output type |
+|---|---|
+| Currency amount, tax value, income | number |
+| Date field, "DD-MM-YYYY", "Data" | date |
+| Checkbox group / radio buttons | select |
+| Yes/No, Tak/Nie, two exclusive options | boolean |
+| Free text, name, address, description | text |
+| NIP, PESEL, ID number (fixed-length) | text with appropriate hint |
+| Signature field | skip (not a data field) |
+
+---
+
+### 5. STRICT RULES FOR OPTIONS (select / boolean fields)
+- Options MUST come ONLY from the PDF text — do NOT invent or assume values
+- Do NOT add "Other / Inny / Другое" unless the PDF explicitly lists it
+- If a field has exactly N options in the PDF, output EXACTLY those N — nothing more, nothing less
+- If you cannot confidently extract options, fall back to type "text" instead of guessing
+- Do NOT set canBeOther: true unless the PDF explicitly shows an open "other" option
+
+---
+
+### 6. SECTION GROUPING
+Preserve the PDF's section hierarchy in the output:
+- Map each PDF section/part to a section in the schema
+- Use the original section title from the PDF (translate only if the target schema language differs)
+- Fields must appear in the same order as in the PDF — do NOT reorder
+
+---
+
+### 7. WHAT TO SKIP ENTIRELY
+Do not generate questions for:
+- Signature / date-of-signature fields (these are collected separately)
+- Instructions, footnotes, and legal disclaimers that appear as text but have no input
+- Fields pre-filled by the system (form version number, document code, revision date)
+- Purely decorative or structural elements (headers, dividers)
 `;
 
     const promptWithDocumentContext = `${userPrompt}
@@ -289,7 +338,7 @@ ${documentContext}
 Document text:
 ${extractedText || '[No extractable text found in PDF]'}
 
-${strictOptionsRules}`.slice(0, MAX_DOCUMENT_CONTEXT_CHARS);
+${documentFormRules}`.slice(0, MAX_DOCUMENT_CONTEXT_CHARS);
     const dto: GenerateAIFormDto = {
       prompt: promptWithDocumentContext,
       mode: mode === 'refine' ? 'refine' : 'generate',
