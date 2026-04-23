@@ -41,6 +41,7 @@ const AIFormChat: React.FC<AIFormChatProps> = ({ currentForm, onFormGenerated })
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingSteps, setProcessingSteps] = useState<ProcessingStep[]>([]);
   const [lastPrompt, setLastPrompt] = useState('');
+  const [lastFile, setLastFile] = useState<File | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -100,6 +101,7 @@ const AIFormChat: React.FC<AIFormChatProps> = ({ currentForm, onFormGenerated })
 
     setMessages(prev => [...prev, userMessage]);
     setLastPrompt(effectivePrompt);
+    setLastFile(file);
     setInput('');
     setAttachedFile(null);
     setIsProcessing(true);
@@ -190,6 +192,8 @@ const AIFormChat: React.FC<AIFormChatProps> = ({ currentForm, onFormGenerated })
                   content: `✅ Form "${formData.title}" has been generated successfully! You can now edit it in the canvas.`,
                   timestamp: new Date(),
                 }]);
+                
+                setTimeout(() => setProcessingSteps([]), 2000);
               }
             } catch (e) {
               console.error('Failed to parse step:', e);
@@ -209,7 +213,6 @@ const AIFormChat: React.FC<AIFormChatProps> = ({ currentForm, onFormGenerated })
       setErrorMessage('Failed to generate form.');
     } finally {
       setIsProcessing(false);
-      setTimeout(() => setProcessingSteps([]), 2000);
     }
   };
 
@@ -219,7 +222,7 @@ const AIFormChat: React.FC<AIFormChatProps> = ({ currentForm, onFormGenerated })
 
   const handleRetry = async () => {
     if (!lastPrompt) return;
-    await sendPrompt(lastPrompt, null);
+    await sendPrompt(lastPrompt, lastFile);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
