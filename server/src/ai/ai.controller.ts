@@ -20,15 +20,16 @@ import {
 } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import { AiService } from './ai.service';
+import { GuardianService } from './guardian.service';
 import { GenerateAIFormDto } from './dto/generate-ai-form.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-const PDFParser = require('pdf2json');
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+import * as crypto from 'crypto';
+import { convert } from '@opendataloader/pdf';
 
 const MAX_DOCUMENT_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
-/** Max characters of page text per chunk prompt (excerpt only). */
-const MAX_CHUNK_BODY_CHARS = 14000;
-/** Pages grouped per LLM map call. */
-const PAGES_PER_CHUNK = 1;
 
 /** Uploaded file shape from Multer (memory storage) */
 interface UploadedFile {
@@ -40,62 +41,97 @@ interface UploadedFile {
 /** OpenAI document API accepts PDF only; we restrict to PDF to avoid 400 from the provider */
 const ALLOWED_MIME_TYPES = ['application/pdf'];
 
-async function parsePdfWithPdf2Json(buffer: Buffer): Promise<{
+async function parsePdfWithOpenDataLoader(buffer: Buffer): Promise<{
   extractedText: string;
   pages: { pageNumber: number; text: string }[];
   totalPages: number;
   info: unknown;
   metadata: unknown;
+  parsedJson?: unknown;
 }> {
-  const parser = new PDFParser(undefined, 1);
-  const pdfData: any = await new Promise((resolve, reject) => {
-    parser.on('pdfParser_dataError', (err: any) =>
-      reject(err?.parserError ?? err),
-    );
-    parser.on('pdfParser_dataReady', (data: any) => resolve(data));
-    parser.parseBuffer(buffer);
-  });
+  const tempId = crypto.randomUUID();
+  const tempPdfPath = path.join(os.tmpdir(), `${tempId}.pdf`);
+  const tempOutDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-parse-'));
 
-  const totalPages = Array.isArray(pdfData?.Pages) ? pdfData.Pages.length : 0;
-  const info = pdfData?.Meta ?? null;
-  const metadata = pdfData?.Info ?? null;
+  try {
+    fs.writeFileSync(tempPdfPath, buffer);
 
-  const decodedText = (t: unknown) => {
-    if (typeof t !== 'string') return '';
-    try {
-      return decodeURIComponent(t);
-    } catch {
-      return t;
+    const PAGE_SEPARATOR = '|||PAGE_SEPARATOR|||';
+
+    await convert(tempPdfPath, {
+      format: ['json', 'markdown'],
+      outputDir: tempOutDir,
+      markdownPageSeparator: PAGE_SEPARATOR,
+      quiet: true,
+    });
+
+    const jsonPath = path.join(tempOutDir, `${tempId}.json`);
+    const mdPath = path.join(tempOutDir, `${tempId}.md`);
+
+    let parsedJson = null;
+    if (fs.existsSync(jsonPath)) {
+      const jsonContent = fs.readFileSync(jsonPath, 'utf8');
+      try {
+        parsedJson = JSON.parse(jsonContent);
+      } catch (e) {
+        console.error('[OpenDataLoader] Failed to parse JSON:', e);
+      }
     }
-  };
 
-  const pagesText: string[] = [];
-  const pages: { pageNumber: number; text: string }[] = [];
-  for (let i = 0; i < totalPages; i++) {
-    const page = pdfData.Pages[i];
-    const texts: any[] = Array.isArray(page?.Texts) ? page.Texts : [];
-    const pageText = texts
-      .flatMap((tx) => (Array.isArray(tx?.R) ? tx.R : []))
-      .map((r) => decodedText(r?.T))
-      .join(' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-    pages.push({ pageNumber: i + 1, text: pageText });
-    if (pageText) pagesText.push(`[Page ${i + 1}] ${pageText}`);
+    let resultString = '';
+    if (fs.existsSync(mdPath)) {
+      resultString = fs.readFileSync(mdPath, 'utf8');
+    }
+
+    const rawPages =
+      typeof resultString === 'string' && resultString.length > 0
+        ? resultString.split(PAGE_SEPARATOR)
+        : [];
+
+    if (rawPages.length > 0 && rawPages[rawPages.length - 1].trim() === '') {
+      rawPages.pop();
+    }
+
+    const pagesText: string[] = [];
+    const pages: { pageNumber: number; text: string }[] = [];
+
+    let pageCount = 0;
+    for (let i = 0; i < rawPages.length; i++) {
+      const text = rawPages[i].trim();
+      pageCount++;
+      pages.push({ pageNumber: pageCount, text });
+      if (text) {
+        pagesText.push(`[Page ${pageCount}]\n${text}`);
+      }
+    }
+
+    return {
+      extractedText: pagesText.join('\n\n'),
+      pages,
+      totalPages: pageCount,
+      info: { parser: 'OpenDataLoader' },
+      metadata: null,
+      parsedJson,
+    };
+  } finally {
+    const jsonPath = path.join(tempOutDir, `${tempId}.json`);
+    const mdPath = path.join(tempOutDir, `${tempId}.md`);
+
+    try {
+      if (fs.existsSync(tempPdfPath)) fs.unlinkSync(tempPdfPath);
+      if (fs.existsSync(jsonPath)) fs.unlinkSync(jsonPath);
+      if (fs.existsSync(mdPath)) fs.unlinkSync(mdPath);
+      if (fs.existsSync(tempOutDir)) fs.rmdirSync(tempOutDir);
+    } catch (e) {
+      console.error('[OpenDataLoader] Failed to cleanup paths:', e);
+    }
   }
-
-  return {
-    extractedText: pagesText.join('\n'),
-    pages,
-    totalPages,
-    info,
-    metadata,
-  };
 }
 
 function buildPageChunks(
   pages: { pageNumber: number; text: string }[],
-  pagesPerChunk: number,
+  targetChars: number = 4000,
+  maxPages: number = 2,
 ): Array<{
   chunkIndex: number;
   fromPage: number;
@@ -112,32 +148,51 @@ function buildPageChunks(
       },
     ];
   }
+
   const chunks: Array<{
     chunkIndex: number;
     fromPage: number;
     toPage: number;
     text: string;
   }> = [];
-  for (let i = 0; i < pages.length; i += pagesPerChunk) {
-    const slice = pages.slice(i, i + pagesPerChunk);
-    const text = slice
+
+  const makeChunk = (pts: { pageNumber: number; text: string }[]) => {
+    const text = pts
       .map((p) =>
         p.text.trim()
           ? `[Page ${p.pageNumber}] ${p.text}`
           : `[Page ${p.pageNumber}]`,
       )
       .join('\n');
-    const trimmed =
-      text.length > MAX_CHUNK_BODY_CHARS
-        ? `${text.slice(0, MAX_CHUNK_BODY_CHARS)}\n[... excerpt truncated ...]`
-        : text;
-    chunks.push({
+    return {
       chunkIndex: chunks.length,
-      fromPage: slice[0].pageNumber,
-      toPage: slice[slice.length - 1].pageNumber,
-      text: trimmed,
-    });
+      fromPage: pts[0].pageNumber,
+      toPage: pts[pts.length - 1].pageNumber,
+      text,
+    };
+  };
+
+  let buffer: { pageNumber: number; text: string }[] = [];
+  let bufferLen = 0;
+
+  for (const page of pages) {
+    const len = page.text.length;
+    if (len > targetChars && buffer.length === 0) {
+      chunks.push(makeChunk([page]));
+    } else if ((bufferLen + len > targetChars || buffer.length >= maxPages) && buffer.length > 0) {
+      chunks.push(makeChunk(buffer));
+      buffer = [page];
+      bufferLen = len;
+    } else {
+      buffer.push(page);
+      bufferLen += len;
+    }
   }
+
+  if (buffer.length > 0) {
+    chunks.push(makeChunk(buffer));
+  }
+
   return chunks;
 }
 
@@ -168,10 +223,16 @@ function tryParseLlmJson(content: string): unknown | null {
 
 function mergeMapResults(
   mapResults: unknown[],
-): { sections: Array<{ sectionTitle: string; questions: unknown[] }> } {
-  const sections: Array<{ sectionTitle: string; questions: unknown[] }> = [];
-  for (const raw of mapResults) {
+  chunks: Array<{ chunkIndex: number; fromPage: number; toPage: number; text: string }>,
+): {
+  sections: Array<{ sectionTitle: string; questions: unknown[]; _sourcePages: string }>;
+} {
+  const sections: Array<{ sectionTitle: string; questions: unknown[]; _sourcePages: string }> = [];
+  for (let i = 0; i < mapResults.length; i++) {
+    const raw = mapResults[i];
     if (!raw || typeof raw !== 'object') continue;
+    const chunk = chunks[i];
+    const sourcePages = chunk ? `pages ${chunk.fromPage}–${chunk.toPage}` : 'unknown';
     const secs = (raw as { sections?: unknown }).sections;
     if (!Array.isArray(secs)) continue;
     for (const sec of secs) {
@@ -183,6 +244,7 @@ function mergeMapResults(
       sections.push({
         sectionTitle,
         questions: Array.isArray(questions) ? questions : [],
+        _sourcePages: sourcePages,
       });
     }
   }
@@ -193,12 +255,17 @@ type UsageTrackingRequest = Request & {
   trackUsage?: (usage: unknown) => void | Promise<void>;
 };
 
+
+
 @ApiTags('ai')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller('ai')
 export class AiController {
-  constructor(private readonly aiService: AiService) {}
+  constructor(
+    private readonly aiService: AiService,
+    private readonly guardianService: GuardianService,
+  ) {}
 
   @Post('generate')
   @ApiOperation({
@@ -339,7 +406,7 @@ export class AiController {
     }
     const buffer = file.buffer;
     const { extractedText, pages, totalPages, info, metadata } =
-      await parsePdfWithPdf2Json(buffer);
+      await parsePdfWithOpenDataLoader(buffer);
 
     const documentContext = JSON.stringify(
       {
@@ -355,8 +422,10 @@ export class AiController {
     const userPrompt = (
       prompt?.trim() || 'Create a form based on this document.'
     ).slice(0, 10000);
-    const chunks = buildPageChunks(pages, PAGES_PER_CHUNK);
-    const currentForm = currentFormStr ? safeParseJson(currentFormStr) : undefined;
+    const chunks = buildPageChunks(pages, 4000, 2);
+    const currentForm = currentFormStr
+      ? safeParseJson(currentFormStr)
+      : undefined;
     const isRefine = mode === 'refine' && currentForm;
 
     const documentFormRules = `
@@ -398,7 +467,20 @@ Preserve the PDF's section hierarchy in the output:
 - Use the original section title from the PDF (translate only if the target schema language differs)
 - Fields must appear in the same order as in the PDF — do NOT reorder
 
+---
+
+### 5. REPEATING SECTIONS — DO NOT COLLAPSE
+If the PDF contains REPEATING SECTIONS (the same section structure appears multiple times, e.g., one per person, per entry, per item):
+- Output EVERY instance as a separate section — do NOT merge them into one
+- Each instance must keep all its fields
+- If a section titled "Section A" appears 5 times in the excerpt, output 5 separate sections
+
 `;
+
+    const validation = await this.guardianService.validatePrompt(userPrompt);
+    if (!validation.isSafe) {
+      throw new BadRequestException(`Request rejected: ${validation.reason}`);
+    }
 
     // Same SSE setup as generate-stream
     res.status(200);
@@ -465,14 +547,19 @@ Preserve the PDF's section hierarchy in the output:
 Question types allowed: text, textarea, multiple_choice, checkbox, dropdown, email, number, date, time, rating, comment.
 Use "comment" for static instructions only (no answer). For choice fields, options must come only from the excerpt.`;
 
-      for (const ch of chunks) {
-        emitStep({
-          step: `chunk_${ch.chunkIndex}`,
-          message: `Extracting pages ${ch.fromPage}–${ch.toPage}...`,
-          status: 'in-progress',
-        });
+      let currentChunkIndex = 0;
+      const CONCURRENCY = 4;
+      const worker = async () => {
+        while (currentChunkIndex < chunks.length) {
+          const ch = chunks[currentChunkIndex++];
 
-        const mapPrompt = `${userPrompt}
+          emitStep({
+            step: `chunk_${ch.chunkIndex}`,
+            message: `Extracting pages ${ch.fromPage}–${ch.toPage}...`,
+            status: 'in-progress',
+          });
+
+          const mapPrompt = `${userPrompt}
 
 Document metadata:
 ${documentContext}
@@ -486,39 +573,51 @@ ${documentFormRules}
 --- DOCUMENT EXCERPT (pages ${ch.fromPage}–${ch.toPage}) ---
 ${ch.text}`;
 
-        const { content, usage } =
-          await this.aiService.analyzeTextWithUsage(mapPrompt);
-        const parsed = tryParseLlmJson(content);
-        if (!parsed || typeof parsed !== 'object') {
+          const { content, usage } = await this.aiService.analyzeTextWithUsage(
+            mapPrompt,
+            true,
+            true,
+            4000,
+          );
+          const parsed = tryParseLlmJson(content);
+          if (!parsed || typeof parsed !== 'object') {
+            emitStep({
+              step: `chunk_${ch.chunkIndex}`,
+              message: `Failed to parse model output for pages ${ch.fromPage}–${ch.toPage}`,
+              status: 'error',
+            });
+            throw new Error('Map step returned invalid JSON');
+          }
+          mapResults[ch.chunkIndex] = parsed;
+          const qCount = Array.isArray(
+            (parsed as { sections?: unknown }).sections,
+          )
+            ? (
+                parsed as { sections: { questions?: unknown[] }[] }
+              ).sections.reduce(
+                (n, s) =>
+                  n + (Array.isArray(s?.questions) ? s.questions.length : 0),
+                0,
+              )
+            : 0;
           emitStep({
             step: `chunk_${ch.chunkIndex}`,
-            message: `Failed to parse model output for pages ${ch.fromPage}–${ch.toPage}`,
-            status: 'error',
+            message: `Extracted ${qCount} question(s) from pages ${ch.fromPage}–${ch.toPage}`,
+            status: 'completed',
+            data: {
+              fromPage: ch.fromPage,
+              toPage: ch.toPage,
+              questionCount: qCount,
+            },
+            usage,
           });
-          throw new Error('Map step returned invalid JSON');
         }
-        mapResults.push(parsed);
-        const qCount = Array.isArray((parsed as { sections?: unknown }).sections)
-          ? (parsed as { sections: { questions?: unknown[] }[] }).sections.reduce(
-              (n, s) =>
-                n + (Array.isArray(s?.questions) ? s.questions.length : 0),
-              0,
-            )
-          : 0;
-        emitStep({
-          step: `chunk_${ch.chunkIndex}`,
-          message: `Extracted ${qCount} question(s) from pages ${ch.fromPage}–${ch.toPage}`,
-          status: 'completed',
-          data: {
-            fromPage: ch.fromPage,
-            toPage: ch.toPage,
-            questionCount: qCount,
-          },
-          usage,
-        });
-      }
+      };
 
-      const merged = mergeMapResults(mapResults);
+      const workers = Array.from({ length: Math.min(CONCURRENCY, chunks.length) }).map(() => worker());
+      await Promise.all(workers);
+
+      const merged = mergeMapResults(mapResults, chunks);
       const totalMergedQuestions = merged.sections.reduce(
         (n, s) => n + s.questions.length,
         0,
@@ -533,9 +632,93 @@ ${ch.text}`;
         },
       });
 
+      // Format sections for next steps (remove internal properties like _sourcePages and number duplicates)
+      const formattedSections: Array<{ sectionTitle: string; questions: unknown[] }> = 
+        merged.sections.map(s => ({ sectionTitle: s.sectionTitle, questions: s.questions }));
+
+      // Number repeating sections with suffixes
+      const titleCounts = new Map<string, number>();
+      for (const sec of formattedSections) {
+        const key = sec.sectionTitle.toLowerCase().trim();
+        titleCounts.set(key, (titleCounts.get(key) || 0) + 1);
+      }
+      // Only add suffixes if a title appears more than once
+      const titleCurrentIdx = new Map<string, number>();
+      for (const sec of formattedSections) {
+        const key = sec.sectionTitle.toLowerCase().trim();
+        const total = titleCounts.get(key) || 1;
+        if (total > 1) {
+          const idx = (titleCurrentIdx.get(key) || 0) + 1;
+          titleCurrentIdx.set(key, idx);
+          sec.sectionTitle = `${sec.sectionTitle} (${idx})`;
+        }
+      }
+
+      const draftJson = { sections: formattedSections };
+
       emitStep({
-        step: 'validate',
-        message: 'Validating and building final form...',
+        step: 'coverage_start',
+        message: 'Checking coverage...',
+        status: 'in-progress',
+      });
+      
+      const coverageMissingFields: any[] = [];
+      let currentCoverageChunkIndex = 0;
+      let coverageCompletedChunks = 0;
+      
+      const coverageWorker = async () => {
+        while (currentCoverageChunkIndex < chunks.length) {
+          const ch = chunks[currentCoverageChunkIndex++];
+          
+          const coveragePrompt = `${userPrompt}
+
+Document metadata:
+${documentContext}
+
+We are checking coverage for the following document excerpt (pages ${ch.fromPage}–${ch.toPage}):
+${ch.text}
+
+Here is the current draft form JSON:
+${JSON.stringify(draftJson, null, 2)}
+
+Your job is to check if the draft form is missing any fields that are present IN THIS EXCERPT.
+
+## CRITICAL COVERAGE RULES:
+- The PDF may contain REPEATING SECTIONS (same section title appearing multiple times for different entries/persons/items). Each instance MUST be present in the draft. If this excerpt contains instance N of a repeating section and the draft lacks it, report it as missing.
+- Do NOT check for extra fields, only missing ones.
+- If there are missing fields, output them in a "missing" array.
+
+Respond ONLY with valid JSON (no prose). Shape:
+{ "missing": [ { "sectionTitle": string, "title": string, "type": string, "description"?: string, "required": boolean, "options"?: string[], "canBeOther"?: boolean, "otherPlaceholder"?: string } ] }
+If nothing is missing, return { "missing": [] }.`;
+
+          const { content: coverageContent } = await this.aiService.analyzeTextWithUsage(coveragePrompt, true, true, 2000);
+          const parsed = tryParseLlmJson(coverageContent);
+          if (parsed && typeof parsed === 'object' && Array.isArray((parsed as any).missing)) {
+            coverageMissingFields.push(...(parsed as any).missing);
+          }
+          
+          coverageCompletedChunks++;
+          emitStep({
+            step: `coverage_progress`,
+            message: `Checked coverage for pages ${ch.fromPage}–${ch.toPage} (${coverageCompletedChunks}/${chunks.length})`,
+            status: 'in-progress',
+          });
+        }
+      };
+
+      const coverageWorkers = Array.from({ length: Math.min(CONCURRENCY, chunks.length) }).map(() => coverageWorker());
+      await Promise.all(coverageWorkers);
+
+      emitStep({
+        step: 'coverage_start',
+        message: 'Coverage check complete',
+        status: 'completed',
+      });
+
+      emitStep({
+        step: 'assemble',
+        message: 'Assembling final form...',
         status: 'in-progress',
       });
 
@@ -544,40 +727,38 @@ ${ch.text}`;
           ? `Existing form to refine (keep questions that still apply; align with the draft extracted from the PDF):\n${JSON.stringify(currentForm, null, 2)}\n\n`
           : '';
 
-      const validatePrompt = `${userPrompt}
+      const assemblePrompt = `${userPrompt}
 
 Document metadata:
 ${documentContext}
 
-${refineBlock}Below is a merged DRAFT built from sequential excerpts of the same PDF (sections may overlap or duplicate). Your job:
-1. Merge overlapping questions, remove true duplicates, preserve reasonable order matching the document flow.
-2. Produce title and description for the whole form.
-3. Output a SINGLE flat list of questions in field "questions". Use type "comment" for section instructions if needed.
-4. MAIN VALIDATION GOAL: Check if the currently added questions are exactly the same as in the PDF. Ensure that absolutely nothing is missing from the document, and there are no extra fields or elements that are not present in the original document. 
+${refineBlock}Here is the draft form:
+${JSON.stringify(draftJson, null, 2)}
 
-Draft JSON:
-${JSON.stringify(merged, null, 2)}
+Here are the missing fields discovered during coverage check:
+${JSON.stringify(coverageMissingFields, null, 2)}
 
---- FULL PDF DOCUMENT TEXT FOR VERIFICATION ---
-${extractedText}
------------------------------------------------
+Your job:
+1. Incorporate all missing fields into the form in the correct order.
+2. Produce a title and description for the whole form.
+3. Output a SINGLE flat list of questions in field "questions". Use type "comment" for section headers/instructions.
+4. MAIN VALIDATION GOAL: Check if the currently added questions are exactly the same as in the PDF. Ensure nothing is missing.
+5. **REPEATING SECTIONS**: If the draft contains multiple sections with the same or similar titles (e.g., "Section A (1)", "Section A (2)"), these are INTENTIONAL REPEATS from the PDF. You MUST include ALL of them in the output. DO NOT collapse or merge them.
 
 Respond ONLY with valid JSON (no prose, no markdown). Shape:
 { "title": string, "description": string, "questions": [ { "id"?: string, "title": string, "type": string, "description"?: string, "required": boolean, "options"?: string[], "canBeOther"?: boolean, "otherPlaceholder"?: string, "order": number } ] }
-
-Question types: text, textarea, multiple_choice, checkbox, dropdown, email, number, date, time, rating, comment.
 Set "order" from 0 upward. When canBeOther is true, the last option in "options" MUST use prefix "__OTHER__:" plus the label (e.g. "__OTHER__:Other"), and put free-text hint in otherPlaceholder.`;
 
       const { content: validateContent, usage: validateUsage } =
-        await this.aiService.analyzeTextWithUsage(validatePrompt);
+        await this.aiService.analyzeTextWithUsage(assemblePrompt, true, true, 16000);
       const validated = tryParseLlmJson(validateContent);
       if (!validated || typeof validated !== 'object') {
         emitStep({
-          step: 'validate',
-          message: 'Validation step returned invalid JSON',
+          step: 'assemble',
+          message: 'Assembly step returned invalid JSON',
           status: 'error',
         });
-        throw new Error('Validation step returned invalid JSON');
+        throw new Error('Assembly step returned invalid JSON');
       }
 
       let finalForm: ReturnType<AiService['sanitizeAiFormOutput']>;
@@ -589,7 +770,7 @@ Set "order" from 0 upward. When canBeOther is true, the last option in "options"
           sanitizeErr,
         );
         emitStep({
-          step: 'validate',
+          step: 'assemble',
           message: 'Model output could not be converted to a valid form',
           status: 'error',
         });
@@ -597,8 +778,8 @@ Set "order" from 0 upward. When canBeOther is true, the last option in "options"
       }
 
       emitStep({
-        step: 'validate',
-        message: 'Validation complete',
+        step: 'assemble',
+        message: 'Assembly complete',
         status: 'completed',
         usage: validateUsage,
       });

@@ -290,6 +290,7 @@ IMPORTANT - "Other" Option Support:
 - Set otherPlaceholder field separately for the placeholder text (e.g., "Please specify", "Proszę podać")
 - Example: { "canBeOther": true, "otherPlaceholder": "Please specify", "options": ["Option 1", "Option 2", "__OTHER__:Other"] }
 - CRITICAL: Option label and placeholder are SEPARATE fields - keep them separate
+- CRITICAL FOR SINGLE OPTIONS: When a question only has a single option to check (like a single checkbox confirming something), use an appropriate label that makes sense in the context of the question (e.g., "Yes", "I agree", "Understood", "Tak", "Wyrażam zgodę", etc.) instead of generic "Option 1" or "Opcja 1". Let the option text be dictated by the question's natural flow.
 
 ${dto.currentForm ? 'Keep questions from the current form that are still relevant, and modify or add new ones as needed.' : ''}
 Important: Respond ONLY with a valid JSON array of question objects (no backticks, no prose). Return a JSON array of questions.`;
@@ -496,14 +497,16 @@ ${dto.currentForm ? '\n- Preserve the original form ID and metadata where applic
     useJsonFormat: boolean = true,
     document?: { base64: string; mimetype: string; filename?: string },
     timeoutMs: number = 120000,
+    maxTokens?: number,
   ): Promise<{ content: string; usage?: LlmUsage }> {
     if (!this.chatModel) {
       throw new InternalServerErrorException('AI provider not initialized');
     }
 
-    const options = useJsonFormat
-      ? { response_format: { type: 'json_object' } }
-      : {};
+    const options = {
+      ...(useJsonFormat ? { response_format: { type: 'json_object' } } : {}),
+      ...(maxTokens ? { max_tokens: maxTokens } : {}),
+    };
     const input = document
       ? this.buildMessagesWithDocument(prompt, document)
       : prompt;
@@ -571,6 +574,7 @@ ${dto.currentForm ? '\n- Preserve the original form ID and metadata where applic
     prompt: string,
     skipValidation: boolean = false,
     useJsonFormat: boolean = true,
+    maxTokens?: number,
   ): Promise<{ content: string; usage?: LlmUsage }> {
     if (!skipValidation) {
       const validation = await this.guardianService.validatePrompt(prompt);
@@ -578,7 +582,7 @@ ${dto.currentForm ? '\n- Preserve the original form ID and metadata where applic
         throw new BadRequestException(`Request rejected: ${validation.reason}`);
       }
     }
-    return this.invokeModelRawWithUsage(prompt, useJsonFormat);
+    return this.invokeModelRawWithUsage(prompt, useJsonFormat, undefined, 120000, maxTokens);
   }
 
   /**
