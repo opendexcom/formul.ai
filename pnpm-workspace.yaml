@@ -2,3 +2,12 @@ packages:
   - client
   - server
 
+# Transitive security patches only. Prefer bumping direct deps in client/server
+# package.json; re-run `pnpm audit` after changes.
+overrides:
+  ajv: '>=8.18.0'
+  file-type: '>=21.3.2'
+  lodash: '>=4.18.0'
+  path-to-regexp: '>=8.4.0'
+  picomatch: '>=4.0.4'
+  serialize-javascript: '>=7.0.5'
