@@ -45,7 +45,7 @@
     "@nestjs/platform-express": "^11.1.21",
     "@nestjs/swagger": "^11.4.3",
     "@opendataloader/pdf": "^2.2.1",
-    "@opendexcom/plugin-interface": "^1.0.6",
+    "@opendexcom/plugin-interface": "^1.0.7",
     "bcryptjs": "^3.0.2",
     "bull": "^4.16.5",
     "class-transformer": "^0.5.1",
