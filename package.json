@@ -27,7 +27,7 @@
     "db:admin": "docker compose -f ../docker-compose.yml --profile dev up -d mongo-express && echo MongoDB Admin: http://localhost:8081"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^9.2.1"
   },
   "keywords": [
     "forms",
