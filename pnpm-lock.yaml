@@ -133,7 +133,7 @@ importers:
         version: 6.16.2(@bull-board/api@6.16.2(@bull-board/ui@6.16.2))(@nestjs/bull-shared@11.0.4(@nestjs/common@11.1.21(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.21))(@nestjs/common@11.1.21(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.21)(reflect-metadata@0.2.2)(rxjs@7.8.2)
       '@langchain/community':
         specifier: ^1.1.28
-        version: 1.1.28(@browserbasehq/sdk@2.10.0)(@browserbasehq/stagehand@1.14.0(@playwright/test@1.57.0)(deepmerge@4.3.1)(dotenv@17.2.3)(openai@6.15.0(ws@8.20.1)(zod@4.3.6))(zod@4.3.6))(@ibm-cloud/watsonx-ai@1.7.5)(@langchain/core@1.1.47(openai@6.15.0(ws@8.20.1)(zod@4.3.6))(ws@8.20.1))(ibm-cloud-sdk-core@5.4.5)(ignore@7.0.5)(ioredis@5.9.0)(jsdom@25.0.1)(jsonwebtoken@9.0.3)(lodash@4.18.1)(openai@6.15.0(ws@8.20.1)(zod@4.3.6))(ws@8.20.1)
+        version: 1.1.28(@browserbasehq/sdk@2.11.0)(@browserbasehq/stagehand@1.14.0(@playwright/test@1.57.0)(deepmerge@4.3.1)(dotenv@17.2.3)(openai@6.15.0(ws@8.20.1)(zod@4.3.6))(zod@4.3.6))(@ibm-cloud/watsonx-ai@1.7.5)(@langchain/core@1.1.47(openai@6.15.0(ws@8.20.1)(zod@4.3.6))(ws@8.20.1))(ibm-cloud-sdk-core@5.4.5)(ignore@7.0.5)(ioredis@5.9.0)(jsdom@25.0.1)(jsonwebtoken@9.0.3)(lodash@4.18.1)(openai@6.15.0(ws@8.20.1)(zod@4.3.6))(ws@8.20.1)
       '@langchain/core':
         specifier: ^1.1.47
         version: 1.1.47(openai@6.15.0(ws@8.20.1)(zod@4.3.6))(ws@8.20.1)
@@ -551,8 +551,8 @@ packages:
   '@borewit/text-codec@0.2.1':
     resolution: {integrity: sha512-k7vvKPbf7J2fZ5klGRD9AeKfUvojuZIQ3BT5u7Jfv+puwXkUBUT5PVyMDfJZpy30CBDXGMgw7fguK/lpOMBvgw==}
 
-  '@browserbasehq/sdk@2.10.0':
-    resolution: {integrity: sha512-pOL4yW8P8AI2+N5y6zEP6XXKqIXtYyKunr1JXppqQDOyKLxxvZEDqQCHJXWUzqgx3R1tGWpn7m9AjXN7MeYInA==}
+  '@browserbasehq/sdk@2.11.0':
+    resolution: {integrity: sha512-hJ1Pq+uRagLZfyS5oHKmMAYZSTmhTGgQ3JExoVKdrsQ1qRZu2S7fLLb+78EbHyhNPSXJiQTTCSPnajsGMzzp8g==}
 
   '@browserbasehq/stagehand@1.14.0':
     resolution: {integrity: sha512-Hi/EzgMFWz+FKyepxHTrqfTPjpsuBS4zRy3e9sbMpBgLPv+9c0R+YZEvS7Bw4mTS66QtvvURRT6zgDGFotthVQ==}
@@ -2080,6 +2080,9 @@ packages:
   '@types/node@22.19.18':
     resolution: {integrity: sha512-9v00a+dn2yWVsYDEunWC4g/TcRKVq3r8N5FuZp7u0SGrPvdN9c2yXI9bBuf5Fl0hNCb+QTIePTn5pJs2pwBOQQ==}
 
+  '@types/node@22.19.19':
+    resolution: {integrity: sha512-dyh/xO2Fh5bYrfWaaqGrRQQGkNdmYw6AmaAUvYeUMNTWQtvb796ikLdmTchRmOlOiIJ1TDXfWgVx1QkUlQ6Hew==}
+
   '@types/node@22.19.3':
     resolution: {integrity: sha512-1N9SBnWYOJTrNZCdh/yJE+t910Y128BoyY+zBLWhL3r0TYzlTmFdXrPwHL9DyFZmlEXNQQolTZh3KHV31QDhyA==}
 
@@ -3301,6 +3304,10 @@ packages:
     resolution: {integrity: sha512-Ievi/yy8DS3ygGvT47PjSfdFoX+2isQueoYP1cntFW1JLYAuS4GD7NUPGg4zv2iZfV52uDyk5w5Z0TdpRS6Q1g==}
     engines: {node: '>=20'}
 
+  file-type@22.0.1:
+    resolution: {integrity: sha512-ww5Mhre0EE+jmBvOXTmXAbEMuZE7uX4a3+oRCQFNj8w++g3ev913N6tXQz0XTXbueQ5TWQfm6BdaViEHHn8bhA==}
+    engines: {node: '>=22'}
+
   filelist@1.0.4:
     resolution: {integrity: sha512-w1cEuf3S+DrLCQL7ET6kz+gmlJdbq9J7yXCSjK/OZCPA+qEN1WyF4ZAf0YYJa4/shHJra2t/d/r8SV4Ji+x+8Q==}
 
@@ -4467,7 +4474,6 @@ packages:
     resolution: {integrity: sha512-iiRSuRmLihoEJ4YGkoqSq3/r4MR0OmkMTYDda0Pq7DAWqJwMylTilXu46T16gfS3DUp3fhiVuz7NtRMbk3uBhw==}
     engines: {node: '>=20.18.0'}
     hasBin: true
-    bundledDependencies: []
 
   pdfkit@0.18.0:
     resolution: {integrity: sha512-NvUwSDZ0eYEzqAiWwVQkRkjYUkZ48kcsHuCO31ykqPPIVkwoSDjDGiwIgHHNtsiwls3z3P/zy4q00hl2chg2Ug==}
@@ -5893,7 +5899,7 @@ snapshots:
 
   '@borewit/text-codec@0.2.1': {}
 
-  '@browserbasehq/sdk@2.10.0':
+  '@browserbasehq/sdk@2.11.0':
     dependencies:
       '@types/node': 18.19.130
       '@types/node-fetch': 2.6.13
@@ -5908,7 +5914,7 @@ snapshots:
   '@browserbasehq/stagehand@1.14.0(@playwright/test@1.57.0)(deepmerge@4.3.1)(dotenv@17.2.3)(openai@6.15.0(ws@8.20.1)(zod@4.3.6))(zod@4.3.6)':
     dependencies:
       '@anthropic-ai/sdk': 0.27.3
-      '@browserbasehq/sdk': 2.10.0
+      '@browserbasehq/sdk': 2.11.0
       '@playwright/test': 1.57.0
       deepmerge: 4.3.1
       dotenv: 17.2.3
@@ -6531,7 +6537,7 @@ snapshots:
       - openai
       - ws
 
-  '@langchain/community@1.1.28(@browserbasehq/sdk@2.10.0)(@browserbasehq/stagehand@1.14.0(@playwright/test@1.57.0)(deepmerge@4.3.1)(dotenv@17.2.3)(openai@6.15.0(ws@8.20.1)(zod@4.3.6))(zod@4.3.6))(@ibm-cloud/watsonx-ai@1.7.5)(@langchain/core@1.1.47(openai@6.15.0(ws@8.20.1)(zod@4.3.6))(ws@8.20.1))(ibm-cloud-sdk-core@5.4.5)(ignore@7.0.5)(ioredis@5.9.0)(jsdom@25.0.1)(jsonwebtoken@9.0.3)(lodash@4.18.1)(openai@6.15.0(ws@8.20.1)(zod@4.3.6))(ws@8.20.1)':
+  '@langchain/community@1.1.28(@browserbasehq/sdk@2.11.0)(@browserbasehq/stagehand@1.14.0(@playwright/test@1.57.0)(deepmerge@4.3.1)(dotenv@17.2.3)(openai@6.15.0(ws@8.20.1)(zod@4.3.6))(zod@4.3.6))(@ibm-cloud/watsonx-ai@1.7.5)(@langchain/core@1.1.47(openai@6.15.0(ws@8.20.1)(zod@4.3.6))(ws@8.20.1))(ibm-cloud-sdk-core@5.4.5)(ignore@7.0.5)(ioredis@5.9.0)(jsdom@25.0.1)(jsonwebtoken@9.0.3)(lodash@4.18.1)(openai@6.15.0(ws@8.20.1)(zod@4.3.6))(ws@8.20.1)':
     dependencies:
       '@browserbasehq/stagehand': 1.14.0(@playwright/test@1.57.0)(deepmerge@4.3.1)(dotenv@17.2.3)(openai@6.15.0(ws@8.20.1)(zod@4.3.6))(zod@4.3.6)
       '@ibm-cloud/watsonx-ai': 1.7.5
@@ -6548,7 +6554,7 @@ snapshots:
       uuid: 14.0.0
       zod: 4.3.6
     optionalDependencies:
-      '@browserbasehq/sdk': 2.10.0
+      '@browserbasehq/sdk': 2.11.0
       ignore: 7.0.5
       ioredis: 5.9.0
       jsdom: 25.0.1
@@ -7117,7 +7123,7 @@ snapshots:
 
   '@types/node-fetch@2.6.13':
     dependencies:
-      '@types/node': 22.19.18
+      '@types/node': 22.19.19
       form-data: 4.0.5
 
   '@types/node@18.19.130':
@@ -7125,6 +7131,10 @@ snapshots:
       undici-types: 5.26.5
 
   '@types/node@22.19.18':
+    dependencies:
+      undici-types: 6.21.0
+
+  '@types/node@22.19.19':
     dependencies:
       undici-types: 6.21.0
 
@@ -8421,6 +8431,15 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  file-type@22.0.1:
+    dependencies:
+      '@tokenizer/inflate': 0.4.1
+      strtok3: 10.3.5
+      token-types: 6.1.2
+      uint8array-extras: 1.5.0
+    transitivePeerDependencies:
+      - supports-color
+
   filelist@1.0.4:
     dependencies:
       minimatch: 5.1.9
@@ -8699,7 +8718,7 @@ snapshots:
       debug: 4.4.3
       dotenv: 16.6.1
       extend: 3.0.2
-      file-type: 21.3.4
+      file-type: 22.0.1
       form-data: 4.0.5
       isstream: 0.1.2
       jsonwebtoken: 9.0.3
