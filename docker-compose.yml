@@ -1,57 +1,14 @@
+# OSS-only app services. Shared infrastructure (MongoDB, Redis) lives in the
+# repo-root docker-compose.yml — start it first:
+#   cd .. && docker compose up -d mongodb redis
+
+name: formulai-oss
+
 services:
-  mongodb:
-    image: mongo:7.0
-    container_name: formulai-mongodb
-    restart: unless-stopped
-    ports:
-      - "27017:27017"
-    environment:
-      MONGO_INITDB_DATABASE: formulai
-    volumes:
-      - mongodb_data:/data/db
-      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
-    networks:
-      - formulai-network
-
-  mongo-express:
-    image: mongo-express:1.0.2
-    container_name: formulai-mongo-express
-    restart: unless-stopped
-    ports:
-      - "8081:8081"
-    environment:
-      ME_CONFIG_MONGODB_URL: mongodb://mongodb:27017/
-      ME_CONFIG_BASICAUTH: false
-    depends_on:
-      - mongodb
-    networks:
-      - formulai-network
-
-  redis:
-    image: redis:7-alpine
-    container_name: formulai-redis
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    networks:
-      - formulai-network
-    command: redis-server --appendonly yes
-
-  mailhog:
-    image: mailhog/mailhog
-    ports:
-      - "1025:1025"
-      - "8025:8025"
-    networks:
-      - formulai-network
-
   backend:
     build:
       context: .
       dockerfile: server/Dockerfile
-    container_name: formulai-backend
     restart: unless-stopped
     environment:
       NODE_ENV: production
@@ -62,18 +19,15 @@ services:
       FRONTEND_URL: http://localhost
     env_file:
       - ./server/.env
-    depends_on:
-      - mongodb
-      - redis
     networks:
       - formulai-network
     ports:
       - "3001:3001"
+
   worker:
     build:
       context: .
       dockerfile: server/Dockerfile
-    container_name: formulai-worker
     restart: unless-stopped
     environment:
       NODE_ENV: production
@@ -83,19 +37,17 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
     env_file:
       - ./server/.env
-    depends_on:
-      - mongodb
-      - redis
     networks:
       - formulai-network
-    command: [ "pnpm", "start:worker:prod" ]
+    working_dir: /app/server
+    command: ["node", "dist/src/worker"]
+
   gateway:
     build:
       context: .
       dockerfile: client/Dockerfile
       args:
         VITE_API_BASE_URL: /api
-    container_name: formulai-gateway
     restart: unless-stopped
     volumes:
       - ./gateway/nginx.conf:/etc/nginx/nginx.conf:ro
@@ -106,12 +58,7 @@ services:
     networks:
       - formulai-network
 
-volumes:
-  mongodb_data:
-    driver: local
-  redis_data:
-    driver: local
-
 networks:
   formulai-network:
-    driver: bridge
+    external: true
+    name: formulai-network

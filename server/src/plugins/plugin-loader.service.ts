@@ -4,11 +4,14 @@ import { pathToFileURL } from 'url';
 import {
   FormulAIPlugin,
   PluginConfig,
-  PluginContext,
   registerSchema,
   getSchema,
   getSchemaOrThrow,
   hasSchema,
+} from '@opendexcom/plugin-interface';
+import type {
+  PluginContext,
+  PluginContributionRegistry,
 } from '@opendexcom/plugin-interface';
 
 @Injectable()
@@ -16,21 +19,10 @@ export class PluginLoaderService {
   private readonly logger = new Logger(PluginLoaderService.name);
   private loadedPlugins: Map<string, FormulAIPlugin> = new Map();
 
-  /**
-   * Build a PluginContext that references the host's schema registry.
-   * Every plugin receives this so all schema operations go through
-   * the same Map, regardless of how many copies of plugin-interface exist.
-   */
-  private buildPluginContext(): PluginContext {
-    return {
-      schemaRegistry: {
-        register: registerSchema,
-        get: getSchema,
-        getOrThrow: getSchemaOrThrow,
-        has: hasSchema,
-      },
-    };
-  }
+  constructor(
+    private readonly contributionRegistry: PluginContributionRegistry,
+    private readonly pluginContext: PluginContext,
+  ) {}
 
   /**
    * Load plugins from environment configuration.
@@ -41,7 +33,6 @@ export class PluginLoaderService {
     const pluginConfigs = this.getPluginConfigs();
     const modules: DynamicModule[] = [];
     const orderedNames = this.getPluginLoadOrder(Object.keys(pluginConfigs));
-    const context = this.buildPluginContext();
 
     for (const pluginName of orderedNames) {
       const config = pluginConfigs[pluginName];
@@ -53,7 +44,10 @@ export class PluginLoaderService {
 
       try {
         const plugin = await this.loadPlugin(pluginName, config);
-        const module = await plugin.register(context);
+        const module = await plugin.register(this.pluginContext);
+        if (plugin.contribute) {
+          await plugin.contribute(this.contributionRegistry);
+        }
         modules.push(module);
         this.loadedPlugins.set(pluginName, plugin);
         this.logger.log(`✓ Loaded plugin: ${plugin.name} v${plugin.version}`);

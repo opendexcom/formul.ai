@@ -16,7 +16,7 @@ const AdminSettings: React.FC = () => {
         const fetchSettings = async () => {
             try {
                 const setting = await (apiClient as any).getRegistrationSetting();
-                setAllowRegistration(setting);
+                setAllowRegistration(setting.allowRegistration);
             } catch (err) {
                 setError('Failed to fetch settings');
                 console.error(err);

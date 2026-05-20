@@ -26,6 +26,8 @@ function isStrongPassword(value: string): boolean {
   );
 }
 
+export { isStrongPassword };
+
 export function IsStrongPassword(validationOptions?: ValidationOptions) {
   return function (object: Object, propertyName: string) {
     registerDecorator({

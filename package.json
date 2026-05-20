@@ -19,12 +19,12 @@
     "build:client": "pnpm --filter client build",
     "build:server": "pnpm --filter server build",
     "install:all": "pnpm install -w",
-    "docker:up": "docker compose up -d",
-    "docker:down": "docker compose down",
-    "docker:logs": "docker compose logs -f",
-    "db:start": "docker compose up -d mongodb",
-    "db:stop": "docker compose stop mongodb",
-    "db:admin": "echo MongoDB Admin: http://localhost:8081"
+    "docker:up": "docker compose -f ../docker-compose.yml up -d --build",
+    "docker:down": "docker compose -f ../docker-compose.yml down",
+    "docker:logs": "docker compose -f ../docker-compose.yml logs -f",
+    "db:start": "docker compose -f ../docker-compose.yml up -d mongodb redis",
+    "db:stop": "docker compose -f ../docker-compose.yml stop mongodb redis",
+    "db:admin": "docker compose -f ../docker-compose.yml --profile dev up -d mongo-express && echo MongoDB Admin: http://localhost:8081"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

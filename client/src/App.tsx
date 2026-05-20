@@ -13,6 +13,7 @@ import ResetPassword from './pages/ResetPassword';
 import AdminSettings from './pages/AdminSettings';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import UserBillingPage from './pages/UserBillingPage';
+import PluginRoutes from './plugins/PluginRoutes';
 import './App.css';
 
 // Protected Route Component
@@ -105,6 +106,7 @@ function App() {
                 path="/form/:formId"
                 element={<PublicFormView />}
               />
+              <PluginRoutes />
               <Route
                 path="/confirm-email"
                 element={<EmailConfirmation />}

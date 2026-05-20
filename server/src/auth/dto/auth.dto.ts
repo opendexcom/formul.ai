@@ -1,4 +1,4 @@
-import { IsEmail, IsNotEmpty, IsString } from 'class-validator';
+import { IsBoolean, IsEmail, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { IsStrongPassword } from '../validators/strong-password.validator';
 
@@ -26,6 +26,12 @@ export class RegisterDto {
   @IsString()
   @IsNotEmpty()
   lastName: string;
+
+  /** Plugin-specific fields (e.g. EE terms acceptance); validated by registration extensions */
+  @ApiProperty({ example: true, required: false })
+  @IsOptional()
+  @IsBoolean()
+  acceptedTerms?: boolean;
 }
 
 export class LoginDto {

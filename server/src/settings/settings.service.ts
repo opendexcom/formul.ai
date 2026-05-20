@@ -9,6 +9,13 @@ export class SettingsService {
         @InjectModel(Settings.name) private settingsModel: Model<SettingsDocument>,
     ) { }
 
+    private resolveAllowRegistration(stored: boolean): boolean {
+        const env = process.env.ALLOW_REGISTRATION?.trim().toLowerCase();
+        if (env === 'true' || env === '1') return true;
+        if (env === 'false' || env === '0') return false;
+        return stored;
+    }
+
     async getSettings(): Promise<Settings> {
         let settings = await this.settingsModel.findOne();
         if (!settings) {
@@ -30,6 +37,6 @@ export class SettingsService {
 
     async isRegistrationAllowed(): Promise<boolean> {
         const settings = await this.getSettings();
-        return settings.allowRegistration;
+        return this.resolveAllowRegistration(settings.allowRegistration);
     }
 }

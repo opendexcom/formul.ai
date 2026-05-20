@@ -1,4 +1,5 @@
-# Dependencies
+# Dependencies and build artifacts
+**/node_modules
 node_modules
 npm-debug.log*
 yarn-debug.log*

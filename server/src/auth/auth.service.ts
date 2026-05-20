@@ -2,7 +2,10 @@ import {
   Injectable,
   ConflictException,
   UnauthorizedException,
+  Inject,
 } from '@nestjs/common';
+import type { PluginContributionRegistry } from '@opendexcom/plugin-interface';
+import { PLUGIN_CONTRIBUTION_REGISTRY } from '../plugins/plugin-contribution.registry';
 import { InjectModel } from '@nestjs/mongoose';
 import { JwtService } from '@nestjs/jwt';
 import { Model } from 'mongoose';
@@ -26,6 +29,8 @@ export class AuthService {
     private jwtService: JwtService,
     private emailService: EmailService,
     private settingsService: SettingsService,
+    @Inject(PLUGIN_CONTRIBUTION_REGISTRY)
+    private readonly contributions: PluginContributionRegistry,
   ) {}
 
   async register(registerDto: RegisterDto) {
@@ -36,6 +41,11 @@ export class AuthService {
     }
 
     const { email, password, firstName, lastName } = registerDto;
+    const body = registerDto as unknown as Record<string, unknown>;
+
+    for (const ext of this.contributions.getRegistrationExtensions()) {
+      await ext.validateRegister(body);
+    }
 
     // Check if user already exists
     const existingUser = await this.userModel.findOne({
@@ -63,6 +73,14 @@ export class AuthService {
     });
 
     await user.save();
+
+    const registeredUser = {
+      id: String(user._id),
+      email: user.email,
+    };
+    for (const ext of this.contributions.getRegistrationExtensions()) {
+      await ext.onUserRegistered?.(registeredUser, body);
+    }
 
     // Send confirmation email
     await this.emailService.sendConfirmationEmail(

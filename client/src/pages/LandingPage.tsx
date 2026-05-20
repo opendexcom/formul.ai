@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import PluginSlot from '../plugins/PluginSlot';
+import { usePluginSlot } from '../plugins/usePluginSlot';
 import { apiClient } from '../services/apiClient';
 import authService from '../services/authService';
 import { Eye, EyeOff, Sparkles, Users, BarChart3 } from 'lucide-react';
@@ -19,6 +21,8 @@ const LandingPage: React.FC = () => {
   const [successMessage, setSuccessMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [allowRegistration, setAllowRegistration] = useState(true);
+  const { slotActive: signupSlotActive, api: signupSlotApi, refresh: refreshSignupSlot } =
+    usePluginSlot('auth.signup.beforeSubmit');
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
   const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
@@ -28,7 +32,7 @@ const LandingPage: React.FC = () => {
     const checkRegistration = async () => {
       try {
         const setting = await (apiClient as any).getRegistrationSetting();
-        setAllowRegistration(setting);
+        setAllowRegistration(setting.allowRegistration);
       } catch (error) {
         console.error('Failed to check registration setting:', error);
       }
@@ -78,12 +82,24 @@ const LandingPage: React.FC = () => {
         setError(errors.length > 0 ? errors.join('. ') : 'Password does not meet the requirements.');
         return;
       }
+      refreshSignupSlot();
+      if (signupSlotActive && signupSlotApi && !signupSlotApi.isValid()) {
+        setError('You must accept the Terms and Conditions to register.');
+        return;
+      }
     }
 
     setLoading(true);
     try {
       if (isSignUp) {
-        await register(formData.email, formData.password, formData.firstName, formData.lastName);
+        const slotValues = signupSlotApi?.getValues() ?? {};
+        await register(
+          formData.email,
+          formData.password,
+          formData.firstName,
+          formData.lastName,
+          slotValues.acceptedTerms,
+        );
         setSuccessMessage('Registration successful! Please check your email to confirm your account.');
         setFormData({ email: '', password: '', firstName: '', lastName: '' });
       } else {
@@ -295,9 +311,17 @@ const LandingPage: React.FC = () => {
                 )}
               </div>
 
+              {isSignUp && <PluginSlot name="auth.signup.beforeSubmit" />}
+
               <button
                 type="submit"
-                disabled={loading}
+                disabled={
+                  loading ||
+                  (isSignUp &&
+                    signupSlotActive &&
+                    signupSlotApi !== undefined &&
+                    !signupSlotApi.isValid())
+                }
                 className="w-full bg-gray-900 text-white py-3 px-4 rounded-lg font-medium hover:bg-gray-800 focus:ring-2 focus:ring-offset-2 focus:ring-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               >
                 {loading ? 'Please wait...' : isSignUp ? 'Sign Up' : 'Sign In'}

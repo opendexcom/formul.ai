@@ -47,9 +47,11 @@ export const createApiClient = (): AxiosInstance => {
   );
 
   // Settings API
-  (client as any).getRegistrationSetting = async (): Promise<boolean> => {
+  (client as any).getRegistrationSetting = async (): Promise<{
+    allowRegistration: boolean;
+  }> => {
     const response = await client.get<{ allowRegistration: boolean }>('/settings/registration');
-    return response.data.allowRegistration;
+    return response.data;
   };
 
   (client as any).updateRegistrationSetting = async (allowRegistration: boolean): Promise<{ allowRegistration: boolean }> => {

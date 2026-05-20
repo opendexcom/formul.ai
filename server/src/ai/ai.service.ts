@@ -197,25 +197,6 @@ CRITICAL: The option label and placeholder are SEPARATE fields:
       );
     }
 
-    if (dto.document && this.provider !== 'openai') {
-      yield {
-        step: 'error',
-        message:
-          'Document upload is only supported when using OpenAI. Set LLM_PROVIDER=openai to use this feature.',
-        status: 'error',
-      };
-      return;
-    }
-    if (dto.document && dto.document.mimetype !== 'application/pdf') {
-      yield {
-        step: 'error',
-        message:
-          'Only PDF documents are supported for document upload. Please convert your file to PDF and try again.',
-        status: 'error',
-      };
-      return;
-    }
-
     // Security Check
     const validation = await this.guardianService.validatePrompt(dto.prompt);
     if (!validation.isSafe) {
@@ -253,7 +234,7 @@ ${dto.currentForm ? '5. What should be kept, modified, or removed from the exist
 Important: Respond ONLY with a valid JSON object (no backticks, no prose). Return a JSON object with this shape: { purpose: string, audience: string, dataPoints: string[], questionTypes: Record<string, string>, considerations: string[]${dto.currentForm ? ', modifications: { keep: string[], modify: string[], remove: string[], add: string[] }' : ''} }`;
 
     const { content: strategyContent, usage: analyzeUsage } =
-      await this.invokeModelRawWithUsage(strategyPrompt, true, dto.document);
+      await this.invokeModelRawWithUsage(strategyPrompt, true);
     const strategy = JSON.parse(strategyContent);
 
     yield {
@@ -296,7 +277,7 @@ ${dto.currentForm ? 'Keep questions from the current form that are still relevan
 Important: Respond ONLY with a valid JSON array of question objects (no backticks, no prose). Return a JSON array of questions.`;
 
     const { content: questionsContent, usage: questionsUsage } =
-      await this.invokeModelRawWithUsage(questionsPrompt, true, dto.document);
+      await this.invokeModelRawWithUsage(questionsPrompt, true);
     const questionsList = JSON.parse(questionsContent);
 
     yield {
@@ -340,7 +321,7 @@ IMPORTANT - "Other" Option Format:
 Important: Respond ONLY with a valid JSON array of question objects (no backticks, no prose). Return optimized questions as a JSON array.`;
 
     const { content: optimizedContent, usage: optimizeUsage } =
-      await this.invokeModelRawWithUsage(optimizePrompt, true, dto.document);
+      await this.invokeModelRawWithUsage(optimizePrompt, true);
     const optimizedQuestions = JSON.parse(optimizedContent);
 
     yield {
@@ -371,10 +352,8 @@ Generate a complete form with:
 - The optimized questions list
 ${dto.currentForm ? '\n- Preserve the original form ID and metadata where applicable' : ''}`;
 
-    const { content: finalContent, usage } = await this.invokeModelWithUsage(
-      finalPrompt,
-      dto.document,
-    );
+    const { content: finalContent, usage } =
+      await this.invokeModelWithUsage(finalPrompt);
     const parsed = JSON.parse(finalContent);
     const finalForm = this.validateAndSanitizeForm(parsed);
 

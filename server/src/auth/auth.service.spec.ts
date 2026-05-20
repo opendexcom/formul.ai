@@ -1,4 +1,5 @@
 import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import { DefaultPluginContributionRegistry } from '@opendexcom/plugin-interface';
 import * as bcrypt from 'bcryptjs';
 import { AuthService } from './auth.service';
 
@@ -27,6 +28,7 @@ describe('AuthService', () => {
     sendPasswordResetEmail: jest.Mock<Promise<void>, [string, string]>;
   };
   let mockSettingsService: { isRegistrationAllowed: jest.Mock<Promise<boolean>, []> };
+  let mockContributions: DefaultPluginContributionRegistry;
 
   const createUser = (overrides: Partial<MockUser> = {}): MockUser => ({
     email: 'test@example.com',
@@ -83,6 +85,8 @@ describe('AuthService', () => {
       isRegistrationAllowed: jest.fn().mockResolvedValue(true),
     };
 
+    mockContributions = new DefaultPluginContributionRegistry();
+
     (bcrypt.genSalt as jest.Mock).mockResolvedValue('salt');
     (bcrypt.hash as jest.Mock).mockResolvedValue('hashed-password');
     (bcrypt.compare as jest.Mock).mockResolvedValue(true);
@@ -92,6 +96,7 @@ describe('AuthService', () => {
       mockJwtService as any,
       mockEmailService as any,
       mockSettingsService as any,
+      mockContributions,
     );
   });
 
@@ -107,6 +112,22 @@ describe('AuthService', () => {
           lastName: 'User',
         } as any),
       ).rejects.toBeInstanceOf(UnauthorizedException);
+    });
+
+    it('runs registration extensions before creating user', async () => {
+      const validateRegister = jest.fn().mockRejectedValue(new UnauthorizedException('ext'));
+      mockContributions.addRegistrationExtension({ validateRegister });
+      mockUserModel.findOne.mockResolvedValueOnce(null);
+
+      await expect(
+        service.register({
+          email: 'test@example.com',
+          password: 'password',
+          firstName: 'Test',
+          lastName: 'User',
+        } as any),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+      expect(validateRegister).toHaveBeenCalled();
     });
 
     it('throws when user already exists', async () => {

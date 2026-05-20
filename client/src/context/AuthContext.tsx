@@ -50,7 +50,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     email: string,
     password: string,
     firstName: string,
-    lastName: string
+    lastName: string,
+    acceptedTerms?: boolean,
   ): Promise<void> => {
     // We don't set loading here because it triggers a re-render of PublicRoute
     // which unmounts the LandingPage and clears the success message
@@ -60,6 +61,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         password,
         firstName,
         lastName,
+        acceptedTerms,
       });
       // Do not set user here as registration now requires email confirmation
     } catch (error) {

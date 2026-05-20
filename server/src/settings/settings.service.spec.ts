@@ -73,5 +73,25 @@ describe('SettingsService', () => {
 
       expect(result).toBe(true);
     });
+
+    it('returns true when ALLOW_REGISTRATION env is true even if DB is false', async () => {
+      process.env.ALLOW_REGISTRATION = 'true';
+      mockSettingsModel.findOne.mockResolvedValueOnce({ allowRegistration: false });
+
+      const result = await service.isRegistrationAllowed();
+
+      expect(result).toBe(true);
+      delete process.env.ALLOW_REGISTRATION;
+    });
+
+    it('returns false when ALLOW_REGISTRATION env is false even if DB is true', async () => {
+      process.env.ALLOW_REGISTRATION = 'false';
+      mockSettingsModel.findOne.mockResolvedValueOnce({ allowRegistration: true });
+
+      const result = await service.isRegistrationAllowed();
+
+      expect(result).toBe(false);
+      delete process.env.ALLOW_REGISTRATION;
+    });
   });
 });

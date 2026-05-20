@@ -2,7 +2,7 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-RUN npm install -g pnpm
+RUN npm install -g pnpm@10.23.0
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY client/package.json ./client/
@@ -12,17 +12,12 @@ RUN pnpm config set store-dir /root/.local/share/pnpm/store
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store pnpm install --frozen-lockfile
 
 COPY client ./client
-# We might need server types or shared code if referenced, so copying server is safer if there are deps, 
-# but usually client is standalone. However, pnpm workspace might link them.
-# Let's assume client is self-contained for now or minimal deps.
-# Actually, to be safe with workspace, we should copy what's needed.
-# But let's stick to client source for now.
-
-WORKDIR /app/client
 
 ARG VITE_API_BASE_URL
 
-RUN VITE_API_BASE_URL=$VITE_API_BASE_URL pnpm run build:prod
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store pnpm install --frozen-lockfile
+
+RUN VITE_API_BASE_URL=$VITE_API_BASE_URL pnpm --filter client run build:prod
 
 FROM nginx:alpine
 
