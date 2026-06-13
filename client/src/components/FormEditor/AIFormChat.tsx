@@ -48,6 +48,7 @@ const AIFormChat: React.FC<AIFormChatProps> = ({ currentForm, onFormGenerated })
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const { slotActive: documentSlotActive, api: documentSlotApi, refresh: refreshDocumentSlot } =
     usePluginSlot('formEditor.aiChat.documentAttach');
+  const docApi = documentSlotApi as import('../../plugins/types').DocumentSlotApi | undefined;
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -103,7 +104,7 @@ const AIFormChat: React.FC<AIFormChatProps> = ({ currentForm, onFormGenerated })
     setLastPrompt(effectivePrompt);
     setLastFile(file);
     setInput('');
-    documentSlotApi?.clearAttachedFile?.();
+    docApi?.clearAttachedFile?.();
     setIsProcessing(true);
     setProcessingSteps([]);
     setErrorMessage(null);
@@ -115,19 +116,16 @@ const AIFormChat: React.FC<AIFormChatProps> = ({ currentForm, onFormGenerated })
 
       let response: Response;
       if (hasFile) {
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('prompt', effectivePrompt);
-        formData.append('mode', isRefine ? 'refine' : 'generate');
-        if (currentForm) {
-          formData.append('currentForm', JSON.stringify(currentForm));
+        if (!docApi?.submitWithDocument) {
+          throw new Error('Document upload is not available in this edition.');
         }
-        response = await fetch(`${API_BASE_URL}/ai/generate-stream-from-document`, {
-          method: 'POST',
-          headers: {
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: formData,
+        response = await docApi.submitWithDocument({
+          prompt: effectivePrompt,
+          file,
+          mode: isRefine ? 'refine' : 'generate',
+          currentForm,
+          token,
+          apiBaseUrl: API_BASE_URL,
         });
       } else {
         response = await fetch(`${API_BASE_URL}/ai/generate-stream`, {
@@ -217,7 +215,7 @@ const AIFormChat: React.FC<AIFormChatProps> = ({ currentForm, onFormGenerated })
   };
 
   const getAttachedFile = (): File | null =>
-    documentSlotApi?.getAttachedFile?.() ?? null;
+    docApi?.getAttachedFile?.() ?? null;
 
   const handleSend = async () => {
     refreshDocumentSlot();
@@ -293,7 +291,7 @@ const AIFormChat: React.FC<AIFormChatProps> = ({ currentForm, onFormGenerated })
             </span>
             <button
               type="button"
-              onClick={() => documentSlotApi?.clearAttachedFile?.()}
+              onClick={() => docApi?.clearAttachedFile?.()}
               className="shrink-0 text-gray-500 hover:text-red-600 p-0.5 rounded"
               aria-label="Remove attachment"
             >

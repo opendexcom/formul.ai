@@ -3,6 +3,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigModule } from '@nestjs/config';
 import { AiService } from './ai.service';
 import { GuardianService } from './guardian.service';
+import { MlflowPromptService } from '../mlflow/mlflow-prompt.service';
+import { FlowsConfigService } from '../mlflow/flows.config';
+import { SemanticLlmCacheService } from './semantic-llm-cache.service';
+import { EmbeddingService } from './embedding.service';
 import { GenerateAIFormDto } from './dto/generate-ai-form.dto';
 
 const validForm = {
@@ -21,6 +25,39 @@ const mockUsage = {
 
 const mockGuardianService = {
   validatePrompt: jest.fn().mockResolvedValue({ isSafe: true }),
+};
+
+const mockMlflowPrompts = {
+  formatFlow: jest.fn().mockImplementation(async (_key: string, vars: Record<string, unknown>) => ({
+    prompt: `formatted prompt ${JSON.stringify(vars)}`,
+    loaded: { name: 'test-prompt', version: '1', template: '', alias: 'production' },
+  })),
+  loadPrompt: jest.fn(),
+  getPromptVersionsForFlows: jest.fn().mockResolvedValue({}),
+};
+
+const mockFlowsConfig = {
+  hasFlow: jest.fn().mockReturnValue(true),
+  getCachePolicy: jest.fn().mockReturnValue({
+    enabled: false,
+    mode: 'exact',
+    scope: 'none',
+  }),
+  getAllowedVariables: jest.fn().mockReturnValue([]),
+};
+
+const mockSemanticCache = {
+  lookup: jest.fn().mockResolvedValue(null),
+  store: jest.fn().mockResolvedValue(undefined),
+  resolveScopeId: jest.fn().mockReturnValue('test-scope'),
+  isEnabled: jest.fn().mockReturnValue(false),
+};
+
+const mockEmbeddings = {
+  isAvailable: jest.fn().mockReturnValue(false),
+  embedQuery: jest.fn().mockResolvedValue([]),
+  getProvider: jest.fn().mockReturnValue('local'),
+  getDimension: jest.fn().mockReturnValue(384),
 };
 
 const createMockChatModel = () => ({
@@ -51,6 +88,10 @@ describe('AiService', () => {
       providers: [
         AiService,
         { provide: GuardianService, useValue: mockGuardianService },
+        { provide: MlflowPromptService, useValue: mockMlflowPrompts },
+        { provide: FlowsConfigService, useValue: mockFlowsConfig },
+        { provide: SemanticLlmCacheService, useValue: mockSemanticCache },
+        { provide: EmbeddingService, useValue: mockEmbeddings },
       ],
     }).compile();
 
@@ -125,8 +166,14 @@ describe('AiService', () => {
       });
 
       expect(capturedPrompt).toContain('Existing Form');
-      expect(capturedPrompt).toContain('refine');
       expect(capturedPrompt).toContain('Add a question about satisfaction');
+      expect(mockMlflowPrompts.formatFlow).toHaveBeenCalledWith(
+        'form_generation.single_shot_refine',
+        expect.objectContaining({
+          userInput: 'Add a question about satisfaction',
+          currentForm: expect.stringContaining('Existing Form'),
+        }),
+      );
     });
 
     it('returns form and usage separately when LLM provides usage metadata', async () => {

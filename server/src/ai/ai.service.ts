@@ -7,6 +7,12 @@ import { GenerateAIFormDto } from './dto/generate-ai-form.dto';
 import { GuardianService } from './guardian.service';
 import { LlmUsage } from './llm.types';
 import { HumanMessage } from '@langchain/core/messages';
+import { MlflowPromptService } from '../mlflow/mlflow-prompt.service';
+import { FlowsConfigService } from '../mlflow/flows.config';
+import { SemanticLlmCacheService } from './semantic-llm-cache.service';
+import { EmbeddingService } from './embedding.service';
+import { InvokeFlowOptions } from '../mlflow/mlflow.types';
+import { FlowNotRegisteredException } from '../mlflow/mlflow.exceptions';
 
 export interface GenerationStep {
   step: string;
@@ -57,7 +63,13 @@ export class AiService {
   private chatModel: any | null = null;
   private provider: 'openai' | 'ollama' = 'openai';
 
-  constructor(private readonly guardianService: GuardianService) {
+  constructor(
+    private readonly guardianService: GuardianService,
+    private readonly mlflowPrompts: MlflowPromptService,
+    private readonly flowsConfig: FlowsConfigService,
+    private readonly semanticCache: SemanticLlmCacheService,
+    private readonly embeddings: EmbeddingService,
+  ) {
     // Determine provider from environment
     this.provider =
       (process.env.LLM_PROVIDER as 'openai' | 'ollama') || 'openai';
@@ -107,6 +119,101 @@ export class AiService {
     });
   }
 
+  private async getSharedSnippet(flowKey: string): Promise<string> {
+    const { prompt } = await this.mlflowPrompts.formatFlow(flowKey, {});
+    return prompt;
+  }
+
+  async invokeFlow(
+    flowKey: string,
+    variables: Record<string, unknown>,
+    options: InvokeFlowOptions = {},
+  ): Promise<{ content: string; usage?: LlmUsage; promptVersion?: string }> {
+    if (!this.flowsConfig.hasFlow(flowKey)) {
+      throw new FlowNotRegisteredException(flowKey);
+    }
+
+    const { prompt, loaded } = await this.mlflowPrompts.formatFlow(
+      flowKey,
+      variables,
+    );
+    const cachePolicy = this.flowsConfig.getCachePolicy(flowKey);
+    const model =
+      process.env.OPENAI_MODEL || process.env.OLLAMA_MODEL || 'unknown';
+    const useJsonFormat = options.useJsonFormat ?? true;
+    const scopeId = this.semanticCache.resolveScopeId(cachePolicy, options);
+    const cacheCtx = {
+      flowKey,
+      scopeId,
+      promptVersion: loaded.version,
+      model,
+      useJsonFormat,
+    };
+
+    let embedding: number[] | undefined;
+    if (
+      cachePolicy.enabled &&
+      cachePolicy.mode === 'semantic' &&
+      this.embeddings.isAvailable()
+    ) {
+      try {
+        embedding = await this.embeddings.embedQuery(prompt);
+      } catch {
+        embedding = undefined;
+      }
+    }
+
+    const cacheHit = await this.semanticCache.lookup(
+      prompt,
+      cachePolicy,
+      cacheCtx,
+      embedding,
+    );
+    if (cacheHit) {
+      return {
+        content: cacheHit.content,
+        usage: {
+          model,
+          totalTokens: 0,
+          cached: true,
+          cacheMode: cacheHit.cacheMode,
+          similarity: cacheHit.similarity,
+        },
+        promptVersion: loaded.version,
+      };
+    }
+
+    if (!options.skipValidation) {
+      const validation = await this.guardianService.validatePrompt(
+        String(variables.userInput ?? prompt),
+      );
+      if (!validation.isSafe) {
+        throw new BadRequestException(`Request rejected: ${validation.reason}`);
+      }
+    }
+
+    const structured = options.structuredOutput ?? false;
+    const result = structured
+      ? await this.invokeModelWithUsage(prompt, options.document)
+      : await this.invokeModelRawWithUsage(
+          prompt,
+          useJsonFormat,
+          options.document,
+          options.timeoutMs ?? 120000,
+          options.maxTokens,
+        );
+
+    await this.semanticCache.store(
+      prompt,
+      result.content,
+      cachePolicy,
+      cacheCtx,
+      embedding,
+    );
+
+    return { ...result, promptVersion: loaded.version };
+  }
+
   async generate(dto: GenerateAIFormDto) {
     if (!this.chatModel) {
       throw new InternalServerErrorException(
@@ -114,72 +221,28 @@ export class AiService {
       );
     }
 
-    // Security Check
     const validation = await this.guardianService.validatePrompt(dto.prompt);
     if (!validation.isSafe) {
       throw new BadRequestException(`Request rejected: ${validation.reason}`);
     }
 
-    const prompt =
+    const formRules = await this.getSharedSnippet('shared.form_other_rules');
+    const flowKey =
       dto.mode === 'refine' && dto.currentForm
-        ? `You are a form builder assistant. The user has a form and wants to refine it.
+        ? 'form_generation.single_shot_refine'
+        : 'form_generation.single_shot_create';
 
-Current form:
-${JSON.stringify(dto.currentForm, null, 2)}
-
-User's refinement request: ${dto.prompt}
-
-Update the form based on the user's request. Adjust questions, add new ones, remove unwanted ones, or modify properties as requested.
-
-Question types (including "comment" for static hints/instructions only; comment has title + description, no options): text, textarea, multiple_choice, checkbox, dropdown, email, number, date, time, rating, comment.
-
-IMPORTANT - "Other" Option Support:
-- For single choice (multiple_choice), checkbox, and dropdown questions, you can add an "other" option
-- To enable "other" option, set canBeOther: true
-- When canBeOther is true, the last option in the options array MUST be marked with the special prefix "__OTHER__:" followed by ONLY the label (e.g., "__OTHER__:Other", "__OTHER__:Something else")
-- DO NOT include placeholder text in the option label - the label should be clean (e.g., "Other", "Inne", "Something else")
-- Set otherPlaceholder field separately for the placeholder text (e.g., "Please specify", "Proszę podać")
-- The option label and placeholder are SEPARATE - keep them separate
-- If canBeOther is false, ensure no option has the "__OTHER__:" prefix`
-        : `You are a form builder assistant. Generate a structured form based on the user's description.
-
-User wants to create: ${dto.prompt}
-
-Guidelines:
-- Use appropriate question types based on the context. Allowed types: text, textarea, multiple_choice, checkbox, dropdown, email, number, date, time, rating, comment.
-- Use type "comment" for static hints or instructions only (no answer collected): set title and description, no options, required is ignored. Use when you need to explain a section, give instructions, or add help text between questions.
-- For single choice (multiple_choice), checkbox, and dropdown questions, provide relevant options
-- Mark important fields as required (never use required for type "comment")
-- Include 3-10 questions depending on the form's purpose
-- Use clear, concise question titles
-- Add helpful descriptions where needed
-
-IMPORTANT - "Other" Option Support:
-- For single choice (multiple_choice), checkbox, and dropdown questions, you can add an "other" option
-- To enable "other" option, set canBeOther: true
-- When canBeOther is true, the last option in the options array MUST be marked with the special prefix "__OTHER__:" followed by ONLY the label (e.g., "__OTHER__:Other", "__OTHER__:Something else")
-- DO NOT include placeholder text in the option label - use the otherPlaceholder field instead
-- The "other" option label should be clean (e.g., "Other", "Something else", "Inne") - do NOT put placeholder text like "(please specify)" in the label
-- Set otherPlaceholder field separately for the placeholder text that appears in the input field (e.g., "Please specify", "Proszę podać")
-- Example: If you want an "other" option, the options array should end with something like "__OTHER__:Other" and set otherPlaceholder separately
-
-Example question with "other" option:
-{
-  "id": "q1",
-  "title": "What is your favorite color?",
-  "type": "multiple_choice",
-  "required": false,
-  "canBeOther": true,
-  "otherPlaceholder": "Please specify your color",
-  "options": ["Red", "Blue", "Green", "__OTHER__:Other"],
-  "order": 1
-}
-
-CRITICAL: The option label and placeholder are SEPARATE fields:
-- Option label (in options array): Just the text shown in the list (e.g., "Other", "Inne")
-- otherPlaceholder field: The placeholder text for the input field (e.g., "Please specify", "Proszę podać")`;
-
-    const { content, usage } = await this.invokeModelWithUsage(prompt);
+    const { content, usage } = await this.invokeFlow(
+      flowKey,
+      {
+        userInput: dto.prompt,
+        currentForm: dto.currentForm
+          ? JSON.stringify(dto.currentForm, null, 2)
+          : '',
+        formRules,
+      },
+      { skipValidation: true, structuredOutput: true, userId: (dto as any).userId },
+    );
     const parsed = JSON.parse(content);
     const form = this.validateAndSanitizeForm(parsed);
     return { form, usage };
@@ -212,6 +275,19 @@ CRITICAL: The option label and placeholder are SEPARATE fields:
       ? `\n\nCurrent form structure:\n${JSON.stringify(dto.currentForm, null, 2)}\n\nThe user wants to refine or modify this existing form.`
       : '\n\nThis is a new form being created from scratch.';
 
+    const modificationsHint = dto.currentForm
+      ? '5. What should be kept, modified, or removed from the existing form'
+      : '';
+    const modificationsShape = dto.currentForm
+      ? ', modifications: { keep: string[], modify: string[], remove: string[], add: string[] }'
+      : '';
+    const refineHint = dto.currentForm
+      ? 'Keep questions from the current form that are still relevant, and modify or add new ones as needed.'
+      : '';
+    const preserveHint = dto.currentForm
+      ? '\n- Preserve the original form ID and metadata where applicable'
+      : '';
+
     // Step 1: Analyze request and create strategy
     yield {
       step: 'analyze',
@@ -219,22 +295,17 @@ CRITICAL: The option label and placeholder are SEPARATE fields:
       status: 'in-progress',
     };
 
-    const strategyPrompt = `You are a form design strategist. Analyze the user's request and create a strategy for building the form.
-${currentFormContext}
-
-User request: ${dto.prompt}
-
-Create a detailed strategy including:
-1. Form purpose and target audience
-2. Key information to collect
-3. Appropriate question types for each data point (allowed: text, textarea, multiple_choice, checkbox, dropdown, email, number, date, time, rating, comment — use "comment" for static hints or instructions that don't collect an answer)
-4. Validation and UX considerations
-${dto.currentForm ? '5. What should be kept, modified, or removed from the existing form' : ''}
-
-Important: Respond ONLY with a valid JSON object (no backticks, no prose). Return a JSON object with this shape: { purpose: string, audience: string, dataPoints: string[], questionTypes: Record<string, string>, considerations: string[]${dto.currentForm ? ', modifications: { keep: string[], modify: string[], remove: string[], add: string[] }' : ''} }`;
-
     const { content: strategyContent, usage: analyzeUsage } =
-      await this.invokeModelRawWithUsage(strategyPrompt, true);
+      await this.invokeFlow(
+        'form_generation.strategy',
+        {
+          userInput: dto.prompt,
+          currentFormContext,
+          modificationsHint,
+          modificationsShape,
+        },
+        { skipValidation: true, userId: (dto as any).userId },
+      );
     const strategy = JSON.parse(strategyContent);
 
     yield {
@@ -252,32 +323,17 @@ Important: Respond ONLY with a valid JSON object (no backticks, no prose). Retur
       status: 'in-progress',
     };
 
-    const questionsPrompt = `Based on the following strategy, generate a list of questions.
-${currentFormContext}
-
-Strategy: ${JSON.stringify(strategy, null, 2)}
-User request: ${dto.prompt}
-
-For each question, specify: title, type, description, whether it's required, options (if applicable), canBeOther (if applicable), and otherPlaceholder (if canBeOther is true).
-
-Allowed question types: text, textarea, multiple_choice, checkbox, dropdown, email, number, date, time, rating, comment. Use type "comment" for static hints or instructions only (no answer collected): provide title and description, do not set options or required. Use comment when you need section headers, instructions, or help text between questions.
-
-IMPORTANT - "Other" Option Support:
-- For single choice (multiple_choice), checkbox, and dropdown questions, you can add an "other" option when users might need to provide a custom answer
-- To enable "other" option, set canBeOther: true
-- When canBeOther is true, the last option in the options array MUST be marked with the special prefix "__OTHER__:" followed by ONLY the label (e.g., "__OTHER__:Other", "__OTHER__:Something else")
-- DO NOT include placeholder text in the option label - use the otherPlaceholder field instead
-- The option label should be clean (e.g., "Other", "Inne", "Something else") - do NOT put "(please specify)" in the label
-- Set otherPlaceholder field separately for the placeholder text (e.g., "Please specify", "Proszę podać")
-- Example: { "canBeOther": true, "otherPlaceholder": "Please specify", "options": ["Option 1", "Option 2", "__OTHER__:Other"] }
-- CRITICAL: Option label and placeholder are SEPARATE fields - keep them separate
-- CRITICAL FOR SINGLE OPTIONS: When a question only has a single option to check (like a single checkbox confirming something), use an appropriate label that makes sense in the context of the question (e.g., "Yes", "I agree", "Understood", "Tak", "Wyrażam zgodę", etc.) instead of generic "Option 1" or "Opcja 1". Let the option text be dictated by the question's natural flow.
-
-${dto.currentForm ? 'Keep questions from the current form that are still relevant, and modify or add new ones as needed.' : ''}
-Important: Respond ONLY with a valid JSON array of question objects (no backticks, no prose). Return a JSON array of questions.`;
-
     const { content: questionsContent, usage: questionsUsage } =
-      await this.invokeModelRawWithUsage(questionsPrompt, true);
+      await this.invokeFlow(
+        'form_generation.questions',
+        {
+          userInput: dto.prompt,
+          currentFormContext,
+          strategyJson: JSON.stringify(strategy, null, 2),
+          refineHint,
+        },
+        { skipValidation: true, userId: (dto as any).userId },
+      );
     const questionsList = JSON.parse(questionsContent);
 
     yield {
@@ -295,33 +351,19 @@ Important: Respond ONLY with a valid JSON array of question objects (no backtick
       status: 'in-progress',
     };
 
-    const optimizePrompt = `Review and optimize these questions for user experience and data collection efficiency.
-${currentFormContext}
-
-Questions: ${JSON.stringify(questionsList, null, 2)}
-Strategy: ${JSON.stringify(strategy, null, 2)}
-
-Ensure:
-- Question types are optimal for the data being collected (allowed: text, textarea, multiple_choice, checkbox, dropdown, email, number, date, time, rating, comment)
-- Use type "comment" only for static hints/instructions (title + description, no options); do not use required for comment
-- Options are comprehensive and mutually exclusive where needed
-- Required fields are appropriate (never set required for type "comment")
-- Question order flows logically
-- For single choice (multiple_choice), checkbox, and dropdown questions, consider adding "other" option (canBeOther: true) when users might need to provide custom answers
-- When canBeOther is true, ensure the last option uses "__OTHER__:" prefix (e.g., "__OTHER__:Other")
-${dto.currentForm ? '- Changes from the original form are intentional and improve the form' : ''}
-
-IMPORTANT - "Other" Option Format:
-- If canBeOther is true, the last option MUST have "__OTHER__:" prefix
-- The option label should be clean (e.g., "__OTHER__:Other", "__OTHER__:Something else") - do NOT include placeholder text in the label
-- Set otherPlaceholder field separately for the placeholder text (e.g., "Please specify")
-- Example: ["Red", "Blue", "__OTHER__:Other"] with otherPlaceholder: "Please specify your color"
-- CRITICAL: Keep the option label and placeholder SEPARATE - do not put placeholder text in the option label
-
-Important: Respond ONLY with a valid JSON array of question objects (no backticks, no prose). Return optimized questions as a JSON array.`;
-
     const { content: optimizedContent, usage: optimizeUsage } =
-      await this.invokeModelRawWithUsage(optimizePrompt, true);
+      await this.invokeFlow(
+        'form_generation.optimize',
+        {
+          currentFormContext,
+          questionsJson: JSON.stringify(questionsList, null, 2),
+          strategyJson: JSON.stringify(strategy, null, 2),
+          refineHint: dto.currentForm
+            ? 'Changes from the original form are intentional and improve the form'
+            : '',
+        },
+        { skipValidation: true, userId: (dto as any).userId },
+      );
     const optimizedQuestions = JSON.parse(optimizedContent);
 
     yield {
@@ -339,21 +381,17 @@ Important: Respond ONLY with a valid JSON array of question objects (no backtick
       status: 'in-progress',
     };
 
-    const finalPrompt = `Create the final form structure.
-${currentFormContext}
-
-Purpose: ${strategy.purpose}
-Questions: ${JSON.stringify(optimizedQuestions, null, 2)}
-User request: ${dto.prompt}
-
-Generate a complete form with:
-- A compelling title that reflects the form's purpose
-- A clear description explaining what the form collects and why
-- The optimized questions list
-${dto.currentForm ? '\n- Preserve the original form ID and metadata where applicable' : ''}`;
-
-    const { content: finalContent, usage } =
-      await this.invokeModelWithUsage(finalPrompt);
+    const { content: finalContent, usage } = await this.invokeFlow(
+      'form_generation.final',
+      {
+        currentFormContext,
+        purpose: strategy.purpose,
+        questionsJson: JSON.stringify(optimizedQuestions, null, 2),
+        userInput: dto.prompt,
+        preserveHint,
+      },
+      { skipValidation: true, structuredOutput: true, userId: (dto as any).userId },
+    );
     const parsed = JSON.parse(finalContent);
     const finalForm = this.validateAndSanitizeForm(parsed);
 

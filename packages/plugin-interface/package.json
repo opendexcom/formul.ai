@@ -1,0 +1,25 @@
+{
+  "name": "@opendexcom/plugin-interface",
+  "version": "1.0.7",
+  "description": "Shared interface for FormulAI plugins (link-only workspace package)",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc"
+  },
+  "license": "MIT",
+  "author": "OpenDexcom",
+  "peerDependencies": {
+    "@nestjs/common": "^10.0.0 || ^11.0.0",
+    "@nestjs/mongoose": "^10.0.0 || ^11.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "@nestjs/common": "^11.0.0",
+    "@nestjs/mongoose": "^11.0.0",
+    "@types/node": "^20.0.0"
+  }
+}

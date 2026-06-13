@@ -1,8 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FileText, Grid3x3 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useCapabilities } from '../../context/CapabilitiesContext';
 import { useNavigate } from 'react-router-dom';
 import Button from '../ui/Button';
+import { usePluginNav } from '../../plugins/PluginRoutes';
+import type { PluginNavItem } from '../../plugins/types';
 
 interface HeaderProps {
   title?: string;
@@ -10,7 +13,15 @@ interface HeaderProps {
   className?: string;
 }
 
-const BILLING_POLL_MS = 500;
+function navItemVisible(
+  item: PluginNavItem,
+  hasFeature: (feature: string) => boolean,
+  userRoles: string[] | undefined,
+): boolean {
+  if (item.requiresFeature && !hasFeature(item.requiresFeature)) return false;
+  if (item.requiresRole && !userRoles?.includes(item.requiresRole)) return false;
+  return true;
+}
 
 const Header: React.FC<HeaderProps> = ({
   title = 'FormulAI',
@@ -18,29 +29,21 @@ const Header: React.FC<HeaderProps> = ({
   className = ''
 }) => {
   const { user, logout } = useAuth();
+  const { hasFeature } = useCapabilities();
   const navigate = useNavigate();
+  const pluginNav = usePluginNav();
   const [showAppsMenu, setShowAppsMenu] = useState(false);
-  const [billingAvailable, setBillingAvailable] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // Only show Billing link when EE billing module is loaded (EE mode)
-  useEffect(() => {
-    const check = () => {
-      const mod = (window as any).__BILLING_MODULE__;
-      if (mod?.mount) {
-        setBillingAvailable(true);
-        return true;
-      }
-      return false;
-    };
-    if (check()) return;
-    const t = setInterval(() => {
-      if (check()) clearInterval(t);
-    }, BILLING_POLL_MS);
-    return () => clearInterval(t);
-  }, []);
+  const headerLinks = pluginNav.filter(
+    (item) => item.location === 'header-link' && navItemVisible(item, hasFeature, user?.roles),
+  );
+  const appsMenuItems = pluginNav.filter(
+    (item) => item.location === 'apps-menu' && navItemVisible(item, hasFeature, user?.roles),
+  );
+  const showAppsMenuButton =
+    user?.roles?.includes('admin') || appsMenuItems.length > 0;
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
@@ -55,6 +58,15 @@ const Header: React.FC<HeaderProps> = ({
   const handleAdminSettings = () => {
     setShowAppsMenu(false);
     navigate('/admin/settings');
+  };
+
+  const openNavItem = (item: PluginNavItem) => {
+    setShowAppsMenu(false);
+    if (item.external) {
+      window.open(item.path, '_blank');
+      return;
+    }
+    navigate(item.path);
   };
 
   return (
@@ -74,16 +86,17 @@ const Header: React.FC<HeaderProps> = ({
                 Welcome, {user.firstName}
               </span>
 
-              {billingAvailable && (
+              {headerLinks.map((item) => (
                 <button
-                  onClick={() => navigate('/settings/billing')}
+                  key={item.id}
+                  onClick={() => openNavItem(item)}
                   className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
                 >
-                  Billing
+                  {item.label}
                 </button>
-              )}
+              ))}
 
-              {user.roles?.includes('admin') && (
+              {showAppsMenuButton && (
                 <div className="relative" ref={menuRef}>
                   <button
                     onClick={() => setShowAppsMenu(!showAppsMenu)}
@@ -102,40 +115,25 @@ const Header: React.FC<HeaderProps> = ({
                         }}
                         className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
                       >
-                        <div className="flex items-center">
-                          <span>Dashboard</span>
-                        </div>
+                        Dashboard
                       </button>
-                      <button
-                        onClick={() => {
-                          setShowAppsMenu(false);
-                          navigate('/admin');
-                        }}
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-                      >
-                        <div className="flex items-center">
-                          <span>Admin Dashboard</span>
-                        </div>
-                      </button>
-                      <button
-                        onClick={handleAdminSettings}
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-                      >
-                        <div className="flex items-center">
-                          <span>Admin Settings</span>
-                        </div>
-                      </button>
-                      <button
-                        onClick={() => {
-                          setShowAppsMenu(false);
-                          window.open(`${window.location.origin}/api/admin/queues`, '_blank');
-                        }}
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-                      >
-                        <div className="flex items-center">
-                          <span>Queue Monitor</span>
-                        </div>
-                      </button>
+                      {appsMenuItems.map((item) => (
+                        <button
+                          key={item.id}
+                          onClick={() => openNavItem(item)}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                        >
+                          {item.label}
+                        </button>
+                      ))}
+                      {user.roles?.includes('admin') && (
+                        <button
+                          onClick={handleAdminSettings}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                        >
+                          Admin Settings
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>

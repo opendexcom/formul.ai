@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { CapabilitiesProvider } from './context/CapabilitiesContext';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import LandingPage from './pages/LandingPage';
 import Dashboard from './pages/Dashboard';
@@ -11,9 +12,7 @@ import PublicFormView from './pages/PublicFormView';
 import EmailConfirmation from './pages/EmailConfirmation';
 import ResetPassword from './pages/ResetPassword';
 import AdminSettings from './pages/AdminSettings';
-import AdminDashboardPage from './pages/AdminDashboardPage';
-import UserBillingPage from './pages/UserBillingPage';
-import PluginRoutes from './plugins/PluginRoutes';
+import { usePluginRoutes } from './plugins/PluginRoutes';
 import './App.css';
 
 // Protected Route Component
@@ -46,105 +45,99 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return !isAuthenticated ? <>{children}</> : <Navigate to="/dashboard" replace />;
 };
 
+function AppRoutes() {
+  const pluginRoutes = usePluginRoutes();
+
+  return (
+    <Routes>
+      <Route
+        path="/"
+        element={
+          <PublicRoute>
+            <LandingPage />
+          </PublicRoute>
+        }
+      />
+      <Route
+        path="/dashboard"
+        element={
+          <ProtectedRoute>
+            <Dashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/forms/new"
+        element={
+          <ProtectedRoute>
+            <FormEditor />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/forms/:id/edit"
+        element={
+          <ProtectedRoute>
+            <FormEditor />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/forms/:formId/analytics"
+        element={
+          <ProtectedRoute>
+            <FormAnalytics />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/forms/:formId/analytics/print"
+        element={
+          <ProtectedRoute>
+            <PrintableAnalytics />
+          </ProtectedRoute>
+        }
+      />
+      {/* Public form route - accessible without authentication */}
+      <Route
+        path="/form/:formId"
+        element={<PublicFormView />}
+      />
+      {pluginRoutes}
+      <Route
+        path="/confirm-email"
+        element={<EmailConfirmation />}
+      />
+      <Route
+        path="/reset-password"
+        element={<ResetPassword />}
+      />
+      <Route
+        path="/admin/settings"
+        element={
+          <ProtectedRoute>
+            <AdminSettings />
+          </ProtectedRoute>
+        }
+      />
+      {/* Redirect any unknown routes to home */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+}
+
 function App() {
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <Router>
-          <div className="App">
-            <Routes>
-              <Route
-                path="/"
-                element={
-                  <PublicRoute>
-                    <LandingPage />
-                  </PublicRoute>
-                }
-              />
-              <Route
-                path="/dashboard"
-                element={
-                  <ProtectedRoute>
-                    <Dashboard />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/forms/new"
-                element={
-                  <ProtectedRoute>
-                    <FormEditor />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/forms/:id/edit"
-                element={
-                  <ProtectedRoute>
-                    <FormEditor />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/forms/:formId/analytics"
-                element={
-                  <ProtectedRoute>
-                    <FormAnalytics />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/forms/:formId/analytics/print"
-                element={
-                  <ProtectedRoute>
-                    <PrintableAnalytics />
-                  </ProtectedRoute>
-                }
-              />
-              {/* Public form route - accessible without authentication */}
-              <Route
-                path="/form/:formId"
-                element={<PublicFormView />}
-              />
-              <PluginRoutes />
-              <Route
-                path="/confirm-email"
-                element={<EmailConfirmation />}
-              />
-              <Route
-                path="/reset-password"
-                element={<ResetPassword />}
-              />
-              <Route
-                path="/admin/settings"
-                element={
-                  <ProtectedRoute>
-                    <AdminSettings />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/admin"
-                element={
-                  <ProtectedRoute>
-                    <AdminDashboardPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/settings/billing"
-                element={
-                  <ProtectedRoute>
-                    <UserBillingPage />
-                  </ProtectedRoute>
-                }
-              />
-              {/* Redirect any unknown routes to home */}
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </div>
-        </Router>
-      </AuthProvider>
+      <CapabilitiesProvider>
+        <AuthProvider>
+          <Router>
+            <div className="App">
+              <AppRoutes />
+            </div>
+          </Router>
+        </AuthProvider>
+      </CapabilitiesProvider>
     </ErrorBoundary>
   );
 }

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import authService from '../services/authService';
 import { User, AuthContextType } from '../types';
+import { AUTH_UNAUTHORIZED_EVENT } from '../utils/authSession';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -31,6 +32,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setUserId(currentUserId);
     }
     setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    const onUnauthorized = () => {
+      setUser(null);
+      setUserId(null);
+    };
+    window.addEventListener(AUTH_UNAUTHORIZED_EVENT, onUnauthorized);
+    return () => window.removeEventListener(AUTH_UNAUTHORIZED_EVENT, onUnauthorized);
   }, []);
 
   const login = async (email: string, password: string): Promise<void> => {

@@ -32,9 +32,6 @@ export class User {
   @Prop({ type: [String], default: ['user'] })
   roles: string[];
 
-  @Prop()
-  termsAcceptedAt?: Date;
-
   @Prop({ default: Date.now })
   createdAt: Date;
 

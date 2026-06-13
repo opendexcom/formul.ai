@@ -218,9 +218,9 @@ export class ResponseProcessor {
     chunkIndex: number,
     taskId: string
   ): Promise<any> {
-    const topicPrompt = this.promptBuilder.buildTopicExtractionPrompt(chunk, form);
-    const sentimentPrompt = this.promptBuilder.buildOverallSentimentPrompt(chunk, form);
-    const quotePrompt = this.promptBuilder.buildQuoteExtractionPrompt(chunk, form);
+    const topicPrompt = await this.promptBuilder.buildTopicExtractionPrompt(chunk, form);
+    const sentimentPrompt = await this.promptBuilder.buildOverallSentimentPrompt(chunk, form);
+    const quotePrompt = await this.promptBuilder.buildQuoteExtractionPrompt(chunk, form);
 
     try {
       // Batch the 3 analysis types in parallel

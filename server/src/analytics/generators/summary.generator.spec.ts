@@ -20,7 +20,7 @@ describe('SummaryGenerator', () => {
     });
     const mockBuildAnalyticsSummaryPrompt = jest
       .fn()
-      .mockReturnValue(mockPrompt);
+      .mockResolvedValue(mockPrompt);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [

@@ -10,6 +10,7 @@ import { AiModule } from './ai/ai.module';
 import { MonitoringModule } from './monitoring/monitoring.module';
 import { SettingsModule } from './settings/settings.module';
 import { PluginsModule } from './plugins/plugins.module';
+import { CapabilitiesModule } from './capabilities/capabilities.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { PluginsModule } from './plugins/plugins.module';
       socketTimeoutMS: 45000,
     }),
     PluginsModule.forRoot(), // Load plugins dynamically
+    CapabilitiesModule,
     AuthModule,
     FormsModule,
     MigrationModule,

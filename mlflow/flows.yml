@@ -1,0 +1,67 @@
+version: 1
+defaults:
+  prompt_alias: production
+  model_config:
+    provider: ${LLM_PROVIDER}
+    model: ${OPENAI_MODEL}
+
+flows:
+  analytics:
+    topic_extraction:
+      prompt: formulai-analytics-topic-extraction
+      allowed_variables: [responseCount, responsesData]
+      cache: { enabled: true, mode: exact, scope: form, ttl_seconds: 604800 }
+    sentiment:
+      prompt: formulai-analytics-sentiment
+      allowed_variables: [responseCount, responsesData, ratingContext]
+      cache: { enabled: true, mode: exact, scope: form, ttl_seconds: 604800 }
+    quote_extraction:
+      prompt: formulai-analytics-quote-extraction
+      allowed_variables: [responseCount, responsesData]
+      cache: { enabled: true, mode: exact, scope: form, ttl_seconds: 604800 }
+    topic_clustering:
+      prompt: formulai-analytics-topic-clustering
+      allowed_variables: [rawTopics]
+      cache: { enabled: true, mode: exact, scope: form, ttl_seconds: 604800 }
+    summary:
+      prompt: formulai-analytics-summary
+      allowed_variables: [summaryContext]
+      cache: { enabled: true, mode: exact, scope: form, ttl_seconds: 604800 }
+
+  form_generation:
+    single_shot_create:
+      prompt: formulai-form-single-shot-create
+      allowed_variables: [userInput, formRules]
+      cache: { enabled: true, mode: semantic, scope: user, similarity: 0.95, ttl_seconds: 3600 }
+    single_shot_refine:
+      prompt: formulai-form-single-shot-refine
+      allowed_variables: [userInput, currentForm, formRules]
+      cache: { enabled: true, mode: semantic, scope: user, similarity: 0.95, ttl_seconds: 3600 }
+    strategy:
+      prompt: formulai-form-strategy
+      allowed_variables: [userInput, currentFormContext, modificationsHint, modificationsShape]
+      cache: { enabled: true, mode: semantic, scope: user, similarity: 0.93, ttl_seconds: 3600 }
+    questions:
+      prompt: formulai-form-questions
+      allowed_variables: [userInput, currentFormContext, strategyJson, refineHint]
+      cache: { enabled: true, mode: semantic, scope: user, similarity: 0.93, ttl_seconds: 3600 }
+    optimize:
+      prompt: formulai-form-optimize
+      allowed_variables: [currentFormContext, questionsJson, strategyJson, refineHint]
+      cache: { enabled: true, mode: semantic, scope: user, similarity: 0.93, ttl_seconds: 3600 }
+    final:
+      prompt: formulai-form-final
+      allowed_variables: [currentFormContext, purpose, questionsJson, userInput, preserveHint]
+      cache: { enabled: true, mode: semantic, scope: user, similarity: 0.93, ttl_seconds: 3600 }
+
+  security:
+    guardian:
+      prompt: formulai-security-guardian
+      allowed_variables: [userInput]
+      cache: { enabled: false, mode: exact, scope: none }
+
+  shared:
+    form_other_rules:
+      prompt: formulai-shared-form-other-rules
+      allowed_variables: []
+      cache: { enabled: false, mode: exact, scope: none }

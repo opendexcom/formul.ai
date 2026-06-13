@@ -18,6 +18,7 @@ jobs:
       - run: corepack enable
       - run: corepack prepare pnpm@latest --activate
       - run: pnpm install
+      - run: pnpm --filter @opendexcom/plugin-interface build
       - run: pnpm audit --audit-level=high
       - run: pnpm build
       - run: pnpm --filter client test

@@ -1,27 +1,29 @@
-import { useCallback, useEffect, useState } from 'react';
-import type { PluginSlotApi } from './types';
+import { useEffect, useState } from 'react';
+import {
+  FORMULAI_UI_READY_EVENT,
+  getFormulaiUiManifest,
+  type PluginSlotApi,
+} from './types';
 
-const POLL_MS = 100;
+export function usePluginSlot(slotName: string) {
+  const [slotActive, setSlotActive] = useState(
+    () => Boolean(getFormulaiUiManifest()?.slots?.[slotName]),
+  );
+  const [api, setApi] = useState<PluginSlotApi | undefined>(
+    () => window.__FORMULAI_SLOT_APIS__?.[slotName],
+  );
 
-export function usePluginSlot(slotName: string): {
-  slotActive: boolean;
-  api: PluginSlotApi | undefined;
-  refresh: () => void;
-} {
-  const [slotActive, setSlotActive] = useState(false);
-  const [api, setApi] = useState<PluginSlotApi | undefined>();
-
-  const refresh = useCallback(() => {
-    const slotApi = window.__FORMULAI_SLOT_APIS__?.[slotName];
-    setApi(slotApi);
-    setSlotActive(!!window.__FORMULAI_UI__?.slots?.[slotName]);
-  }, [slotName]);
+  const refresh = () => {
+    setSlotActive(Boolean(getFormulaiUiManifest()?.slots?.[slotName]));
+    setApi(window.__FORMULAI_SLOT_APIS__?.[slotName]);
+  };
 
   useEffect(() => {
     refresh();
-    const interval = setInterval(refresh, POLL_MS);
-    return () => clearInterval(interval);
-  }, [refresh]);
+    const onReady = () => refresh();
+    window.addEventListener(FORMULAI_UI_READY_EVENT, onReady);
+    return () => window.removeEventListener(FORMULAI_UI_READY_EVENT, onReady);
+  }, [slotName]);
 
   return { slotActive, api, refresh };
 }

@@ -110,7 +110,7 @@ export class SummaryGenerator {
         : undefined;
 
       // Build and execute prompt
-      const prompt = this.promptBuilder.buildAnalyticsSummaryPrompt(
+      const prompt = await this.promptBuilder.buildAnalyticsSummaryPrompt(
         form,
         topTopics,
         sentimentDistribution,

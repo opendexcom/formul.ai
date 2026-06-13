@@ -1,21 +1,36 @@
 import { GuardianService } from './guardian.service';
+import { MlflowPromptService } from '../mlflow/mlflow-prompt.service';
+import { PromptSandboxService } from '../mlflow/prompt-sandbox.service';
 
-// We will monkey-patch the private chatModel field for tests to avoid real OpenAI calls.
 type MockChatModel = {
-  invoke: jest.Mock<Promise<{ content: any }>, [string]>;
+  invoke: jest.Mock<Promise<{ content: unknown }>, [string]>;
 };
 
 describe('GuardianService', () => {
   let service: GuardianService;
   let mockChatModel: MockChatModel;
+  let mockMlflowPrompts: { formatFlow: jest.Mock };
+  let mockSandbox: { escapeUserInput: jest.Mock };
 
   beforeEach(() => {
-    service = new GuardianService();
+    mockMlflowPrompts = {
+      formatFlow: jest.fn().mockResolvedValue({
+        prompt: 'guardian system prompt',
+        loaded: { name: 'formulai-security-guardian', version: '1', template: '', alias: 'production' },
+      }),
+    };
+    mockSandbox = {
+      escapeUserInput: jest.fn((input: string) => input),
+    };
+
+    service = new GuardianService(
+      mockMlflowPrompts as unknown as MlflowPromptService,
+      mockSandbox as unknown as PromptSandboxService,
+    );
     mockChatModel = {
       invoke: jest.fn(),
-    } as any;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (service as any).chatModel = mockChatModel;
+    };
+    (service as unknown as { chatModel: MockChatModel }).chatModel = mockChatModel;
   });
 
   it('returns parsed result for safe prompts', async () => {
@@ -30,7 +45,11 @@ describe('GuardianService', () => {
 
     const result = await service.validatePrompt('Generate a simple feedback form');
 
-    expect(mockChatModel.invoke).toHaveBeenCalledTimes(1);
+    expect(mockMlflowPrompts.formatFlow).toHaveBeenCalledWith(
+      'security.guardian',
+      expect.objectContaining({ userInput: 'Generate a simple feedback form' }),
+    );
+    expect(mockChatModel.invoke).toHaveBeenCalledWith('guardian system prompt');
     expect(result).toEqual(jsonResult);
   });
 
@@ -62,4 +81,3 @@ describe('GuardianService', () => {
     expect(result.riskType).toBe('none');
   });
 });
-

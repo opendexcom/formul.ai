@@ -1,4 +1,5 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
+import { handleUnauthorizedResponse } from '../utils/authSession';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
 
@@ -33,14 +34,7 @@ export const createApiClient = (): AxiosInstance => {
     (response) => response,
     (error: AxiosError) => {
       if (error.response?.status === 401) {
-        // Clear auth state
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-
-        // Only redirect if we're not already on the landing page
-        if (window.location.pathname !== '/') {
-          window.location.href = '/';
-        }
+        handleUnauthorizedResponse();
       }
       return Promise.reject(error);
     }

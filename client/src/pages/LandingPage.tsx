@@ -83,7 +83,7 @@ const LandingPage: React.FC = () => {
         return;
       }
       refreshSignupSlot();
-      if (signupSlotActive && signupSlotApi && !signupSlotApi.isValid()) {
+      if (signupSlotActive && signupSlotApi?.isValid && !signupSlotApi.isValid()) {
         setError('You must accept the Terms and Conditions to register.');
         return;
       }
@@ -92,13 +92,15 @@ const LandingPage: React.FC = () => {
     setLoading(true);
     try {
       if (isSignUp) {
-        const slotValues = signupSlotApi?.getValues() ?? {};
+        const slotValues = signupSlotApi?.getValues?.() ?? {};
+        const acceptedTerms =
+          'acceptedTerms' in slotValues ? Boolean(slotValues.acceptedTerms) : undefined;
         await register(
           formData.email,
           formData.password,
           formData.firstName,
           formData.lastName,
-          slotValues.acceptedTerms,
+          acceptedTerms,
         );
         setSuccessMessage('Registration successful! Please check your email to confirm your account.');
         setFormData({ email: '', password: '', firstName: '', lastName: '' });
@@ -319,7 +321,7 @@ const LandingPage: React.FC = () => {
                   loading ||
                   (isSignUp &&
                     signupSlotActive &&
-                    signupSlotApi !== undefined &&
+                    signupSlotApi?.isValid &&
                     !signupSlotApi.isValid())
                 }
                 className="w-full bg-gray-900 text-white py-3 px-4 rounded-lg font-medium hover:bg-gray-800 focus:ring-2 focus:ring-offset-2 focus:ring-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-all"

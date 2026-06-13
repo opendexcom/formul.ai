@@ -143,7 +143,7 @@ export class TopicClusterer {
   private async createCanonicalTopicMapping(rawTopics: string[]): Promise<Record<string, string>> {
     if (rawTopics.length === 0) return {};
 
-    const prompt = this.promptBuilder.buildTopicClusteringPrompt(rawTopics);
+    const prompt = await this.promptBuilder.buildTopicClusteringPrompt(rawTopics);
 
     const { content: resultRaw } = await this.aiService.analyzeTextWithUsage(prompt, true);
     try {

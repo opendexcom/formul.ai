@@ -1,10 +1,13 @@
 import { Module, DynamicModule, Global } from '@nestjs/common';
 import {
     DefaultPluginContributionRegistry,
+    extendSchema,
+    registerCapability,
     registerSchema,
     getSchema,
     getSchemaOrThrow,
     hasSchema,
+    markSchemaCompiled,
 } from '@opendexcom/plugin-interface';
 import { PluginLoaderService } from './plugin-loader.service';
 import { PLUGIN_CONTRIBUTION_REGISTRY } from './plugin-contribution.registry';
@@ -23,9 +26,13 @@ export class PluginsModule {
         const pluginContext = {
             schemaRegistry: {
                 register: registerSchema,
+                extend: extendSchema,
                 get: getSchema,
                 getOrThrow: getSchemaOrThrow,
                 has: hasSchema,
+            },
+            capabilities: {
+                register: registerCapability,
             },
             hostModules: { aiCore: AiCoreModule },
         };

@@ -11,6 +11,7 @@ import { SentimentCalculator } from '../calculators/sentiment.calculator';
 import { TrendCalculator } from '../calculators/trend.calculator';
 import { ProgressService } from './progress.service';
 import { DeadLetterService } from './dead-letter.service';
+import { MlflowPromptService } from '../../mlflow/mlflow-prompt.service';
 import { Form } from '../../schemas/form.schema';
 import type { FormDocument } from '../../schemas/form.schema';
 import { Response } from '../../schemas/response.schema';
@@ -25,6 +26,7 @@ export class AggregationConsumer {
     private readonly trendCalculator: TrendCalculator,
     private readonly progressService: ProgressService,
     private readonly deadLetterService: DeadLetterService,
+    private readonly mlflowPrompts: MlflowPromptService,
     @InjectModel(Form.name) private readonly formModel: Model<FormDocument>,
     @InjectModel(Response.name) private readonly responseModel: Model<ResponseDocument>,
   ) {}
@@ -168,10 +170,21 @@ export class AggregationConsumer {
     });
 
     // Update form with aggregated analytics (partial structure - AI insights will be added later)
+    const analyticsFlowKeys = [
+      'analytics.topic_extraction',
+      'analytics.sentiment',
+      'analytics.quote_extraction',
+      'analytics.topic_clustering',
+      'analytics.summary',
+    ];
+    const promptVersions =
+      await this.mlflowPrompts.getPromptVersionsForFlows(analyticsFlowKeys);
+
     form.analytics = {
       lastUpdated: new Date(),
       totalResponsesAnalyzed: responses.length,
       cacheVersion: 1,
+      promptVersions,
       climate: climateData,
       topics: {
         distribution: topicFrequencies,

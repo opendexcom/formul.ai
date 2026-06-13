@@ -115,6 +115,7 @@ export class Form {
     lastUpdated: Date;
     totalResponsesAnalyzed: number;
     cacheVersion: number;
+    promptVersions?: Record<string, string>;
 
     // Methodology metadata
     methodology?: {

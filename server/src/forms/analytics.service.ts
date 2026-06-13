@@ -8,6 +8,15 @@ import { TaskManager } from '../analytics/core/task.manager';
 import { randomUUID } from 'crypto';
 import { OrchestrationProducer } from '../analytics/queues/orchestration.producer';
 import { ProgressService } from '../analytics/queues/progress.service';
+import { MlflowPromptService } from '../mlflow/mlflow-prompt.service';
+
+const ANALYTICS_FLOW_KEYS = [
+  'analytics.topic_extraction',
+  'analytics.sentiment',
+  'analytics.quote_extraction',
+  'analytics.topic_clustering',
+  'analytics.summary',
+];
 
 export interface AnalyticsTask {
   taskId: string;
@@ -32,6 +41,7 @@ export class AnalyticsService {
     private taskManager: TaskManager,
     private readonly orchestrationProducer: OrchestrationProducer,
     private readonly progressService: ProgressService,
+    private readonly mlflowPrompts: MlflowPromptService,
   ) {
     // Start cleanup job for stale in-memory tasks (every 5 minutes)
     setInterval(() => this.cleanupStaleInMemoryTasks(), 5 * 60 * 1000);
@@ -121,6 +131,20 @@ export class AnalyticsService {
       formId: new Types.ObjectId(formId) 
     }).exec();
 
+    let stale = false;
+    const storedVersions = form.analytics?.promptVersions;
+    if (storedVersions) {
+      try {
+        const currentVersions =
+          await this.mlflowPrompts.getPromptVersionsForFlows(ANALYTICS_FLOW_KEYS);
+        stale = Object.entries(currentVersions).some(
+          ([name, version]) => storedVersions[name] !== version,
+        );
+      } catch {
+        stale = true;
+      }
+    }
+
     return {
       formId,
       analytics: form.analytics,
@@ -129,6 +153,8 @@ export class AnalyticsService {
         responsesAnalyzed: form.analytics?.totalResponsesAnalyzed,
         totalResponses,
         cacheHit: true,
+        stale,
+        promptVersions: form.analytics?.promptVersions,
       },
     };
   }

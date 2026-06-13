@@ -1,6 +1,7 @@
 packages:
   - client
   - server
+  - packages/plugin-interface
 
 # Transitive security patches only. Prefer bumping direct deps in client/server
 # package.json; re-run `pnpm audit` after changes.

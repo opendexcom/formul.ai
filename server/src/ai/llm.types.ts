@@ -7,4 +7,7 @@ export interface LlmUsage {
   promptTokens?: number;
   completionTokens?: number;
   totalTokens?: number;
+  cached?: boolean;
+  cacheMode?: 'exact' | 'semantic';
+  similarity?: number;
 }
