@@ -7,7 +7,7 @@
     "@hookform/resolvers": "^5.2.2",
     "@types/html2pdf.js": "^0.10.0",
     "axios": "^1.16.1",
-    "dompurify": "^3.4.0",
+    "dompurify": "^3.4.9",
     "html2pdf.js": "^0.14.0",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.7",
