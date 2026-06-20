@@ -134,7 +134,15 @@ export class AiService {
   }
 
   private async getSharedSnippet(flowKey: string): Promise<string> {
-    const { prompt } = await this.mlflowPrompts.formatFlow(flowKey, {});
+    return this.loadFlowPrompt(flowKey);
+  }
+
+  /** Load a flow prompt template without calling the LLM (static snippets). */
+  async loadFlowPrompt(
+    flowKey: string,
+    variables: Record<string, unknown> = {},
+  ): Promise<string> {
+    const { prompt } = await this.mlflowPrompts.formatFlow(flowKey, variables);
     return prompt;
   }
 

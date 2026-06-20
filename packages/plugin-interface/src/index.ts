@@ -5,6 +5,8 @@ import type { PluginContributionRegistry } from './plugin-contributions';
 export interface PluginHostModules {
     /** AI services without HTTP controllers (AiService, GuardianService). */
     aiCore?: Type<unknown>;
+    /** Host AuthModule — required for JwtStrategy / Passport in plugin routes. */
+    auth?: Type<unknown>;
 }
 
 /**

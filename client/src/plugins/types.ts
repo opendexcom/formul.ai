@@ -52,6 +52,7 @@ export type FormulaiUiManifest = {
 };
 
 export const FORMULAI_UI_READY_EVENT = 'formulai:ui-ready';
+export const FORMULAI_SLOT_API_UPDATED_EVENT = 'formulai:slot-api-updated';
 
 export function getFormulaiUiManifest(): FormulaiUiManifest | undefined {
   return typeof window !== 'undefined' ? window.__FORMULAI_UI__ : undefined;

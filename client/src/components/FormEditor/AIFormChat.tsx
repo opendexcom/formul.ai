@@ -2,6 +2,13 @@ import React, { useState, useRef, useEffect } from 'react';
 import { GeneratedForm } from '../../services/aiService';
 import PluginSlot from '../../plugins/PluginSlot';
 import { usePluginSlot } from '../../plugins/usePluginSlot';
+import type { DocumentSlotApi } from '../../plugins/types';
+import { FORMULAI_SLOT_API_UPDATED_EVENT } from '../../plugins/types';
+
+const DOCUMENT_ATTACH_SLOT = 'formEditor.aiChat.documentAttach';
+
+const getLiveDocumentApi = (): DocumentSlotApi | undefined =>
+  window.__FORMULAI_SLOT_APIS__?.[DOCUMENT_ATTACH_SLOT] as DocumentSlotApi | undefined;
 
 interface Message {
   id: string;
@@ -44,11 +51,11 @@ const AIFormChat: React.FC<AIFormChatProps> = ({ currentForm, onFormGenerated })
   const [lastPrompt, setLastPrompt] = useState('');
   const [lastFile, setLastFile] = useState<File | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [attachmentRevision, setAttachmentRevision] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const { slotActive: documentSlotActive, api: documentSlotApi, refresh: refreshDocumentSlot } =
-    usePluginSlot('formEditor.aiChat.documentAttach');
-  const docApi = documentSlotApi as import('../../plugins/types').DocumentSlotApi | undefined;
+  const { slotActive: documentSlotActive, refresh: refreshDocumentSlot } =
+    usePluginSlot(DOCUMENT_ATTACH_SLOT);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -57,6 +64,16 @@ const AIFormChat: React.FC<AIFormChatProps> = ({ currentForm, onFormGenerated })
   useEffect(() => {
     scrollToBottom();
   }, [messages, processingSteps]);
+
+  useEffect(() => {
+    const onSlotApiUpdated = (event: Event) => {
+      const detail = (event as CustomEvent<{ slotName?: string }>).detail;
+      if (detail?.slotName !== DOCUMENT_ATTACH_SLOT) return;
+      setAttachmentRevision((value) => value + 1);
+    };
+    window.addEventListener(FORMULAI_SLOT_API_UPDATED_EVENT, onSlotApiUpdated);
+    return () => window.removeEventListener(FORMULAI_SLOT_API_UPDATED_EVENT, onSlotApiUpdated);
+  }, []);
 
   const getStepIcon = (status: string) => {
     switch (status) {
@@ -104,7 +121,7 @@ const AIFormChat: React.FC<AIFormChatProps> = ({ currentForm, onFormGenerated })
     setLastPrompt(effectivePrompt);
     setLastFile(file);
     setInput('');
-    docApi?.clearAttachedFile?.();
+    getLiveDocumentApi()?.clearAttachedFile?.();
     setIsProcessing(true);
     setProcessingSteps([]);
     setErrorMessage(null);
@@ -116,10 +133,11 @@ const AIFormChat: React.FC<AIFormChatProps> = ({ currentForm, onFormGenerated })
 
       let response: Response;
       if (hasFile) {
-        if (!docApi?.submitWithDocument) {
+        const liveDocApi = getLiveDocumentApi();
+        if (!liveDocApi?.submitWithDocument) {
           throw new Error('Document upload is not available in this edition.');
         }
-        response = await docApi.submitWithDocument({
+        response = await liveDocApi.submitWithDocument({
           prompt: effectivePrompt,
           file,
           mode: isRefine ? 'refine' : 'generate',
@@ -214,8 +232,10 @@ const AIFormChat: React.FC<AIFormChatProps> = ({ currentForm, onFormGenerated })
     }
   };
 
-  const getAttachedFile = (): File | null =>
-    docApi?.getAttachedFile?.() ?? null;
+  const attachedFile = getLiveDocumentApi()?.getAttachedFile?.() ?? null;
+  void attachmentRevision;
+
+  const getAttachedFile = (): File | null => attachedFile;
 
   const handleSend = async () => {
     refreshDocumentSlot();
@@ -291,7 +311,7 @@ const AIFormChat: React.FC<AIFormChatProps> = ({ currentForm, onFormGenerated })
             </span>
             <button
               type="button"
-              onClick={() => docApi?.clearAttachedFile?.()}
+              onClick={() => getLiveDocumentApi()?.clearAttachedFile?.()}
               className="shrink-0 text-gray-500 hover:text-red-600 p-0.5 rounded"
               aria-label="Remove attachment"
             >

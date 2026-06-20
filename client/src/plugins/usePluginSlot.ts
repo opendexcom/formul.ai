@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
+  FORMULAI_SLOT_API_UPDATED_EVENT,
   FORMULAI_UI_READY_EVENT,
   getFormulaiUiManifest,
   type PluginSlotApi,
@@ -21,8 +22,18 @@ export function usePluginSlot(slotName: string) {
   useEffect(() => {
     refresh();
     const onReady = () => refresh();
+    const onSlotApiUpdated = (event: Event) => {
+      const detail = (event as CustomEvent<{ slotName?: string }>).detail;
+      if (!detail?.slotName || detail.slotName === slotName) {
+        refresh();
+      }
+    };
     window.addEventListener(FORMULAI_UI_READY_EVENT, onReady);
-    return () => window.removeEventListener(FORMULAI_UI_READY_EVENT, onReady);
+    window.addEventListener(FORMULAI_SLOT_API_UPDATED_EVENT, onSlotApiUpdated);
+    return () => {
+      window.removeEventListener(FORMULAI_UI_READY_EVENT, onReady);
+      window.removeEventListener(FORMULAI_SLOT_API_UPDATED_EVENT, onSlotApiUpdated);
+    };
   }, [slotName]);
 
   return { slotActive, api, refresh };

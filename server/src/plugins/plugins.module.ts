@@ -13,6 +13,7 @@ import { PluginLoaderService } from './plugin-loader.service';
 import { PLUGIN_CONTRIBUTION_REGISTRY } from './plugin-contribution.registry';
 import { registerCoreSchemas } from '../schemas/core-schema-registry';
 import { AiCoreModule } from '../ai/ai.module';
+import { AuthModule } from '../auth/auth.module';
 
 @Global()
 @Module({
@@ -34,7 +35,7 @@ export class PluginsModule {
             capabilities: {
                 register: registerCapability,
             },
-            hostModules: { aiCore: AiCoreModule },
+            hostModules: { aiCore: AiCoreModule, auth: AuthModule },
         };
         const pluginLoader = new PluginLoaderService(contributionRegistry, pluginContext);
         const pluginModules = await pluginLoader.loadPlugins();
