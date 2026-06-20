@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -15,6 +15,7 @@ import formsService, { FormData } from '../services/formsService';
 import { Header } from '../components/common';
 import { Button, LoadingSpinner, Alert } from '../components/ui';
 import { computeOverallClimate } from '../utils/analysis';
+import { expandSelectedTopics, normalizeTopicLabelList, normalizeThemes } from '../utils/topic-filter.util';
 import {
   AnalyticsSummaryCard,
   OverallClimateCard,
@@ -50,6 +51,7 @@ interface ResponseData {
       score?: number;
       emotionalTone?: string;
     };
+    topicMapping?: Record<string, string>;
   };
 }
 
@@ -470,8 +472,37 @@ const FormAnalytics: React.FC = () => {
 
   const filteredResponses = getFilteredResponses();
 
-  // Extract available topics from analytics for filter panel
-  const availableTopics = analytics?.topics?.topTopics || [];
+  const topicMapping = useMemo(() => {
+    if (analytics?.topics?.topicMapping) {
+      return analytics.topics.topicMapping;
+    }
+    const merged: Record<string, string> = {};
+    for (const response of responses) {
+      const mapping = response.metadata?.topicMapping;
+      if (!mapping) continue;
+      for (const [raw, canonical] of Object.entries(mapping)) {
+        if (typeof canonical === 'string' && raw.trim()) {
+          merged[raw.trim().toLowerCase()] = canonical;
+        }
+      }
+    }
+    return merged;
+  }, [analytics?.topics?.topicMapping, responses]);
+
+  const expandedTopicFilter = useMemo(
+    () => expandSelectedTopics(filters.topics || [], topicMapping),
+    [filters.topics, topicMapping],
+  );
+
+  // Extract available topics from analytics for filter panel (canonical labels)
+  const availableTopics = useMemo(() => {
+    const fromThemes = normalizeThemes(
+      analytics?.topics?.dominantThemes ?? [],
+      topicMapping,
+    ).map((t) => t.theme);
+    if (fromThemes.length > 0) return fromThemes;
+    return normalizeTopicLabelList(analytics?.topics?.topTopics ?? [], topicMapping);
+  }, [analytics?.topics?.dominantThemes, analytics?.topics?.topTopics, topicMapping]);
 
   if (loading) {
     return (
@@ -791,20 +822,26 @@ const FormAnalytics: React.FC = () => {
                           analytics={analytics || undefined}
                           onTopicClick={handleTopicClick}
                           selectedTopics={filters.topics || []}
+                          filterTopics={expandedTopicFilter}
+                          topicMapping={topicMapping}
                         />
                         <TopicSentimentCard
                           analytics={analytics || undefined}
                           selectedTopics={filters.topics || []}
+                          filterTopics={expandedTopicFilter}
                           onTopicClick={handleTopicClick}
                         />
                         <TopicRelationshipsCard
                           analytics={analytics || undefined}
                           selectedTopics={filters.topics || []}
+                          filterTopics={expandedTopicFilter}
+                          onTopicClick={handleTopicClick}
                         />
                         <div className="lg:col-span-2">
                           <ClosedQuestionTopicsCard
                             analytics={analytics || undefined}
                             selectedTopics={filters.topics || []}
+                            filterTopics={expandedTopicFilter}
                             hasActiveFilters={hasActiveFilters}
                           />
                         </div>

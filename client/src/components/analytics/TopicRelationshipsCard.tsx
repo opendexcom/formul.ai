@@ -1,20 +1,29 @@
 import React, { useState } from 'react';
 import { Network, TrendingUp, ChevronDown, ChevronUp } from 'lucide-react';
 import { AnalyticsData } from '../../types/analytics';
+import { topicMatchesFilter, anyTopicMatchesFilter } from '../../utils/topic-filter.util';
 
 interface TopicRelationshipsCardProps {
   analytics?: AnalyticsData;
   selectedTopics?: string[];
+  filterTopics?: string[];
+  onTopicClick?: (topic: string) => void;
 }
 
-export const TopicRelationshipsCard: React.FC<TopicRelationshipsCardProps> = ({ analytics, selectedTopics = [] }) => {
+export const TopicRelationshipsCard: React.FC<TopicRelationshipsCardProps> = ({
+  analytics,
+  selectedTopics = [],
+  filterTopics,
+  onTopicClick,
+}) => {
   const [showAll, setShowAll] = useState(false);
   const cooccurrences = analytics?.topics?.cooccurrence || [];
+  const activeFilter = filterTopics ?? selectedTopics;
 
   // Filter by selected topics if any are selected
-  const filteredCooccurrences = selectedTopics.length > 0
-    ? cooccurrences.filter(co => 
-        selectedTopics.includes(co.topic1) || selectedTopics.includes(co.topic2)
+  const filteredCooccurrences = activeFilter.length > 0
+    ? cooccurrences.filter((co) =>
+        anyTopicMatchesFilter([co.topic1, co.topic2], activeFilter),
       )
     : cooccurrences;
 
@@ -83,11 +92,19 @@ export const TopicRelationshipsCard: React.FC<TopicRelationshipsCardProps> = ({ 
             
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-sm font-medium text-gray-900 truncate">
+                <span
+                  className="text-sm font-medium text-gray-900 truncate cursor-pointer hover:underline"
+                  onClick={() => onTopicClick?.(co.topic1)}
+                  title={`Filter by ${co.topic1}`}
+                >
                   {co.topic1}
                 </span>
                 <span className="text-gray-400">↔</span>
-                <span className="text-sm font-medium text-gray-900 truncate">
+                <span
+                  className="text-sm font-medium text-gray-900 truncate cursor-pointer hover:underline"
+                  onClick={() => onTopicClick?.(co.topic2)}
+                  title={`Filter by ${co.topic2}`}
+                >
                   {co.topic2}
                 </span>
               </div>

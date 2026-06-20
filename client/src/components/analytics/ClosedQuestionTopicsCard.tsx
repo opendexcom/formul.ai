@@ -1,20 +1,24 @@
 import React, { useState } from 'react';
 import { BarChart, Filter, Users, Info, ChevronDown, ChevronUp } from 'lucide-react';
 import { AnalyticsData } from '../../types/analytics';
+import { topicMatchesFilter } from '../../utils/topic-filter.util';
 
 interface ClosedQuestionTopicsCardProps {
   analytics?: AnalyticsData;
   selectedTopics?: string[];
+  filterTopics?: string[];
   hasActiveFilters?: boolean;
 }
 
 export const ClosedQuestionTopicsCard: React.FC<ClosedQuestionTopicsCardProps> = ({ 
   analytics, 
   selectedTopics = [],
+  filterTopics,
   hasActiveFilters = false
 }) => {
   const [expandedAnswers, setExpandedAnswers] = useState<Set<string>>(new Set());
   const closedQuestionCorrelations = analytics?.correlations?.closedQuestionTopics || [];
+  const activeFilter = filterTopics ?? selectedTopics;
   
   const toggleAnswer = (questionIndex: number, answerIndex: number) => {
     const key = `${questionIndex}-${answerIndex}`;
@@ -28,13 +32,13 @@ export const ClosedQuestionTopicsCard: React.FC<ClosedQuestionTopicsCardProps> =
   };
 
   // Filter by selected topics if any
-  const filteredCorrelations = selectedTopics.length > 0
+  const filteredCorrelations = activeFilter.length > 0
     ? closedQuestionCorrelations.map(question => ({
         ...question,
         correlations: question.correlations.map(answer => ({
           ...answer,
           topicDistribution: answer.topicDistribution.filter(topic => 
-            selectedTopics.includes(topic.topic)
+            topicMatchesFilter(topic.topic, activeFilter),
           )
         })).filter(answer => answer.topicDistribution.length > 0)
       })).filter(question => question.correlations.length > 0)
