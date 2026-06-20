@@ -1,7 +1,8 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { FlowKey, LoadedPrompt } from './mlflow.types';
+import { FlowKey, FormattedFlowPrompt, LoadedPrompt } from './mlflow.types';
 import { FlowsConfigService } from './flows.config';
 import { PromptSandboxService } from './prompt-sandbox.service';
+import { loadPromptSeedTemplate } from './prompt-seed.resolver';
 import {
   FlowNotRegisteredException,
   PromptRegistryUnavailableException,
@@ -88,6 +89,23 @@ export class MlflowPromptService implements OnModuleInit {
     }
 
     if (response.status === 404) {
+      const seedTemplate = loadPromptSeedTemplate(name);
+      if (seedTemplate) {
+        this.logger.warn(
+          `Prompt "${name}" with alias "${resolvedAlias}" not found in registry; using local seed file`,
+        );
+        const loaded: LoadedPrompt = {
+          name,
+          version: 'seed',
+          template: seedTemplate,
+          alias: resolvedAlias,
+        };
+        this.cache.set(cacheKey, {
+          prompt: loaded,
+          expiresAt: Date.now() + this.cacheTtlMs(),
+        });
+        return loaded;
+      }
       throw new PromptRegistryUnavailableException(
         `Prompt "${name}" with alias "${resolvedAlias}" not found in registry`,
       );
@@ -143,7 +161,7 @@ export class MlflowPromptService implements OnModuleInit {
   async formatFlow(
     flowKey: FlowKey,
     variables: Record<string, unknown>,
-  ): Promise<{ prompt: string; loaded: LoadedPrompt }> {
+  ): Promise<FormattedFlowPrompt> {
     if (!this.flowsConfig.hasFlow(flowKey)) {
       throw new FlowNotRegisteredException(flowKey);
     }
@@ -155,7 +173,18 @@ export class MlflowPromptService implements OnModuleInit {
       variables,
       allowed,
     );
-    return { prompt, loaded };
+
+    if (!flow.system_prompt) {
+      return { prompt, loaded };
+    }
+
+    const systemLoaded = await this.loadPrompt(flow.system_prompt);
+    return {
+      prompt,
+      systemPrompt: systemLoaded.template,
+      loaded,
+      systemLoaded,
+    };
   }
 
   async getRawTemplate(flowKey: FlowKey): Promise<LoadedPrompt> {

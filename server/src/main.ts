@@ -1,4 +1,5 @@
 import './env';
+import { initMlflowLangchainTracing } from './mlflow/mlflow-langchain-tracing';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -7,6 +8,8 @@ import { AppModule } from './app.module';
 import { PluginLoaderService } from './plugins/plugin-loader.service';
 
 async function bootstrap() {
+  await initMlflowLangchainTracing();
+
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     rawBody: true, // Required for Stripe webhook signature verification (EE plugin) at POST /api/webhooks/stripe
   });

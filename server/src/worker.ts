@@ -1,7 +1,11 @@
+import './env';
+import { initMlflowLangchainTracing } from './mlflow/mlflow-langchain-tracing';
 import { NestFactory } from '@nestjs/core';
 import { WorkerModule } from './worker.module';
 
 async function bootstrap() {
+  await initMlflowLangchainTracing();
+
   // Create a standalone application context (no HTTP server, no routes)
   const appContext = await NestFactory.createApplicationContext(WorkerModule, {
     logger: ['error', 'warn', 'log'],

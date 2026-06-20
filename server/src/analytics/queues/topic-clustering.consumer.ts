@@ -6,6 +6,7 @@ import type { TopicClusteringJobData } from './queue.names';
 import { TopicClusterer } from '../processors/topic.clusterer';
 import { ProgressService } from './progress.service';
 import { DeadLetterService } from './dead-letter.service';
+import { runWithMlflowTraceContextAsync, buildWorkerTraceContext } from '../../mlflow/mlflow-trace-context';
 
 @Processor(QueueName.TOPIC_CLUSTERING)
 export class TopicClusteringConsumer {
@@ -17,7 +18,19 @@ export class TopicClusteringConsumer {
 
   @Process('cluster-topics')
   async handleClustering(job: Job<TopicClusteringJobData>) {
-    const { taskId, formId } = job.data;
+    const { taskId, formId, userId } = job.data;
+    return runWithMlflowTraceContextAsync(
+      buildWorkerTraceContext({
+        sessionId: taskId,
+        userId,
+        tags: { formId, worker: 'topic-clustering', taskId },
+      }),
+      () => this.handleClusteringInner(job),
+    );
+  }
+
+  private async handleClusteringInner(job: Job<TopicClusteringJobData>) {
+    const { taskId, formId, userId } = job.data;
     console.log(`[TopicClusteringConsumer][${taskId}] Starting topic clustering job for form ${formId}`);
     await this.progressService.publishProgress({
       taskId,
@@ -38,6 +51,7 @@ export class TopicClusteringConsumer {
         progress: update.progress,
         stats: update.stats,
       }),
+      userId,
     );
     console.log(`[TopicClusteringConsumer][${taskId}] Topic clustering completed: ${result.canonicalTopics.length} canonical topics`);
     return { success: true, canonicalTopicsCount: result.canonicalTopics.length };

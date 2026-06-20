@@ -7,14 +7,14 @@ import { QueueName } from './queue.names';
 import type { AggregationJobData } from './queue.names';
 import { StatisticsCalculator } from '../calculators/statistics.calculator';
 import { CorrelationCalculator } from '../calculators/correlation.calculator';
-import { SentimentCalculator } from '../calculators/sentiment.calculator';
 import { TrendCalculator } from '../calculators/trend.calculator';
 import { ProgressService } from './progress.service';
 import { DeadLetterService } from './dead-letter.service';
 import { MlflowPromptService } from '../../mlflow/mlflow-prompt.service';
+import { AnalyticsAggregationService } from '../utils/analytics-aggregation.service';
+import { extractQuestionFocusPhrases } from '../utils/topic-question-filter.util';
 import { Form } from '../../schemas/form.schema';
 import type { FormDocument } from '../../schemas/form.schema';
-import { Response } from '../../schemas/response.schema';
 import type { ResponseDocument } from '../../schemas/response.schema';
 
 @Processor(QueueName.AGGREGATION)
@@ -22,19 +22,18 @@ export class AggregationConsumer {
   constructor(
     private readonly statisticsCalculator: StatisticsCalculator,
     private readonly correlationCalculator: CorrelationCalculator,
-    private readonly sentimentCalculator: SentimentCalculator,
     private readonly trendCalculator: TrendCalculator,
     private readonly progressService: ProgressService,
     private readonly deadLetterService: DeadLetterService,
     private readonly mlflowPrompts: MlflowPromptService,
+    private readonly aggregationService: AnalyticsAggregationService,
     @InjectModel(Form.name) private readonly formModel: Model<FormDocument>,
-    @InjectModel(Response.name) private readonly responseModel: Model<ResponseDocument>,
   ) {}
 
   @Process('aggregate-analytics')
   async handleAggregation(job: Job<AggregationJobData>) {
     const { taskId, formId } = job.data;
-    
+
     await this.progressService.publishProgress({
       taskId,
       type: 'progress',
@@ -42,25 +41,23 @@ export class AggregationConsumer {
       progress: 56,
     });
 
-    // Load form and processed responses
     const form = await this.formModel.findById(formId).exec();
     if (!form) {
       throw new Error(`Form ${formId} not found`);
     }
 
-    const responses = await this.responseModel.find({
-      formId: new Types.ObjectId(formId),
-      'metadata.processedForAnalytics': true,
-    }).exec();
+    const responseCount =
+      await this.aggregationService.countProcessedResponses(formId);
 
-    console.log(`[AggregationConsumer][${taskId}] Processing ${responses.length} responses`);
+    console.log(
+      `[AggregationConsumer][${taskId}] Processing ${responseCount} responses via aggregation pipelines`,
+    );
 
-    if (responses.length === 0) {
+    if (responseCount === 0) {
       console.log(`[AggregationConsumer][${taskId}] No processed responses found`);
       return { success: true, message: 'No processed responses to aggregate' };
     }
 
-    // Step 1: Calculate topic frequencies (56-60%)
     await this.progressService.publishProgress({
       taskId,
       type: 'progress',
@@ -68,15 +65,18 @@ export class AggregationConsumer {
       progress: 58,
     });
 
-    const topicFrequencies = this.statisticsCalculator.calculateTopicFrequencies(responses);
-    console.log(`[AggregationConsumer][${taskId}] Topic frequencies:`, JSON.stringify(topicFrequencies).substring(0, 500));
+    const questionFocusPhrases = extractQuestionFocusPhrases(form);
+
+    const topicFrequencies =
+      await this.aggregationService.aggregateTopicFrequencies(
+        formId,
+        questionFocusPhrases,
+      );
     const topTopics = Object.entries(topicFrequencies)
-      .sort(([, a]: any, [, b]: any) => b.count - a.count)
+      .sort(([, a], [, b]) => b.count - a.count)
       .slice(0, 15)
       .map(([topic]) => topic);
-    console.log(`[AggregationConsumer][${taskId}] Top topics:`, topTopics);
 
-    // Step 2: Calculate sentiment distribution (60-65%)
     await this.progressService.publishProgress({
       taskId,
       type: 'progress',
@@ -84,9 +84,9 @@ export class AggregationConsumer {
       progress: 60,
     });
 
-    const sentimentDistribution = this.sentimentCalculator.calculateSentimentDistribution(responses);
+    const sentimentDistribution =
+      await this.aggregationService.aggregateSentimentDistribution(formId);
 
-    // Step 3: Assess data quality (65-68%)
     await this.progressService.publishProgress({
       taskId,
       type: 'progress',
@@ -94,11 +94,19 @@ export class AggregationConsumer {
       progress: 65,
     });
 
-    const dataQuality = this.statisticsCalculator.assessDataQuality(responses);
-    const samplingStrategy = this.statisticsCalculator.determineTheoreticalSampling(responses, form);
-    const emergingThemes = this.statisticsCalculator.identifyEmergingThemes(responses, topicFrequencies);
+    const qualitySummary =
+      await this.aggregationService.aggregateDataQualitySummary(formId);
+    const emergingSample =
+      await this.aggregationService.fetchEmergingThemesSample(formId);
+    const samplingStrategy = this.statisticsCalculator.determineTheoreticalSampling(
+      emergingSample,
+      form,
+    );
+    const emergingThemes = this.statisticsCalculator.identifyEmergingThemes(
+      emergingSample,
+      topicFrequencies,
+    );
 
-    // Step 4: Calculate correlations (68-72%)
     await this.progressService.publishProgress({
       taskId,
       type: 'progress',
@@ -106,11 +114,25 @@ export class AggregationConsumer {
       progress: 68,
     });
 
-    const topicCooccurrence = this.correlationCalculator.calculateTopicCooccurrence(responses);
-    const topicSentimentCorrelation = this.correlationCalculator.calculateTopicSentimentCorrelation(responses);
-    const closedQuestionTopics = this.correlationCalculator.calculateClosedQuestionTopicCorrelations(form, responses);
+    const topicCooccurrence =
+      await this.aggregationService.streamTopicCooccurrence(formId);
+    const topicMapping =
+      await this.aggregationService.aggregateTopicMapping(formId);
+    const topicSentimentCorrelation =
+      await this.aggregationService.aggregateTopicSentimentCorrelation(
+        formId,
+        15,
+        questionFocusPhrases,
+      );
 
-    // Step 5: Collect quotes and emotional tones (72-75%)
+    const closedQuestionSample =
+      await this.aggregationService.fetchClosedQuestionSample(formId);
+    const closedQuestionTopics =
+      this.correlationCalculator.calculateClosedQuestionTopicCorrelations(
+        form,
+        closedQuestionSample as ResponseDocument[],
+      );
+
     await this.progressService.publishProgress({
       taskId,
       type: 'progress',
@@ -118,34 +140,25 @@ export class AggregationConsumer {
       progress: 72,
     });
 
-    const representativeQuotes = this.collectQuotesFromResponses(responses).slice(0, 10);
-    const emotionalTones = this.collectEmotionalTones(responses);
+    const quoteDocs =
+      await this.aggregationService.fetchRepresentativeQuoteDocs(formId);
+    const representativeQuotes = this.collectQuotesFromDocs(quoteDocs).slice(
+      0,
+      10,
+    );
+    const emotionalTones =
+      await this.aggregationService.aggregateEmotionalTones(formId);
 
-    // Step 6: Calculate climate data (75%)
     const climateData = this.statisticsCalculator.calculateClimateData(
-      responses,
+      emergingSample,
       topTopics,
       sentimentDistribution,
-      emotionalTones
+      emotionalTones,
     );
 
-    // Get canonical topics from responses - enforce canonicalTopics, no fallback to allTopics
-    // This must be done BEFORE trend analysis
-    const canonicalTopicsSet = new Set<string>();
-    let missingCanonicalCount = 0;
-    responses.forEach(r => {
-      const topics = r.metadata?.canonicalTopics || [];
-      if (topics.length === 0 && (r.metadata?.allTopics?.length ?? 0) > 0) {
-        missingCanonicalCount++;
-      }
-      topics.forEach(t => canonicalTopicsSet.add(t));
-    });
-    if (missingCanonicalCount > 0) {
-      console.warn(`[AggregationConsumer][${taskId}] ${missingCanonicalCount} responses have allTopics but no canonicalTopics - topic clustering may have failed`);
-    }
-    const canonicalTopics = Array.from(canonicalTopicsSet);
+    const canonicalTopics =
+      await this.aggregationService.aggregateCanonicalTopics(formId);
 
-    // Step 6b: Calculate temporal trends
     await this.progressService.publishProgress({
       taskId,
       type: 'progress',
@@ -153,15 +166,12 @@ export class AggregationConsumer {
       progress: 74,
     });
 
-    const trendAnalysis = this.trendCalculator.calculateTrends(responses, canonicalTopics);
-    console.log(`[AggregationConsumer][${taskId}] Trend analysis:`, {
-      hasEnoughData: trendAnalysis.hasEnoughData,
-      emergingTopics: trendAnalysis.emergingTopics?.length || 0,
-      decliningTopics: trendAnalysis.decliningTopics?.length || 0,
-      sentimentShifts: trendAnalysis.sentimentShifts?.length || 0,
-    });
+    const trendSample = await this.aggregationService.fetchTrendSample(formId);
+    const trendAnalysis = this.trendCalculator.calculateTrends(
+      trendSample,
+      canonicalTopics,
+    );
 
-    // Step 7: Store aggregated data in form.analytics (partial - generators will add more)
     await this.progressService.publishProgress({
       taskId,
       type: 'progress',
@@ -169,12 +179,13 @@ export class AggregationConsumer {
       progress: 75,
     });
 
-    // Update form with aggregated analytics (partial structure - AI insights will be added later)
     const analyticsFlowKeys = [
+      'analytics.combined_analysis',
       'analytics.topic_extraction',
       'analytics.sentiment',
       'analytics.quote_extraction',
       'analytics.topic_clustering',
+      'analytics.topic_clustering_batch',
       'analytics.summary',
     ];
     const promptVersions =
@@ -182,28 +193,33 @@ export class AggregationConsumer {
 
     form.analytics = {
       lastUpdated: new Date(),
-      totalResponsesAnalyzed: responses.length,
+      totalResponsesAnalyzed: responseCount,
       cacheVersion: 1,
       promptVersions,
       climate: climateData,
       topics: {
         distribution: topicFrequencies,
-        topTopics: topTopics,
-        dominantThemes: topTopics.slice(0, 5).map((topic: string) => ({
+        topTopics,
+        dominantThemes: topTopics.slice(0, 10).map((topic: string) => ({
           theme: topic,
           frequency: topicFrequencies[topic]?.count || 0,
-          sentiment: topicFrequencies[topic]?.sentimentBreakdown || { positive: 0, neutral: 0, negative: 0 },
+          sentiment: topicFrequencies[topic]?.sentimentBreakdown || {
+            positive: 0,
+            neutral: 0,
+            negative: 0,
+          },
           representativeQuotes: [],
           relatedQuestions: topicFrequencies[topic]?.associatedQuestions || [],
         })),
-        emergingThemes: emergingThemes,
+        emergingThemes,
         counterNarratives: [],
         cooccurrence: topicCooccurrence,
+        topicMapping,
       },
       sentiment: {
         overall: sentimentDistribution,
         byQuestion: {},
-        emotionalTones: emotionalTones,
+        emotionalTones,
         dominantTags: [],
         topicCorrelations: topicSentimentCorrelation,
       },
@@ -211,50 +227,61 @@ export class AggregationConsumer {
         byQuestion: {},
         questionPairs: [],
         topCorrelations: topicCooccurrence.slice(0, 10),
-        closedQuestionTopics: closedQuestionTopics,
+        closedQuestionTopics,
       },
       quotes: {
         representative: representativeQuotes as any,
-        highQuality: representativeQuotes.filter(q => (q as any).depth === 'deep').slice(0, 5) as any,
+        highQuality: representativeQuotes
+          .filter((q) => (q as any).depth === 'deep')
+          .slice(0, 5) as any,
         deviant: [],
       },
       deviantCases: [],
       insights: {
-        summary: '', // Will be filled by AI generation stage
-        keyFindings: [], // Will be filled by AI generation stage
-        recommendations: [], // Will be filled by AI generation stage
+        summary: '',
+        keyFindings: [],
+        recommendations: [],
       },
-      // Store trend analysis for use by AI generation stage
-      trendAnalysis: trendAnalysis.hasEnoughData ? {
-        hasEnoughData: true,
-        emergingTopics: trendAnalysis.emergingTopics || [],
-        decliningTopics: trendAnalysis.decliningTopics || [],
-        sentimentShifts: trendAnalysis.sentimentShifts || [],
-        volumeTrend: trendAnalysis.volumeTrend || 'stable',
-        periodComparison: trendAnalysis.periodComparison || undefined
-      } : undefined,
+      trendAnalysis: trendAnalysis.hasEnoughData
+        ? {
+            hasEnoughData: true,
+            emergingTopics: trendAnalysis.emergingTopics || [],
+            decliningTopics: trendAnalysis.decliningTopics || [],
+            sentimentShifts: trendAnalysis.sentimentShifts || [],
+            volumeTrend: trendAnalysis.volumeTrend || 'stable',
+            periodComparison: trendAnalysis.periodComparison || undefined,
+          }
+        : undefined,
     };
 
     await form.save();
 
-    console.log(`[AggregationConsumer][${taskId}] Aggregation complete - stored analytics for ${responses.length} responses`);
+    console.log(
+      `[AggregationConsumer][${taskId}] Aggregation complete - stored analytics for ${responseCount} responses (sampling strategy: ${samplingStrategy.description}, quality score: ${qualitySummary.avgCompleteness})`,
+    );
 
-    return { 
-      success: true, 
+    return {
+      success: true,
       topTopics: topTopics.length,
       sentimentDistribution,
       canonicalTopics: canonicalTopics.length,
     };
   }
 
-  /**
-   * Collect quotes from responses
-   */
-  private collectQuotesFromResponses(responses: ResponseDocument[]): any[] {
+  private collectQuotesFromDocs(
+    docs: Array<{
+      _id: Types.ObjectId;
+      submittedAt?: Date;
+      metadata?: ResponseDocument['metadata'];
+    }>,
+  ): any[] {
     const allQuotes: any[] = [];
-    
-    responses.forEach(r => {
-      if (r.metadata?.quotes?.keyQuotes && Array.isArray(r.metadata.quotes.keyQuotes)) {
+
+    docs.forEach((r) => {
+      if (
+        r.metadata?.quotes?.keyQuotes &&
+        Array.isArray(r.metadata.quotes.keyQuotes)
+      ) {
         r.metadata.quotes.keyQuotes.forEach((quote: any) => {
           allQuotes.push({
             text: quote.quote || quote.text || '',
@@ -262,7 +289,8 @@ export class AggregationConsumer {
             submittedAt: r.submittedAt || new Date(),
             topics: quote.relatedTopics || quote.themes || [],
             sentiment: r.metadata?.overallSentiment?.label || 'neutral',
-            emotionalTone: r.metadata?.overallSentiment?.emotionalTone || 'neutral',
+            emotionalTone:
+              r.metadata?.overallSentiment?.emotionalTone || 'neutral',
             representativeness: 'typical',
             depth: r.metadata?.quotes?.responseQuality?.depth || 'moderate',
           });
@@ -273,33 +301,8 @@ export class AggregationConsumer {
     return allQuotes;
   }
 
-  /**
-   * Collect emotional tones from responses
-   */
-  private collectEmotionalTones(responses: ResponseDocument[]): Array<{ tone: string; percentage: number }> {
-    const tones = responses
-      .map(r => r.metadata?.overallSentiment?.emotionalTone)
-      .filter((tone): tone is string => typeof tone === 'string');
-    
-    const toneCounts = tones.reduce((acc, tone) => {
-      acc[tone] = (acc[tone] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-
-    const totalTones = tones.length;
-    
-    return Object.entries(toneCounts)
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 5)
-      .map(([tone, count]) => ({
-        tone,
-        percentage: Math.round((count / totalTones) * 100),
-      }));
-  }
-
   @OnQueueFailed()
   onFailed(job: Job<AggregationJobData>, error: Error) {
-    // eslint-disable-next-line no-console
     console.error(`[Aggregation] Job ${job.id} failed:`, error.message);
     this.deadLetterService.forwardWhenExhausted(QueueName.AGGREGATION, job, error);
   }

@@ -8,6 +8,7 @@ import { FlowsConfigService } from '../mlflow/flows.config';
 import { SemanticLlmCacheService } from './semantic-llm-cache.service';
 import { EmbeddingService } from './embedding.service';
 import { GenerateAIFormDto } from './dto/generate-ai-form.dto';
+import { GraphRunnerService } from '../graphs/graph-runner.service';
 
 const validForm = {
   title: 'Test Form',
@@ -81,12 +82,14 @@ describe('AiService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    mockGuardianService.validatePrompt.mockResolvedValue({ isSafe: true });
     mockChatModel = createMockChatModel();
 
     const module: TestingModule = await Test.createTestingModule({
       imports: [ConfigModule.forRoot()],
       providers: [
         AiService,
+        GraphRunnerService,
         { provide: GuardianService, useValue: mockGuardianService },
         { provide: MlflowPromptService, useValue: mockMlflowPrompts },
         { provide: FlowsConfigService, useValue: mockFlowsConfig },
@@ -150,8 +153,11 @@ describe('AiService', () => {
       const currentForm = { title: 'Existing Form', description: 'D', questions: [] };
       let capturedPrompt: string = '';
       mockChatModel.withStructuredOutput.mockReturnValue({
-        invoke: jest.fn().mockImplementation((prompt: string) => {
-          capturedPrompt = prompt;
+        invoke: jest.fn().mockImplementation((input: string | { content: string }[]) => {
+          capturedPrompt =
+            typeof input === 'string'
+              ? input
+              : input.map((m) => m.content).join('\n');
           return Promise.resolve({
             parsed: validForm,
             raw: { response_metadata: { usage: mockUsage } },

@@ -1,4 +1,5 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { withEmbeddingSpan } from '../mlflow/mlflow-trace-context';
 
 export type EmbeddingProvider = 'local' | 'ollama' | 'openai';
 
@@ -77,7 +78,29 @@ export class EmbeddingService implements OnModuleInit {
     }
   }
 
+  getModelName(): string {
+    switch (this.getProvider()) {
+      case 'openai':
+        return process.env.OPENAI_EMBEDDING_MODEL || 'text-embedding-3-small';
+      case 'ollama':
+        return process.env.OLLAMA_EMBEDDING_MODEL || 'nomic-embed-text';
+      default:
+        return process.env.LOCAL_EMBEDDING_MODEL || DEFAULT_LOCAL_MODEL;
+    }
+  }
+
   async embedQuery(text: string): Promise<number[]> {
+    return withEmbeddingSpan(
+      {
+        provider: this.getProvider(),
+        model: this.getModelName(),
+        textLength: text.length,
+      },
+      () => this.embedQueryInner(text),
+    );
+  }
+
+  private async embedQueryInner(text: string): Promise<number[]> {
     switch (this.getProvider()) {
       case 'openai':
         if (!this.openAiModel) {

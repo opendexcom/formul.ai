@@ -7,6 +7,10 @@ defaults:
 
 flows:
   analytics:
+    combined_analysis:
+      prompt: formulai-analytics-combined-analysis
+      allowed_variables: [responseCount, responsesData, ratingContext, questionContext]
+      cache: { enabled: true, mode: exact, scope: form, ttl_seconds: 604800 }
     topic_extraction:
       prompt: formulai-analytics-topic-extraction
       allowed_variables: [responseCount, responsesData]
@@ -21,6 +25,10 @@ flows:
       cache: { enabled: true, mode: exact, scope: form, ttl_seconds: 604800 }
     topic_clustering:
       prompt: formulai-analytics-topic-clustering
+      allowed_variables: [clusterTopics]
+      cache: { enabled: true, mode: exact, scope: form, ttl_seconds: 604800 }
+    topic_clustering_batch:
+      prompt: formulai-analytics-topic-clustering-batch
       allowed_variables: [rawTopics]
       cache: { enabled: true, mode: exact, scope: form, ttl_seconds: 604800 }
     summary:
@@ -61,6 +69,10 @@ flows:
       cache: { enabled: false, mode: exact, scope: none }
 
   shared:
+    analytics_json_contract:
+      prompt: formulai-shared-analytics-json-contract
+      allowed_variables: []
+      cache: { enabled: false, mode: exact, scope: none }
     form_other_rules:
       prompt: formulai-shared-form-other-rules
       allowed_variables: []

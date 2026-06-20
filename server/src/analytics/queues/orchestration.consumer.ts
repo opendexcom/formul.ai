@@ -2,7 +2,13 @@ import { Processor, Process, OnQueueActive, OnQueueCompleted, OnQueueFailed } fr
 import { InjectQueue } from '@nestjs/bull';
 import type { Job, Queue } from 'bull';
 import { QueueName } from './queue.names';
-import type { OrchestrationJobData, ResponseProcessingJobData, TopicClusteringJobData, AggregationJobData, AIGenerationJobData } from './queue.names';
+import type {
+  OrchestrationJobData,
+  ResponseProcessingJobData,
+  TopicClusteringJobData,
+  AggregationJobData,
+  AIGenerationJobData,
+} from './queue.names';
 import { ProgressService } from './progress.service';
 import { InjectModel } from '@nestjs/mongoose';
 import type { Model } from 'mongoose';
@@ -12,10 +18,23 @@ import type { ResponseDocument } from '../../schemas/response.schema';
 import { Form } from '../../schemas/form.schema';
 import type { FormDocument } from '../../schemas/form.schema';
 import { DeadLetterService } from './dead-letter.service';
+import { TopicVectorStore } from '../stores/topic-vector.store';
+import { ResponseProcessor } from '../processors/response.processor';
+import { SpanType, withSpan } from '@mlflow/core';
+import {
+  runWithMlflowTraceContextAsync,
+  buildWorkerTraceContext,
+  applyMlflowTraceMetadata,
+  withOrchestrationStageSpan,
+} from '../../mlflow/mlflow-trace-context';
+import { flushMlflowTraces } from '../../mlflow/mlflow-langchain-tracing';
 
 @Processor(QueueName.ORCHESTRATION)
 export class OrchestrationConsumer {
-  private readonly RESPONSE_BATCH_SIZE = 10; // Process 20 responses per worker job
+  private readonly RESPONSE_BATCH_SIZE = parseInt(
+    process.env.ANALYTICS_BATCH_SIZE ?? '50',
+    10,
+  );
 
   constructor(
     @InjectQueue(QueueName.RESPONSE_PROCESSING)
@@ -28,7 +47,9 @@ export class OrchestrationConsumer {
     private aiGenerationQueue: Queue<AIGenerationJobData>,
     private readonly progressService: ProgressService,
   private readonly deadLetterService: DeadLetterService,
-    @InjectModel(Response.name) 
+    private readonly topicVectorStore: TopicVectorStore,
+    private readonly responseProcessor: ResponseProcessor,
+    @InjectModel(Response.name)
     private responseModel: Model<ResponseDocument>,
     @InjectModel(Form.name) 
     private formModel: Model<FormDocument>,
@@ -36,7 +57,44 @@ export class OrchestrationConsumer {
 
   @Process('orchestrate-analytics')
   async handleOrchestration(job: Job<OrchestrationJobData>) {
-    const { taskId, formId, forceRefresh = false } = job.data;
+    const { taskId, formId, forceRefresh = false, userId: jobUserId } = job.data;
+    const userId = await this.resolveTraceUserId(formId, jobUserId);
+    const traceCtx = buildWorkerTraceContext({
+      sessionId: taskId,
+      userId,
+      tags: { worker: 'orchestration', formId, taskId },
+    });
+
+    return runWithMlflowTraceContextAsync(traceCtx, async () =>
+      withSpan(
+        async () => {
+          applyMlflowTraceMetadata(traceCtx);
+          try {
+            return await this.handleOrchestrationInner(
+              taskId,
+              formId,
+              forceRefresh,
+              userId,
+            );
+          } finally {
+            await flushMlflowTraces();
+          }
+        },
+        {
+          name: 'formulai.orchestration.analytics',
+          spanType: SpanType.CHAIN,
+          inputs: { taskId, formId, forceRefresh, userId },
+        },
+      ),
+    );
+  }
+
+  private async handleOrchestrationInner(
+    taskId: string,
+    formId: string,
+    forceRefresh: boolean,
+    userId?: string,
+  ) {
     await this.progressService.publishProgress({
       taskId,
       type: 'progress',
@@ -44,11 +102,31 @@ export class OrchestrationConsumer {
       progress: 0,
     });
     try {
-      await this.stageResponseProcessing(taskId, formId, forceRefresh);
-      await this.stageTopicClustering(taskId, formId);
-      await this.stageAggregation(taskId, formId);
-      await this.stageAIGeneration(taskId, formId);
-      await this.stageSaveResults(taskId, formId);
+      await withOrchestrationStageSpan(
+        'response_processing',
+        { taskId, formId, forceRefresh },
+        () => this.stageResponseProcessing(taskId, formId, forceRefresh, userId),
+      );
+      await withOrchestrationStageSpan(
+        'topic_clustering',
+        { taskId, formId },
+        () => this.stageTopicClustering(taskId, formId, userId),
+      );
+      await withOrchestrationStageSpan(
+        'aggregation',
+        { taskId, formId },
+        () => this.stageAggregation(taskId, formId, userId),
+      );
+      await withOrchestrationStageSpan(
+        'ai_generation',
+        { taskId, formId },
+        () => this.stageAIGeneration(taskId, formId, userId),
+      );
+      await withOrchestrationStageSpan(
+        'save_results',
+        { taskId, formId },
+        () => this.stageSaveResults(taskId, formId),
+      );
       await this.progressService.publishProgress({
         taskId,
         type: 'complete',
@@ -67,7 +145,25 @@ export class OrchestrationConsumer {
     }
   }
 
-  private async stageResponseProcessing(taskId: string, formId: string, forceRefresh: boolean) {
+  private async resolveTraceUserId(
+    formId: string,
+    userId?: string,
+  ): Promise<string | undefined> {
+    if (userId) return userId;
+    const form = await this.formModel
+      .findById(formId)
+      .select('createdBy')
+      .lean()
+      .exec();
+    return form?.createdBy?.toString();
+  }
+
+  private async stageResponseProcessing(
+    taskId: string,
+    formId: string,
+    forceRefresh: boolean,
+    userId?: string,
+  ) {
     console.log(`[Orchestrator][${taskId}] Starting response processing stage (forceRefresh: ${forceRefresh})`);
     await this.progressService.publishProgress({
       taskId,
@@ -76,64 +172,88 @@ export class OrchestrationConsumer {
       progress: 2,
     });
     
-    const responses = await this.responseModel.find({
-      formId: new Types.ObjectId(formId),
+    const formObjectId = new Types.ObjectId(formId);
+    const matchQuery: Record<string, unknown> = {
+      formId: formObjectId,
       ...(forceRefresh ? {} : { 'metadata.processedForAnalytics': { $ne: true } }),
-    }).exec();
-    
-    console.log(`[Orchestrator][${taskId}] Found ${responses?.length || 0} responses to process`);
-    
-    if (!responses || responses.length === 0) {
+    };
+
+    const responseCount = await this.responseModel.countDocuments(matchQuery).exec();
+
+    console.log(`[Orchestrator][${taskId}] Found ${responseCount} responses to process`);
+
+    if (responseCount === 0) {
       console.log(`[Orchestrator][${taskId}] No responses to process, skipping response processing stage`);
       return;
     }
-    
-    const responseIds = responses.map(r => (typeof r._id === 'string' ? r._id : r._id?.toString?.() ?? ''));
-    
-    // Reset all responses to "Not started" state (clear processingTaskId and processedForAnalytics)
-    await this.responseModel.updateMany(
-      { _id: { $in: responseIds.map(id => new Types.ObjectId(id)) } },
-      { 
-        $unset: { 'metadata.processingTaskId': '' },
-        $set: { 'metadata.processedForAnalytics': false }
-      }
-    ).exec();
-    
-    // Mark ALL responses as "Pending" upfront so UI shows consistent state
-    await this.responseModel.updateMany(
-      { _id: { $in: responseIds.map(id => new Types.ObjectId(id)) } },
-      { 
-        $set: { 
-          'metadata.processingTaskId': taskId,
-          'metadata.processingStartedAt': new Date()
-        }
-      }
-    ).exec();
-    
-    // Notify frontend: all responses marked as "Pending"
+
+    if (forceRefresh) {
+      await this.topicVectorStore.clearForm(formId);
+    }
+
+    // Reset and mark all matched responses as pending (no full-document load)
+    await this.responseModel.updateMany(matchQuery, {
+      $unset: { 'metadata.processingTaskId': '' },
+      $set: { 'metadata.processedForAnalytics': false },
+    }).exec();
+
+    await this.responseModel.updateMany(matchQuery, {
+      $set: {
+        'metadata.processingTaskId': taskId,
+        'metadata.processingStartedAt': new Date(),
+      },
+    }).exec();
+
     await this.progressService.publishProgress({
       taskId,
       type: 'responses_processing',
-      message: `Processing ${responseIds.length} responses...`,
+      message: `Processing ${responseCount} responses...`,
       progress: 3,
-      processedResponseIds: responseIds,
+      processedResponseIds: [],
     });
-    
-    const batches = this.chunkArray(responseIds, this.RESPONSE_BATCH_SIZE);
-    console.log(`[Orchestrator][${taskId}] Creating ${batches.length} batch jobs: ${batches.map(b => b.length).join(', ')} responses each`);
-    
-    const batchJobs = await Promise.all(
-      batches.map((batch, index) => {
-        console.log(`[Orchestrator][${taskId}] Adding batch ${index} with ${batch.length} response IDs`);
-        return this.responseProcessingQueue.add('process-batch', {
+
+    const estimatedTotalBatches = Math.ceil(responseCount / this.RESPONSE_BATCH_SIZE);
+    const batchJobs: Job[] = [];
+    let batchIndex = 0;
+    let currentBatch: string[] = [];
+
+    const cursor = this.responseModel
+      .find(matchQuery)
+      .select('_id')
+      .lean()
+      .cursor();
+
+    for await (const doc of cursor) {
+      currentBatch.push(String((doc as { _id: Types.ObjectId })._id));
+      if (currentBatch.length >= this.RESPONSE_BATCH_SIZE) {
+        console.log(`[Orchestrator][${taskId}] Adding batch ${batchIndex} with ${currentBatch.length} response IDs`);
+        const job = await this.responseProcessingQueue.add('process-batch', {
           taskId,
           formId,
-          responseIds: batch,
-          batchIndex: index,
-          totalBatches: batches.length,
+          userId,
+          responseIds: [...currentBatch],
+          batchIndex,
+          totalBatches: estimatedTotalBatches,
         });
-      })
-    );
+        batchJobs.push(job);
+        batchIndex += 1;
+        currentBatch = [];
+      }
+    }
+
+    if (currentBatch.length > 0) {
+      console.log(`[Orchestrator][${taskId}] Adding batch ${batchIndex} with ${currentBatch.length} response IDs`);
+      const job = await this.responseProcessingQueue.add('process-batch', {
+        taskId,
+        formId,
+        userId,
+        responseIds: currentBatch,
+        batchIndex,
+        totalBatches: estimatedTotalBatches,
+      });
+      batchJobs.push(job);
+    }
+
     console.log(`[Orchestrator][${taskId}] All ${batchJobs.length} batch jobs queued, waiting for completion...`);
     
     // Wait for ALL response-analysis batches to finish before moving on
@@ -163,9 +283,18 @@ export class OrchestrationConsumer {
       await new Promise(r => setTimeout(r, 500));
       attempts++;
     }
+
+    await this.responseProcessor.clearStrandedClaims(
+      taskId,
+      new Types.ObjectId(formId),
+    );
   }
 
-  private async stageTopicClustering(taskId: string, formId: string) {
+  private async stageTopicClustering(
+    taskId: string,
+    formId: string,
+    userId?: string,
+  ) {
     console.log(`[Orchestrator][${taskId}] Starting topic clustering stage`);
     await this.progressService.publishProgress({
       taskId,
@@ -173,24 +302,40 @@ export class OrchestrationConsumer {
       message: 'Clustering topics...',
       progress: 45,
     });
-    const job = await this.topicClusteringQueue.add('cluster-topics', { taskId, formId });
+    const job = await this.topicClusteringQueue.add('cluster-topics', {
+      taskId,
+      formId,
+      userId,
+    });
     console.log(`[Orchestrator][${taskId}] Topic clustering job added to queue, waiting...`);
     await this.waitForJobs([job], taskId, 45, 55, { label: 'Topic clustering', unit: 'task' });
     console.log(`[Orchestrator][${taskId}] Topic clustering stage completed`);
   }
 
-  private async stageAggregation(taskId: string, formId: string) {
+  private async stageAggregation(
+    taskId: string,
+    formId: string,
+    userId?: string,
+  ) {
     await this.progressService.publishProgress({
       taskId,
       type: 'progress',
       message: 'Calculating statistics and correlations...',
       progress: 55,
     });
-    const job = await this.aggregationQueue.add('aggregate-analytics', { taskId, formId });
+    const job = await this.aggregationQueue.add('aggregate-analytics', {
+      taskId,
+      formId,
+      userId,
+    });
     await this.waitForJobs([job], taskId, 55, 75, { label: 'Analytics aggregation', unit: 'task' });
   }
 
-  private async stageAIGeneration(taskId: string, formId: string) {
+  private async stageAIGeneration(
+    taskId: string,
+    formId: string,
+    userId?: string,
+  ) {
     await this.progressService.publishProgress({
       taskId,
       type: 'progress',
@@ -204,19 +349,8 @@ export class OrchestrationConsumer {
       this.aiGenerationQueue.add('generate-insights', {
         taskId,
         formId,
-        generationType: 'summary',
-        inputData: {},
-      }),
-      this.aiGenerationQueue.add('generate-insights', {
-        taskId,
-        formId,
-        generationType: 'findings',
-        inputData: {},
-      }),
-      this.aiGenerationQueue.add('generate-insights', {
-        taskId,
-        formId,
-        generationType: 'recommendations',
+        userId,
+        generationType: 'insights',
         inputData: {},
       }),
     ]);

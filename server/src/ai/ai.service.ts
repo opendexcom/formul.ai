@@ -2,17 +2,29 @@ import {
   BadRequestException,
   Injectable,
   InternalServerErrorException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { GenerateAIFormDto } from './dto/generate-ai-form.dto';
 import { GuardianService } from './guardian.service';
 import { LlmUsage } from './llm.types';
-import { HumanMessage } from '@langchain/core/messages';
+import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { MlflowPromptService } from '../mlflow/mlflow-prompt.service';
 import { FlowsConfigService } from '../mlflow/flows.config';
 import { SemanticLlmCacheService } from './semantic-llm-cache.service';
 import { EmbeddingService } from './embedding.service';
 import { InvokeFlowOptions } from '../mlflow/mlflow.types';
 import { FlowNotRegisteredException } from '../mlflow/mlflow.exceptions';
+import {
+  runWithActiveMlflowTraceContextAsync,
+  runWithMlflowTraceContextAsync,
+  buildInvokeFlowTraceContext,
+  buildFlowPromptTraceInputs,
+  buildFlowRequestPreview,
+  combinePromptForCache,
+} from '../mlflow/mlflow-trace-context';
+import { flushMlflowTraces } from '../mlflow/mlflow-langchain-tracing';
+import { GraphRunnerService } from '../graphs/graph-runner.service';
 
 export interface GenerationStep {
   step: string;
@@ -69,6 +81,8 @@ export class AiService {
     private readonly flowsConfig: FlowsConfigService,
     private readonly semanticCache: SemanticLlmCacheService,
     private readonly embeddings: EmbeddingService,
+    @Inject(forwardRef(() => GraphRunnerService))
+    private readonly graphRunner: GraphRunnerService,
   ) {
     // Determine provider from environment
     this.provider =
@@ -133,10 +147,11 @@ export class AiService {
       throw new FlowNotRegisteredException(flowKey);
     }
 
-    const { prompt, loaded } = await this.mlflowPrompts.formatFlow(
-      flowKey,
-      variables,
-    );
+    const { prompt, systemPrompt, loaded, systemLoaded } =
+      await this.mlflowPrompts.formatFlow(flowKey, variables);
+    const cachePrompt = combinePromptForCache(prompt, systemPrompt);
+    const traceInputs = buildFlowPromptTraceInputs(prompt, systemPrompt);
+    const requestPreview = buildFlowRequestPreview(prompt, systemPrompt);
     const cachePolicy = this.flowsConfig.getCachePolicy(flowKey);
     const model =
       process.env.OPENAI_MODEL || process.env.OLLAMA_MODEL || 'unknown';
@@ -157,19 +172,58 @@ export class AiService {
       this.embeddings.isAvailable()
     ) {
       try {
-        embedding = await this.embeddings.embedQuery(prompt);
+        embedding = await this.embeddings.embedQuery(cachePrompt);
       } catch {
         embedding = undefined;
       }
     }
 
     const cacheHit = await this.semanticCache.lookup(
-      prompt,
+      cachePrompt,
       cachePolicy,
       cacheCtx,
       embedding,
     );
     if (cacheHit) {
+      const traceContext = buildInvokeFlowTraceContext(flowKey, loaded, {
+        ...options,
+        cached: true,
+      });
+      await runWithMlflowTraceContextAsync(traceContext, async () => {
+        await runWithActiveMlflowTraceContextAsync(
+          async () => ({
+            content: cacheHit.content,
+            cached: true,
+            usage: {
+              model,
+              totalTokens: 0,
+              promptTokens: 0,
+              completionTokens: 0,
+              cached: true,
+              cacheMode: cacheHit.cacheMode,
+              similarity: cacheHit.similarity,
+            },
+          }),
+          {
+            inputs: {
+              ...traceInputs,
+              cached: true,
+              cacheMode: cacheHit.cacheMode,
+              flowKey,
+              promptName: loaded.name,
+              promptVersion: loaded.version,
+              ...(systemLoaded
+                ? {
+                    systemPromptName: systemLoaded.name,
+                    systemPromptVersion: systemLoaded.version,
+                  }
+                : {}),
+            },
+            spanName: `formulai.${flowKey}`,
+            requestPreview,
+          },
+        );
+      });
       return {
         content: cacheHit.content,
         usage: {
@@ -193,18 +247,22 @@ export class AiService {
     }
 
     const structured = options.structuredOutput ?? false;
-    const result = structured
-      ? await this.invokeModelWithUsage(prompt, options.document)
-      : await this.invokeModelRawWithUsage(
-          prompt,
-          useJsonFormat,
-          options.document,
-          options.timeoutMs ?? 120000,
-          options.maxTokens,
-        );
+    const traceContext = buildInvokeFlowTraceContext(flowKey, loaded, options);
+    const result = await runWithMlflowTraceContextAsync(traceContext, async () => {
+      return structured
+        ? await this.invokeModelWithUsage(prompt, options.document, systemPrompt)
+        : await this.invokeModelRawWithUsage(
+            prompt,
+            useJsonFormat,
+            options.document,
+            options.timeoutMs ?? 120000,
+            options.maxTokens,
+            systemPrompt,
+          );
+    });
 
     await this.semanticCache.store(
-      prompt,
+      cachePrompt,
       result.content,
       cachePolicy,
       cacheCtx,
@@ -253,160 +311,17 @@ export class AiService {
    */
   async *generateWithSteps(
     dto: GenerateAIFormDto,
+    options: { userId?: string } = {},
   ): AsyncGenerator<GenerationStep> {
-    if (!this.chatModel) {
-      throw new InternalServerErrorException(
-        `AI provider (${this.provider}) is not configured. Check your environment variables.`,
-      );
-    }
-
-    // Security Check
-    const validation = await this.guardianService.validatePrompt(dto.prompt);
-    if (!validation.isSafe) {
-      yield {
-        step: 'error',
-        message: `Security check failed: ${validation.reason}`,
-        status: 'error',
-      };
-      return;
-    }
-
-    const currentFormContext = dto.currentForm
-      ? `\n\nCurrent form structure:\n${JSON.stringify(dto.currentForm, null, 2)}\n\nThe user wants to refine or modify this existing form.`
-      : '\n\nThis is a new form being created from scratch.';
-
-    const modificationsHint = dto.currentForm
-      ? '5. What should be kept, modified, or removed from the existing form'
-      : '';
-    const modificationsShape = dto.currentForm
-      ? ', modifications: { keep: string[], modify: string[], remove: string[], add: string[] }'
-      : '';
-    const refineHint = dto.currentForm
-      ? 'Keep questions from the current form that are still relevant, and modify or add new ones as needed.'
-      : '';
-    const preserveHint = dto.currentForm
-      ? '\n- Preserve the original form ID and metadata where applicable'
-      : '';
-
-    // Step 1: Analyze request and create strategy
-    yield {
-      step: 'analyze',
-      message: 'Analyzing form requirements...',
-      status: 'in-progress',
-    };
-
-    const { content: strategyContent, usage: analyzeUsage } =
-      await this.invokeFlow(
-        'form_generation.strategy',
-        {
-          userInput: dto.prompt,
-          currentFormContext,
-          modificationsHint,
-          modificationsShape,
-        },
-        { skipValidation: true, userId: (dto as any).userId },
-      );
-    const strategy = JSON.parse(strategyContent);
-
-    yield {
-      step: 'analyze',
-      message: `Strategy created: ${strategy.purpose}`,
-      status: 'completed',
-      data: strategy,
-      usage: analyzeUsage,
-    };
-
-    // Step 2: Generate question list
-    yield {
-      step: 'questions',
-      message: 'Preparing questions based on strategy...',
-      status: 'in-progress',
-    };
-
-    const { content: questionsContent, usage: questionsUsage } =
-      await this.invokeFlow(
-        'form_generation.questions',
-        {
-          userInput: dto.prompt,
-          currentFormContext,
-          strategyJson: JSON.stringify(strategy, null, 2),
-          refineHint,
-        },
-        { skipValidation: true, userId: (dto as any).userId },
-      );
-    const questionsList = JSON.parse(questionsContent);
-
-    yield {
-      step: 'questions',
-      message: `Generated ${questionsList.length} questions`,
-      status: 'completed',
-      data: questionsList,
-      usage: questionsUsage,
-    };
-
-    // Step 3: Optimize question types
-    yield {
-      step: 'optimize',
-      message: 'Optimizing question types for better UX...',
-      status: 'in-progress',
-    };
-
-    const { content: optimizedContent, usage: optimizeUsage } =
-      await this.invokeFlow(
-        'form_generation.optimize',
-        {
-          currentFormContext,
-          questionsJson: JSON.stringify(questionsList, null, 2),
-          strategyJson: JSON.stringify(strategy, null, 2),
-          refineHint: dto.currentForm
-            ? 'Changes from the original form are intentional and improve the form'
-            : '',
-        },
-        { skipValidation: true, userId: (dto as any).userId },
-      );
-    const optimizedQuestions = JSON.parse(optimizedContent);
-
-    yield {
-      step: 'optimize',
-      message: 'Questions optimized for better user experience',
-      status: 'completed',
-      data: optimizedQuestions,
-      usage: optimizeUsage,
-    };
-
-    // Step 4: Generate final form
-    yield {
-      step: 'generate',
-      message: 'Generating final form structure...',
-      status: 'in-progress',
-    };
-
-    const { content: finalContent, usage } = await this.invokeFlow(
-      'form_generation.final',
-      {
-        currentFormContext,
-        purpose: strategy.purpose,
-        questionsJson: JSON.stringify(optimizedQuestions, null, 2),
-        userInput: dto.prompt,
-        preserveHint,
-      },
-      { skipValidation: true, structuredOutput: true, userId: (dto as any).userId },
-    );
-    const parsed = JSON.parse(finalContent);
-    const finalForm = this.validateAndSanitizeForm(parsed);
-
-    yield {
-      step: 'generate',
-      message: 'Form generated successfully!',
-      status: 'completed',
-      data: finalForm,
-      usage,
-    };
+    yield* this.graphRunner.streamFormGeneration(dto, {
+      userId: options.userId ?? (dto as GenerateAIFormDto & { userId?: string }).userId,
+    });
   }
 
   private async invokeModelWithUsage(
     prompt: string,
     document?: { base64: string; mimetype: string; filename?: string },
+    systemPrompt?: string,
   ): Promise<{ content: string; usage?: LlmUsage }> {
     if (!this.chatModel) {
       throw new InternalServerErrorException('AI provider not initialized');
@@ -468,34 +383,38 @@ export class AiService {
       includeRaw: true,
     });
     const input = document
-      ? this.buildMessagesWithDocument(prompt, document)
-      : prompt;
-    const res = await structuredModel.invoke(input);
-    const parsed = res?.parsed ?? res;
-    const content = JSON.stringify(parsed);
-    const usage =
-      extractUsageFromResponse(res?.raw) ?? extractUsageFromResponse(res);
-    return { content, usage };
+      ? this.buildMessagesWithDocument(prompt, document, systemPrompt)
+      : this.buildLlmMessages(prompt, systemPrompt);
+    const traceCall = {
+      inputs: buildFlowPromptTraceInputs(prompt, systemPrompt),
+      requestPreview: buildFlowRequestPreview(prompt, systemPrompt),
+    };
+    const res = (await runWithActiveMlflowTraceContextAsync(
+      async () => {
+        const raw = await structuredModel.invoke(input);
+        const parsed = raw?.parsed ?? raw;
+        const content = JSON.stringify(parsed);
+        const usage =
+          extractUsageFromResponse(raw?.raw) ?? extractUsageFromResponse(raw);
+        return { content, usage };
+      },
+      traceCall,
+    )) as { content: string; usage?: LlmUsage };
+    await flushMlflowTraces();
+    return res;
   }
 
   /**
    * Build LangChain message(s) with optional document attachment (multimodal).
-   * When document is present, returns [HumanMessage] with content array (text + file block).
+   * When document is present, returns [SystemMessage?, HumanMessage] with content array (text + file block).
    */
   private buildMessagesWithDocument(
     prompt: string,
     document: { base64: string; mimetype: string; filename?: string },
-  ): HumanMessage[] {
+    systemPrompt?: string,
+  ): (SystemMessage | HumanMessage)[] {
     const filename = document.filename || 'document.pdf';
-    const content: Array<{
-      type: string;
-      text?: string;
-      source_type?: string;
-      data?: string;
-      mime_type?: string;
-      filename?: string;
-      metadata?: { filename?: string; name?: string; title?: string };
-    }> = [
+    const content = [
       { type: 'text', text: prompt },
       {
         type: 'file',
@@ -505,8 +424,25 @@ export class AiService {
         filename,
         metadata: { filename, name: filename, title: filename },
       },
-    ];
-    return [new HumanMessage({ content })];
+    ] as HumanMessage['content'];
+    const messages: (SystemMessage | HumanMessage)[] = [];
+    if (systemPrompt) {
+      messages.push(new SystemMessage(systemPrompt));
+    }
+    messages.push(new HumanMessage({ content }));
+    return messages;
+  }
+
+  private buildLlmMessages(
+    prompt: string,
+    systemPrompt?: string,
+  ): (SystemMessage | HumanMessage)[] {
+    const messages: (SystemMessage | HumanMessage)[] = [];
+    if (systemPrompt) {
+      messages.push(new SystemMessage(systemPrompt));
+    }
+    messages.push(new HumanMessage(prompt));
+    return messages;
   }
 
   private async invokeModelRawWithUsage(
@@ -515,6 +451,7 @@ export class AiService {
     document?: { base64: string; mimetype: string; filename?: string },
     timeoutMs: number = 120000,
     maxTokens?: number,
+    systemPrompt?: string,
   ): Promise<{ content: string; usage?: LlmUsage }> {
     if (!this.chatModel) {
       throw new InternalServerErrorException('AI provider not initialized');
@@ -525,8 +462,12 @@ export class AiService {
       ...(maxTokens ? { max_tokens: maxTokens } : {}),
     };
     const input = document
-      ? this.buildMessagesWithDocument(prompt, document)
-      : prompt;
+      ? this.buildMessagesWithDocument(prompt, document, systemPrompt)
+      : this.buildLlmMessages(prompt, systemPrompt);
+    const traceCall = {
+      inputs: buildFlowPromptTraceInputs(prompt, systemPrompt),
+      requestPreview: buildFlowRequestPreview(prompt, systemPrompt),
+    };
     type ChatResponse = {
       content: string | unknown[];
       usage_metadata?: unknown;
@@ -535,24 +476,31 @@ export class AiService {
     };
     const model = this.chatModel as {
       invoke: (
-        input: string | HumanMessage[],
+        input: string | (SystemMessage | HumanMessage)[],
         options?: Record<string, unknown>,
       ) => Promise<ChatResponse>;
     };
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const res = await model.invoke(input, {
-        ...options,
-        signal: controller.signal,
-      });
+      const res = await runWithActiveMlflowTraceContextAsync(
+        async () => {
+          const response = await model.invoke(input, {
+            ...options,
+            signal: controller.signal,
+          });
+          const content =
+            typeof response.content === 'string'
+              ? response.content
+              : JSON.stringify(response.content);
+          const usage = extractUsageFromResponse(response);
+          return { content, usage };
+        },
+        traceCall,
+      );
       clearTimeout(timeoutId);
-      const content =
-        typeof res.content === 'string'
-          ? res.content
-          : JSON.stringify(res.content);
-      const usage = extractUsageFromResponse(res);
-      return { content, usage };
+      await flushMlflowTraces();
+      return res;
     } catch (error) {
       clearTimeout(timeoutId);
       if (controller.signal.aborted) {
@@ -709,6 +657,7 @@ export class AiService {
         );
       }
 
+      await flushMlflowTraces();
       return results.map((r) => r.content!);
     } catch (error) {
       console.error('Error in batch analysis:', error);
@@ -758,14 +707,22 @@ export class AiService {
                 throw err;
               }
             };
+            const traceCall = {
+              inputs: buildFlowPromptTraceInputs(prompt),
+              requestPreview: buildFlowRequestPreview(prompt),
+            };
             if (useStructuredOutput) {
               // When using structured output, schema is already bound
-              response = await invokeWithAbortableTimeout((signal) =>
-                modelToUse.invoke(prompt, {
-                  temperature: options?.temperature ?? 0.3,
-                  max_tokens: options?.maxTokens ?? 4000,
-                  signal,
-                }),
+              response = await runWithActiveMlflowTraceContextAsync(
+                () =>
+                  invokeWithAbortableTimeout((signal) =>
+                    modelToUse.invoke([new HumanMessage(prompt)], {
+                      temperature: options?.temperature ?? 0.3,
+                      max_tokens: options?.maxTokens ?? 4000,
+                      signal,
+                    }),
+                  ),
+                traceCall,
               );
               // withStructuredOutput returns parsed object, so stringify it
               const content = JSON.stringify(response);
@@ -776,13 +733,17 @@ export class AiService {
               return { originalIndex, content, success: true };
             } else {
               // Fallback to json_object mode without schema
-              response = await invokeWithAbortableTimeout((signal) =>
-                modelToUse.invoke(prompt, {
-                  temperature: options?.temperature ?? 0.3,
-                  max_tokens: options?.maxTokens ?? 4000,
-                  response_format: { type: 'json_object' },
-                  signal,
-                }),
+              response = await runWithActiveMlflowTraceContextAsync(
+                () =>
+                  invokeWithAbortableTimeout((signal) =>
+                    modelToUse.invoke([new HumanMessage(prompt)], {
+                      temperature: options?.temperature ?? 0.3,
+                      max_tokens: options?.maxTokens ?? 4000,
+                      response_format: { type: 'json_object' },
+                      signal,
+                    }),
+                  ),
+                traceCall,
               );
               const content =
                 typeof response.content === 'string'

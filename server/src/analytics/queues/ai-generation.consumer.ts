@@ -8,6 +8,7 @@ import type { AIGenerationJobData } from './queue.names';
 import { SummaryGenerator } from '../generators/summary.generator';
 import { FindingsGenerator } from '../generators/findings.generator';
 import { RecommendationsGenerator } from '../generators/recommendations.generator';
+import { topicCorrelationToCountBreakdown } from '../calculators/correlation.calculator';
 import { ProgressService } from './progress.service';
 import { DeadLetterService } from './dead-letter.service';
 import { Form } from '../../schemas/form.schema';
@@ -15,6 +16,8 @@ import type { FormDocument } from '../../schemas/form.schema';
 import { Response } from '../../schemas/response.schema';
 import type { ResponseDocument } from '../../schemas/response.schema';
 import type { TrendAnalysis } from '../calculators/trend.calculator';
+import { runWithMlflowTraceContextAsync, buildWorkerTraceContext } from '../../mlflow/mlflow-trace-context';
+import { AnalyticsInsightsGraphService } from '../../graphs/analytics/analytics-insights.graph.service';
 
 @Processor(QueueName.AI_GENERATION)
 export class AIGenerationConsumer {
@@ -22,6 +25,7 @@ export class AIGenerationConsumer {
     private readonly summaryGenerator: SummaryGenerator,
     private readonly findingsGenerator: FindingsGenerator,
     private readonly recommendationsGenerator: RecommendationsGenerator,
+    private readonly insightsGraph: AnalyticsInsightsGraphService,
     private readonly progressService: ProgressService,
     private readonly deadLetterService: DeadLetterService,
     @InjectModel(Form.name) private readonly formModel: Model<FormDocument>,
@@ -30,15 +34,56 @@ export class AIGenerationConsumer {
 
   @Process('generate-insights')
   async handleInsights(job: Job<AIGenerationJobData>) {
+    const { taskId, formId, generationType, userId } = job.data;
+    return runWithMlflowTraceContextAsync(
+      buildWorkerTraceContext({
+        sessionId: taskId,
+        userId,
+        tags: {
+          formId,
+          worker: 'ai-generation',
+          taskId,
+          ...(generationType === 'summary' ? { flowKey: 'analytics.summary' } : {}),
+          ...(generationType === 'insights' ? { graph: 'analytics_insights' } : {}),
+        },
+      }),
+      () => this.handleInsightsInner(job),
+    );
+  }
+
+  private async handleInsightsInner(job: Job<AIGenerationJobData>) {
     const { generationType } = job.data;
+    if (generationType === 'insights') return this.handleInsightsGraph(job);
     if (generationType === 'summary') return this.handleSummary(job);
     if (generationType === 'findings') return this.handleFindings(job);
     if (generationType === 'recommendations') return this.handleRecommendations(job);
     throw new Error(`Unknown generationType: ${generationType}`);
   }
 
+  private async handleInsightsGraph(job: Job<AIGenerationJobData>) {
+    const { taskId, formId, userId } = job.data;
+
+    await this.progressService.publishProgress({
+      taskId,
+      type: 'progress',
+      message: 'Generating AI insights...',
+      progress: 76,
+    });
+
+    const result = await this.insightsGraph.runInsightsGraph(taskId, formId, userId);
+
+    await this.progressService.publishProgress({
+      taskId,
+      type: 'progress',
+      message: `Insights saved (summary, ${result.findingsCount} findings, ${result.recommendationsCount} recommendations)`,
+      progress: 90,
+    });
+
+    return { success: true, ...result };
+  }
+
   private async handleSummary(job: Job<AIGenerationJobData>) {
-    const { taskId, formId } = job.data;
+    const { taskId, formId, userId } = job.data;
     
     await this.progressService.publishProgress({
       taskId,
@@ -57,6 +102,11 @@ export class AIGenerationConsumer {
       formId: new Types.ObjectId(formId),
       'metadata.processedForAnalytics': true,
     }).exec();
+
+    const responseCount =
+      responses.length > 0
+        ? responses.length
+        : (form.analytics.totalResponsesAnalyzed ?? 0);
 
     // Extract data from form.analytics
     const topTopics = form.analytics.topics?.topTopics || [];
@@ -82,7 +132,12 @@ export class AIGenerationConsumer {
     const topicCorrelations = form.analytics.sentiment?.topicCorrelations || [];
     topicCorrelations.forEach((tc: any) => {
       if (tc.topic && tc.sentiment) {
-        topicSentiment.set(tc.topic, tc.sentiment);
+        const counts = topicCorrelationToCountBreakdown(tc);
+        topicSentiment.set(tc.topic, {
+          positive: counts.positive,
+          neutral: counts.neutral,
+          negative: counts.negative,
+        });
       }
     });
 
@@ -108,7 +163,10 @@ export class AIGenerationConsumer {
       representativeQuotes,
       closedQuestionCorrelations,
       topicSentiment,
-      trends
+      trends,
+      responseCount,
+      taskId,
+      userId,
     );
 
     // Ensure non-empty summary (fallback if model returned empty text)
@@ -119,7 +177,7 @@ export class AIGenerationConsumer {
           ? 'negative'
           : 'neutral';
       const top3 = (topTopics || []).slice(0, 3).join(', ');
-      summary = `Analysis of ${responses.length} responses to "${form.title}". Top themes: ${top3}. Overall sentiment is ${sentimentLabel}.`;
+      summary = `Analysis of ${responseCount} responses to "${form.title}". Top themes: ${top3}. Overall sentiment is ${sentimentLabel}.`;
     }
 
     // Persist summary only (key findings are saved by the separate 'generate-findings' job)
@@ -186,7 +244,12 @@ export class AIGenerationConsumer {
     const topicCorrelations = form.analytics.sentiment?.topicCorrelations || [];
     topicCorrelations.forEach((tc: any) => {
       if (tc.topic && tc.sentiment) {
-        topicSentimentMap.set(tc.topic, tc.sentiment);
+        const counts = topicCorrelationToCountBreakdown(tc);
+        topicSentimentMap.set(tc.topic, {
+          positive: counts.positive,
+          neutral: counts.neutral,
+          negative: counts.negative,
+        });
       }
     });
 
@@ -203,12 +266,11 @@ export class AIGenerationConsumer {
 
     // Convert topic sentiment Map to Record for findings generator
     const topicSentimentRecord: Record<string, { positive: number; neutral: number; negative: number; total: number }> = {};
-    for (const [topic, sentiment] of topicSentimentMap.entries()) {
-      topicSentimentRecord[topic] = {
-        ...sentiment,
-        total: sentiment.positive + sentiment.neutral + sentiment.negative
-      };
-    }
+    topicCorrelations.forEach((tc: any) => {
+      if (tc.topic && tc.sentiment) {
+        topicSentimentRecord[tc.topic] = topicCorrelationToCountBreakdown(tc);
+      }
+    });
 
     // Generate findings with topic sentiment and trends
     const findings = this.findingsGenerator.generateKeyFindings(
@@ -298,7 +360,12 @@ export class AIGenerationConsumer {
     const topicCorrelations = form.analytics.sentiment?.topicCorrelations || [];
     topicCorrelations.forEach((tc: any) => {
       if (tc.topic && tc.sentiment) {
-        topicSentimentMap2.set(tc.topic, tc.sentiment);
+        const counts = topicCorrelationToCountBreakdown(tc);
+        topicSentimentMap2.set(tc.topic, {
+          positive: counts.positive,
+          neutral: counts.neutral,
+          negative: counts.negative,
+        });
       }
     });
 
@@ -315,12 +382,11 @@ export class AIGenerationConsumer {
 
     // Convert topic sentiment Map to Record for recommendations generator
     const topicSentimentRecord: Record<string, { positive: number; neutral: number; negative: number; total: number }> = {};
-    for (const [topic, sentiment] of topicSentimentMap2.entries()) {
-      topicSentimentRecord[topic] = {
-        ...sentiment,
-        total: sentiment.positive + sentiment.neutral + sentiment.negative
-      };
-    }
+    topicCorrelations.forEach((tc: any) => {
+      if (tc.topic && tc.sentiment) {
+        topicSentimentRecord[tc.topic] = topicCorrelationToCountBreakdown(tc);
+      }
+    });
 
     // Generate recommendations with enhanced context
     const recommendations = await this.recommendationsGenerator.generateRecommendations(

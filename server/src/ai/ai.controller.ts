@@ -64,9 +64,12 @@ export class AiController {
       } catch {}
     });
     const usageTrackingReq = req as UsageTrackingRequest;
+    const authUser = req as Request & { user?: { _id?: { toString(): string }; id?: string } };
+    const userId =
+      authUser.user?._id?.toString?.() ?? authUser.user?.id?.toString?.();
 
     try {
-      for await (const step of this.aiService.generateWithSteps(dto)) {
+      for await (const step of this.aiService.generateWithSteps(dto, { userId })) {
         if (clientClosed) break;
         res.write(`data: ${JSON.stringify(step)}\n\n`);
         if (step.usage && typeof usageTrackingReq.trackUsage === 'function') {

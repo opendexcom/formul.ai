@@ -11,6 +11,7 @@ export interface CachePolicy {
 
 export interface FlowDefinition {
   prompt: string;
+  system_prompt?: string;
   allowed_variables?: string[];
   cache?: Partial<CachePolicy>;
 }
@@ -31,6 +32,13 @@ export interface LoadedPrompt {
   alias: string;
 }
 
+export interface FormattedFlowPrompt {
+  prompt: string;
+  systemPrompt?: string;
+  loaded: LoadedPrompt;
+  systemLoaded?: LoadedPrompt;
+}
+
 export type FlowKey = string;
 
 export interface InvokeFlowOptions {
@@ -41,6 +49,7 @@ export interface InvokeFlowOptions {
   timeoutMs?: number;
   document?: { base64: string; mimetype: string; filename?: string };
   cacheScopeId?: string;
+  sessionId?: string;
   userId?: string;
   formId?: string;
   documentHash?: string;

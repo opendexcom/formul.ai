@@ -12,6 +12,7 @@ import { Response } from '../../schemas/response.schema';
 import type { Model } from 'mongoose';
 import type { FormDocument } from '../../schemas/form.schema';
 import type { ResponseDocument } from '../../schemas/response.schema';
+import { runWithMlflowTraceContextAsync, buildWorkerTraceContext } from '../../mlflow/mlflow-trace-context';
 
 @Processor(QueueName.RESPONSE_PROCESSING)
 export class ResponseProcessingConsumer {
@@ -27,7 +28,20 @@ export class ResponseProcessingConsumer {
 
   @Process('process-batch')
   async handleBatch(job: Job<ResponseProcessingJobData>) {
-    const { taskId, formId, responseIds, batchIndex, totalBatches } = job.data;
+    const { taskId, formId, userId } = job.data;
+    return runWithMlflowTraceContextAsync(
+      buildWorkerTraceContext({
+        sessionId: taskId,
+        userId,
+        tags: { formId, worker: 'response-processing', taskId },
+      }),
+      () => this.handleBatchInner(job),
+    );
+  }
+
+  private async handleBatchInner(job: Job<ResponseProcessingJobData>) {
+    const { taskId, formId, responseIds, batchIndex, totalBatches, userId } =
+      job.data;
     console.log(`[ResponseProcessingConsumer][${taskId}] Starting batch ${batchIndex + 1}/${totalBatches} with ${responseIds.length} responses`);
     await this.progressService.publishProgress({
       taskId,
@@ -39,7 +53,7 @@ export class ResponseProcessingConsumer {
     if (!form) {
       throw new Error('Form document not found for response processing');
     }
-    await this.responseProcessor.processResponses(
+    const result = await this.responseProcessor.processResponses(
       form,
       taskId,
       (update) => this.progressService.publishProgress({
@@ -50,8 +64,14 @@ export class ResponseProcessingConsumer {
         stats: update.stats,
         processedResponseIds: update.processedResponseIds,
       }),
-      responseIds
+      responseIds,
+      userId,
     );
+    if (result.failedCount > 0) {
+      throw new Error(
+        `Failed to process ${result.failedCount} response batch(es) for form ${formId}`,
+      );
+    }
     return { success: true, batchIndex, processedCount: responseIds.length };
   }
 

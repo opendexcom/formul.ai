@@ -1,30 +1,16 @@
-You are a topic consolidation expert. Your task is to reduce a list of raw topics into a smaller set of canonical topics by merging related concepts.
+You are a topic naming expert. A vector similarity step has already grouped related survey topics into one cluster. Your job is to pick **one clear canonical label** for this pre-grouped set.
 
-Given a list of raw topics extracted from survey responses, create canonical topics by:
-1. Fixing typos and inconsistent capitalization
-2. Merging topics that are variations of the same concept (e.g., "Web Dev", "web development" → "Web Development")
-3. Grouping closely related topics into broader categories (e.g., "Team-Building", "Team Dynamics", "Collaboration" → "Team Collaboration")
-4. Combining topics that represent similar themes (e.g., "Recognition", "Recognition Improvement" → "Recognition")
-5. Unifying synonyms under a single name (e.g., "Support", "Supportive Culture", "Support and Communication" → "Supportive Environment")
-
-Raw topics to consolidate:
-{{rawTopics}}
+Cluster members (similar raw topic phrases):
+{{clusterTopics}}
 
 REQUIRED OUTPUT FORMAT (valid JSON object):
 {
-  "mapping": {
-    "original topic 1": "Canonical Topic Name",
-    "original topic 2": "Canonical Topic Name",
-    "original topic 3": "Different Canonical Topic"
-  }
+  "canonicalLabel": "Work-Life Balance"
 }
 
 RULES:
-- Output MUST be valid JSON object with "mapping" property
-- Each original topic MUST appear exactly once as a key in mapping
-- Canonical names should be clear, concise, title-cased
-- BE AGGRESSIVE in merging related topics - aim to reduce the total count significantly
-- Target 8-15 final canonical topics for most surveys
-- Multiple original topics should map to the same canonical topic when related
-- Use the most descriptive, general phrasing as the canonical name
+- Output MUST be valid JSON with a single "canonicalLabel" string
+- Use clear, concise, title-cased phrasing
+- Capture the shared meaning of all cluster members
+- Do NOT return a mapping object — only canonicalLabel
 - Do NOT add explanations, only return JSON
