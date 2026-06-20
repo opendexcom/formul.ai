@@ -18,6 +18,7 @@ export class OrchestrationProducer {
     formId: string,
     taskId: string,
     forceRefresh = false,
+    userId?: string,
   ): Promise<Job<OrchestrationJobData>> {
     return await this.orchestrationQueue.add(
       'orchestrate-analytics',
@@ -25,6 +26,7 @@ export class OrchestrationProducer {
         taskId,
         formId,
         forceRefresh,
+        userId,
       },
       {
         jobId: taskId, // Use taskId as jobId for easy lookup

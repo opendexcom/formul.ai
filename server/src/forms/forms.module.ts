@@ -28,6 +28,7 @@ import { BatchProcessor } from '../analytics/utils/batch.processor';
 import { PromptBuilder } from '../analytics/utils/prompt.builder';
 import { TaskStore } from '../analytics/stores/task.store';
 import { FormLockStore } from '../analytics/stores/form-lock.store';
+import { TopicVectorStore } from '../analytics/stores/topic-vector.store';
 
 @Module({
   imports: [
@@ -71,6 +72,7 @@ import { FormLockStore } from '../analytics/stores/form-lock.store';
     // Analytics stores
     TaskStore,
     FormLockStore,
+    TopicVectorStore,
   ],
   exports: [FormsService, ResponseService, EmailService, AnalyticsService],
 })

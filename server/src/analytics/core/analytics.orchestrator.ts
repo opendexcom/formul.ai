@@ -375,6 +375,11 @@ export class AnalyticsOrchestrator {
       recommendations,
       representativeQuotes,
       closedQuestionCorrelations,
+      undefined,
+      undefined,
+      undefined,
+      taskId,
+      form.createdBy?.toString(),
     );
 
     return {
@@ -432,7 +437,7 @@ export class AnalyticsOrchestrator {
       topics: {
         distribution: topicFrequencies,
         topTopics: topTopics,
-        dominantThemes: topTopics.slice(0, 5).map((topic: string) => ({
+        dominantThemes: topTopics.slice(0, 10).map((topic: string) => ({
           theme: topic,
           frequency: topicFrequencies[topic]?.count || 0,
           sentiment: topicFrequencies[topic]?.sentimentBreakdown || { positive: 0, neutral: 0, negative: 0 },

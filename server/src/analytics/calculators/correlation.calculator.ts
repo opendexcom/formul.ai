@@ -1,6 +1,89 @@
 import { Injectable } from '@nestjs/common';
 import { ResponseDocument } from '../../schemas/response.schema';
 import { Form, FormDocument } from '../../schemas/form.schema';
+import { normalizeSentimentLabel } from '../utils/topic-sentiment.util';
+
+export interface TopicSentimentCounts {
+  positive: number;
+  neutral: number;
+  negative: number;
+}
+
+export interface TopicSentimentCorrelationResult {
+  topic: string;
+  sentiment: TopicSentimentCounts;
+  averageScore: number;
+  dominantSentiment: string;
+  responseCount: number;
+}
+
+/** Format raw sentiment counts into the canonical topic-correlation shape (percentages). */
+export function formatTopicSentimentCorrelation(
+  topic: string,
+  counts: TopicSentimentCounts,
+  averageScore: number,
+): TopicSentimentCorrelationResult {
+  const total = counts.positive + counts.neutral + counts.negative;
+  if (total === 0) {
+    return {
+      topic,
+      sentiment: { positive: 0, neutral: 0, negative: 0 },
+      averageScore: 0,
+      dominantSentiment: 'neutral',
+      responseCount: 0,
+    };
+  }
+
+  const posPercent = (counts.positive / total) * 100;
+  const negPercent = (counts.negative / total) * 100;
+
+  let dominantSentiment = 'neutral';
+  if (posPercent > 60) dominantSentiment = 'positive';
+  else if (negPercent > 60) dominantSentiment = 'negative';
+  else if (posPercent > 40 && negPercent < 20)
+    dominantSentiment = 'mostly positive';
+  else if (negPercent > 40 && posPercent < 20)
+    dominantSentiment = 'mostly negative';
+  else dominantSentiment = 'mixed';
+
+  return {
+    topic,
+    sentiment: {
+      positive: Math.round(posPercent),
+      neutral: Math.round((counts.neutral / total) * 100),
+      negative: Math.round(negPercent),
+    },
+    averageScore: Math.round(averageScore * 100) / 100,
+    dominantSentiment,
+    responseCount: total,
+  };
+}
+
+/** Convert stored topic correlation (percentages or legacy counts) to raw counts. */
+export function topicCorrelationToCountBreakdown(correlation: {
+  sentiment: TopicSentimentCounts;
+  responseCount?: number;
+}): TopicSentimentCounts & { total: number } {
+  const raw = correlation.sentiment;
+  const sum = raw.positive + raw.neutral + raw.negative;
+  const total = correlation.responseCount ?? sum;
+
+  if (total > 0 && sum <= total) {
+    return {
+      positive: raw.positive,
+      neutral: raw.neutral,
+      negative: raw.negative,
+      total,
+    };
+  }
+
+  return {
+    positive: Math.round((raw.positive / 100) * total),
+    neutral: Math.round((raw.neutral / 100) * total),
+    negative: Math.round((raw.negative / 100) * total),
+    total,
+  };
+}
 
 /**
  * Correlation Calculator
@@ -105,8 +188,35 @@ export class CorrelationCalculator {
       }
     >();
 
-    // Aggregate sentiment data per topic - enforce canonicalTopics only
+    // Prefer topic-specific sentiment; fall back to overall response sentiment
     responses.forEach((response) => {
+      const topicSpecific = response.metadata?.canonicalTopicSentiments;
+      if (topicSpecific?.length) {
+        for (const entry of topicSpecific) {
+          if (!entry?.topic) continue;
+          if (!topicSentimentMap.has(entry.topic)) {
+            topicSentimentMap.set(entry.topic, {
+              positive: 0,
+              neutral: 0,
+              negative: 0,
+              scores: [],
+            });
+          }
+          const data = topicSentimentMap.get(entry.topic);
+          if (!data) continue;
+
+          const label = normalizeSentimentLabel(entry.label);
+          if (label === 'positive') data.positive++;
+          else if (label === 'negative') data.negative++;
+          else data.neutral++;
+
+          if (typeof entry.score === 'number') {
+            data.scores.push(entry.score);
+          }
+        }
+        return;
+      }
+
       const topics = response.metadata?.canonicalTopics || [];
       const sentiment = response.metadata?.overallSentiment;
 
@@ -125,7 +235,7 @@ export class CorrelationCalculator {
         const data = topicSentimentMap.get(topic);
         if (!data) return;
 
-        const label = sentiment.label || 'neutral';
+        const label = normalizeSentimentLabel(sentiment.label);
 
         if (label === 'positive') data.positive++;
         else if (label === 'negative') data.negative++;
@@ -139,38 +249,19 @@ export class CorrelationCalculator {
 
     // Convert to array with calculated metrics
     const correlations = Array.from(topicSentimentMap.entries())
-      .map(([topic, data]) => {
-        const total = data.positive + data.neutral + data.negative;
-        const avgScore =
+      .map(([topic, data]) =>
+        formatTopicSentimentCorrelation(
+          topic,
+          {
+            positive: data.positive,
+            neutral: data.neutral,
+            negative: data.negative,
+          },
           data.scores.length > 0
             ? data.scores.reduce((sum, s) => sum + s, 0) / data.scores.length
-            : 0;
-
-        // Determine dominant sentiment
-        let dominantSentiment = 'neutral';
-        const posPercent = (data.positive / total) * 100;
-        const negPercent = (data.negative / total) * 100;
-
-        if (posPercent > 60) dominantSentiment = 'positive';
-        else if (negPercent > 60) dominantSentiment = 'negative';
-        else if (posPercent > 40 && negPercent < 20)
-          dominantSentiment = 'mostly positive';
-        else if (negPercent > 40 && posPercent < 20)
-          dominantSentiment = 'mostly negative';
-        else dominantSentiment = 'mixed';
-
-        return {
-          topic,
-          sentiment: {
-            positive: Math.round((data.positive / total) * 100),
-            neutral: Math.round((data.neutral / total) * 100),
-            negative: Math.round((data.negative / total) * 100),
-          },
-          averageScore: Math.round(avgScore * 100) / 100,
-          dominantSentiment,
-          responseCount: total,
-        };
-      })
+            : 0,
+        ),
+      )
       .sort((a, b) => b.responseCount - a.responseCount)
       .slice(0, 15); // Top 15 topics
 

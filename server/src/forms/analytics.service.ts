@@ -11,10 +11,12 @@ import { ProgressService } from '../analytics/queues/progress.service';
 import { MlflowPromptService } from '../mlflow/mlflow-prompt.service';
 
 const ANALYTICS_FLOW_KEYS = [
+  'analytics.combined_analysis',
   'analytics.topic_extraction',
   'analytics.sentiment',
   'analytics.quote_extraction',
   'analytics.topic_clustering',
+  'analytics.topic_clustering_batch',
   'analytics.summary',
 ];
 
@@ -145,18 +147,59 @@ export class AnalyticsService {
       }
     }
 
+    let analytics = form.analytics;
+    if (analytics?.topics && !analytics.topics.topicMapping) {
+      const topicMapping = await this.loadTopicMappingFromResponses(formId);
+      if (Object.keys(topicMapping).length > 0) {
+        analytics = {
+          ...analytics,
+          topics: {
+            ...analytics.topics,
+            topicMapping,
+          },
+        };
+      }
+    }
+
     return {
       formId,
-      analytics: form.analytics,
+      analytics,
       meta: {
-        lastUpdated: form.analytics?.lastUpdated,
-        responsesAnalyzed: form.analytics?.totalResponsesAnalyzed,
+        lastUpdated: analytics?.lastUpdated,
+        responsesAnalyzed: analytics?.totalResponsesAnalyzed,
         totalResponses,
         cacheHit: true,
         stale,
-        promptVersions: form.analytics?.promptVersions,
+        promptVersions: analytics?.promptVersions,
       },
     };
+  }
+
+  private async loadTopicMappingFromResponses(
+    formId: string,
+  ): Promise<Record<string, string>> {
+    const merged: Record<string, string> = {};
+    const rows = await this.responseModel
+      .find({
+        formId: new Types.ObjectId(formId),
+        'metadata.topicMapping': { $exists: true, $ne: {} },
+      })
+      .select('metadata.topicMapping')
+      .lean()
+      .exec();
+
+    for (const row of rows) {
+      const mapping = (row as { metadata?: { topicMapping?: Record<string, string> } })
+        .metadata?.topicMapping;
+      if (!mapping) continue;
+      for (const [raw, canonical] of Object.entries(mapping)) {
+        if (typeof canonical === 'string' && raw.trim()) {
+          merged[raw.trim().toLowerCase()] = canonical;
+        }
+      }
+    }
+
+    return merged;
   }
 
   /**
@@ -167,7 +210,8 @@ export class AnalyticsService {
     formId: string,
     forceRefresh: boolean = false,
     progressCallback: (update: any) => void,
-    taskId?: string
+    taskId?: string,
+    userId?: string,
   ): Promise<any> {
     if (!taskId) {
       throw new Error('taskId is required for analytics generation');
@@ -203,7 +247,12 @@ export class AnalyticsService {
       // Queue-based orchestration via Redis/Bull
       const startTime = Date.now();
 
-      await this.orchestrationProducer.enqueueOrchestration(formId, taskId, forceRefresh);
+      await this.orchestrationProducer.enqueueOrchestration(
+        formId,
+        taskId,
+        forceRefresh,
+        userId ?? form.createdBy?.toString(),
+      );
 
       // Subscribe and wait until completion for controller compatibility
       const result = await new Promise<any>((resolve, reject) => {

@@ -5,34 +5,34 @@ import { PromptBuilder } from '../utils/prompt.builder';
 
 describe('SummaryGenerator', () => {
   let generator: SummaryGenerator;
-  let aiService: jest.Mocked<Pick<AiService, 'analyzeTextWithUsage'>>;
+  let aiService: jest.Mocked<Pick<AiService, 'invokeFlow'>>;
   let promptBuilder: jest.Mocked<
-    Pick<PromptBuilder, 'buildAnalyticsSummaryPrompt'>
+    Pick<PromptBuilder, 'buildAnalyticsSummaryVariables'>
   >;
 
   const mockForm = { _id: 'form1', title: 'Test Form', questions: [] } as any;
   const mockResponses: any[] = [];
-  const mockPrompt = 'mock-analytics-summary-prompt';
+  const mockVariables = { summaryContext: 'mock-analytics-summary-context' };
 
   beforeEach(async () => {
-    const mockAnalyzeTextWithUsage = jest.fn().mockResolvedValue({
+    const mockInvokeFlow = jest.fn().mockResolvedValue({
       content: 'Generated executive summary.',
     });
-    const mockBuildAnalyticsSummaryPrompt = jest
+    const mockBuildAnalyticsSummaryVariables = jest
       .fn()
-      .mockResolvedValue(mockPrompt);
+      .mockReturnValue(mockVariables);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SummaryGenerator,
         {
           provide: AiService,
-          useValue: { analyzeTextWithUsage: mockAnalyzeTextWithUsage },
+          useValue: { invokeFlow: mockInvokeFlow },
         },
         {
           provide: PromptBuilder,
           useValue: {
-            buildAnalyticsSummaryPrompt: mockBuildAnalyticsSummaryPrompt,
+            buildAnalyticsSummaryVariables: mockBuildAnalyticsSummaryVariables,
           },
         },
       ],
@@ -44,7 +44,7 @@ describe('SummaryGenerator', () => {
   });
 
   describe('generateAnalyticsSummary', () => {
-    it('calls analyzeTextWithUsage with skipValidation=false and useJsonFormat=false so prompt is validated and response is plain text', async () => {
+    it('calls invokeFlow for analytics.summary with skipValidation and plain text output', async () => {
       await generator.generateAnalyticsSummary(
         mockForm,
         mockResponses,
@@ -56,11 +56,16 @@ describe('SummaryGenerator', () => {
         [],
       );
 
-      expect(aiService.analyzeTextWithUsage).toHaveBeenCalledTimes(1);
-      expect(aiService.analyzeTextWithUsage).toHaveBeenCalledWith(
-        mockPrompt,
-        false, // skipValidation: must validate analytics prompt
-        false, // useJsonFormat: plain text summary
+      expect(promptBuilder.buildAnalyticsSummaryVariables).toHaveBeenCalledTimes(1);
+      expect(aiService.invokeFlow).toHaveBeenCalledTimes(1);
+      expect(aiService.invokeFlow).toHaveBeenCalledWith(
+        'analytics.summary',
+        mockVariables,
+        {
+          skipValidation: true,
+          useJsonFormat: false,
+          formId: 'form1',
+        },
       );
     });
   });

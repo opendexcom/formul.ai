@@ -1,9 +1,21 @@
-import { CorrelationCalculator } from './correlation.calculator';
+import {
+  CorrelationCalculator,
+  formatTopicSentimentCorrelation,
+  topicCorrelationToCountBreakdown,
+} from './correlation.calculator';
 import { Types } from 'mongoose';
 
 type MockResponse = {
   _id?: Types.ObjectId;
-  metadata?: { canonicalTopics?: string[]; overallSentiment?: { label: string; score?: number } };
+  metadata?: {
+    canonicalTopics?: string[];
+    canonicalTopicSentiments?: Array<{
+      topic: string;
+      label: string;
+      score: number;
+    }>;
+    overallSentiment?: { label: string; score?: number };
+  };
 };
 
 describe('CorrelationCalculator', () => {
@@ -66,6 +78,28 @@ describe('CorrelationCalculator', () => {
       expect(result[0].sentiment.negative).toBe(50);
       expect(result[0].responseCount).toBe(2);
     });
+
+    it('uses topic-specific sentiment when canonicalTopicSentiments exist', () => {
+      const responses: MockResponse[] = [
+        {
+          _id: new Types.ObjectId(),
+          metadata: {
+            canonicalTopics: ['Pay', 'Culture'],
+            overallSentiment: { label: 'negative', score: -0.8 },
+            canonicalTopicSentiments: [
+              { topic: 'Pay', label: 'positive', score: 0.7 },
+              { topic: 'Culture', label: 'negative', score: -0.6 },
+            ],
+          },
+        },
+      ];
+      const result = calculator.calculateTopicSentimentCorrelation(responses as any);
+
+      expect(result.find((r) => r.topic === 'Pay')?.sentiment.positive).toBe(100);
+      expect(result.find((r) => r.topic === 'Culture')?.sentiment.negative).toBe(
+        100,
+      );
+    });
   });
 
   describe('calculateClosedQuestionTopicCorrelations', () => {
@@ -118,5 +152,45 @@ describe('CorrelationCalculator', () => {
         topic: 'Workload',
       });
     });
+  });
+});
+
+describe('topic sentiment formatting helpers', () => {
+  it('formatTopicSentimentCorrelation converts counts to percentages', () => {
+    const result = formatTopicSentimentCorrelation(
+      'Company Culture',
+      { positive: 4, neutral: 4, negative: 5 },
+      0.19,
+    );
+
+    expect(result.responseCount).toBe(13);
+    expect(result.sentiment.positive + result.sentiment.neutral + result.sentiment.negative).toBeGreaterThanOrEqual(
+      98,
+    );
+    expect(result.sentiment.negative).toBe(38);
+  });
+
+  it('topicCorrelationToCountBreakdown handles legacy count rows', () => {
+    const counts = topicCorrelationToCountBreakdown({
+      sentiment: { positive: 4, neutral: 4, negative: 5 },
+      responseCount: 13,
+    });
+
+    expect(counts).toEqual({
+      positive: 4,
+      neutral: 4,
+      negative: 5,
+      total: 13,
+    });
+  });
+
+  it('topicCorrelationToCountBreakdown handles percentage rows', () => {
+    const counts = topicCorrelationToCountBreakdown({
+      sentiment: { positive: 31, neutral: 31, negative: 38 },
+      responseCount: 13,
+    });
+
+    expect(counts.total).toBe(13);
+    expect(counts.negative).toBe(5);
   });
 });

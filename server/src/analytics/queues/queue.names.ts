@@ -11,11 +11,13 @@ export interface OrchestrationJobData {
   taskId: string;
   formId: string;
   forceRefresh?: boolean;
+  userId?: string;
 }
 
 export interface ResponseProcessingJobData {
   taskId: string;
   formId: string;
+  userId?: string;
   responseIds: string[];        // Batch of responses to process
   batchIndex: number;           // For progress tracking
   totalBatches: number;
@@ -24,17 +26,20 @@ export interface ResponseProcessingJobData {
 export interface TopicClusteringJobData {
   taskId: string;
   formId: string;
+  userId?: string;
 }
 
 export interface AggregationJobData {
   taskId: string;
   formId: string;
+  userId?: string;
 }
 
 export interface AIGenerationJobData {
   taskId: string;
   formId: string;
-  generationType: 'summary' | 'findings' | 'recommendations';
+  userId?: string;
+  generationType: 'summary' | 'findings' | 'recommendations' | 'insights';
   inputData: any;               // Aggregated data needed for generation
 }
 

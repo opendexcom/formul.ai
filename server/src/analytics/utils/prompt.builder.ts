@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { ResponseDocument } from '../../schemas/response.schema';
 import { Form } from '../../schemas/form.schema';
 import { MlflowPromptService } from '../../mlflow/mlflow-prompt.service';
+import { combinePromptForCache } from '../../mlflow/mlflow-trace-context';
+import { extractQuestionFocusPhrases } from '../utils/topic-question-filter.util';
 
 @Injectable()
 export class PromptBuilder {
@@ -56,21 +58,36 @@ export class PromptBuilder {
     responses: ResponseDocument[],
     form: Form,
   ): Promise<string> {
-    const responsesData = this.buildResponsesData(responses, form);
-    const { prompt } = await this.mlflowPrompts.formatFlow(
+    const { prompt, systemPrompt } = await this.mlflowPrompts.formatFlow(
       'analytics.topic_extraction',
-      {
-        responseCount: String(responses.length),
-        responsesData: JSON.stringify(responsesData, null, 2),
-      },
+      this.getTopicExtractionVariables(responses, form),
     );
-    return prompt;
+    return combinePromptForCache(prompt, systemPrompt);
+  }
+
+  getTopicExtractionVariables(responses: ResponseDocument[], form: Form) {
+    return {
+      responseCount: String(responses.length),
+      responsesData: JSON.stringify(
+        this.buildResponsesData(responses, form),
+        null,
+        2,
+      ),
+    };
   }
 
   async buildOverallSentimentPrompt(
     responses: ResponseDocument[],
     form: Form,
   ): Promise<string> {
+    const { prompt, systemPrompt } = await this.mlflowPrompts.formatFlow(
+      'analytics.sentiment',
+      this.getOverallSentimentVariables(responses, form),
+    );
+    return combinePromptForCache(prompt, systemPrompt);
+  }
+
+  getOverallSentimentVariables(responses: ResponseDocument[], form: Form) {
     const ratingQuestions = form.questions.filter((q) => q.type === 'rating');
     const responsesData = responses.map((r) => {
       const base = this.buildResponsesData([r], form)[0];
@@ -94,18 +111,25 @@ export class PromptBuilder {
         ? `\nRATING QUESTIONS IN THIS SURVEY:\n${ratingQuestions.map((q) => `- "${q.title}"`).join('\n')}\n\nIMPORTANT: Consider rating values when determining sentiment.`
         : '';
 
-    const { prompt } = await this.mlflowPrompts.formatFlow('analytics.sentiment', {
+    return {
       responseCount: String(responses.length),
       responsesData: JSON.stringify(responsesData, null, 2),
       ratingContext,
-    });
-    return prompt;
+    };
   }
 
   async buildQuoteExtractionPrompt(
     responses: ResponseDocument[],
     form: Form,
   ): Promise<string> {
+    const { prompt, systemPrompt } = await this.mlflowPrompts.formatFlow(
+      'analytics.quote_extraction',
+      this.getQuoteExtractionVariables(responses, form),
+    );
+    return combinePromptForCache(prompt, systemPrompt);
+  }
+
+  getQuoteExtractionVariables(responses: ResponseDocument[], form: Form) {
     const responsesData = responses.map((r) => ({
       responseId: r._id.toString(),
       answers: r.answers.map((ans) => {
@@ -117,14 +141,60 @@ export class PromptBuilder {
         };
       }),
     }));
-    const { prompt } = await this.mlflowPrompts.formatFlow(
-      'analytics.quote_extraction',
-      {
-        responseCount: String(responses.length),
-        responsesData: JSON.stringify(responsesData, null, 2),
-      },
+    return {
+      responseCount: String(responses.length),
+      responsesData: JSON.stringify(responsesData, null, 2),
+    };
+  }
+
+  getCombinedAnalysisVariables(responses: ResponseDocument[], form: Form) {
+    const ratingQuestions = form.questions.filter((q) => q.type === 'rating');
+    const responsesData = responses.map((r) => {
+      const base = this.buildResponsesData([r], form)[0];
+      const ratingAnswers = ratingQuestions
+        .map((rq) => {
+          const answer = r.answers.find((a) => a.questionId === rq.id);
+          if (answer?.value != null) {
+            return { questionTitle: rq.title, value: answer.value };
+          }
+          return null;
+        })
+        .filter(Boolean);
+      return {
+        ...base,
+        answers: [
+          ...base.answers,
+          ...(ratingAnswers.length > 0
+            ? ratingAnswers.map((ra) => ({
+                questionId: '',
+                questionTitle: ra!.questionTitle,
+                value: String(ra!.value),
+              }))
+            : []),
+        ],
+        ratingAnswers: ratingAnswers.length > 0 ? ratingAnswers : undefined,
+      };
+    });
+
+    const ratingContext =
+      ratingQuestions.length > 0
+        ? `\nRATING QUESTIONS IN THIS SURVEY:\n${ratingQuestions.map((q) => `- "${q.title}"`).join('\n')}\n\nIMPORTANT: Consider rating values when determining sentiment.`
+        : '';
+
+    const openEndedQuestions = form.questions.filter((q) =>
+      ['text', 'textarea'].includes(q.type),
     );
-    return prompt;
+    const questionContext =
+      openEndedQuestions.length > 0
+        ? `\nOPEN-ENDED QUESTIONS IN THIS SURVEY (responses include questionTitle per answer):\n${openEndedQuestions.map((q) => `- "${q.title}"`).join('\n')}\n\nIMPORTANT: Do not emit topics that only repeat these question subjects. Extract the specific ideas, concerns, and sub-themes inside each answer instead.`
+        : '';
+
+    return {
+      responseCount: String(responses.length),
+      responsesData: JSON.stringify(responsesData, null, 2),
+      ratingContext,
+      questionContext,
+    };
   }
 
   async buildTopicClusteringPrompt(rawTopics: string[]): Promise<string> {
@@ -158,7 +228,7 @@ export class PromptBuilder {
       }>;
     },
   ): Promise<string> {
-    const summaryContext = this.buildSummaryContext(
+    const variables = this.buildAnalyticsSummaryVariables(
       form,
       topTopics,
       sentimentDistribution,
@@ -169,10 +239,50 @@ export class PromptBuilder {
       negativeTopics,
       trends,
     );
-    const { prompt } = await this.mlflowPrompts.formatFlow('analytics.summary', {
-      summaryContext,
-    });
+    const { prompt } = await this.mlflowPrompts.formatFlow(
+      'analytics.summary',
+      variables,
+    );
     return prompt;
+  }
+
+  /** Variables for invokeFlow('analytics.summary', …) and MLflow prompt registry. */
+  buildAnalyticsSummaryVariables(
+    form: Form,
+    topTopics: string[],
+    sentimentDistribution: any,
+    responseCount: number,
+    topicQuotes: Array<{ topic: string; quote: string; count: number }>,
+    closedQuestionStats: any[],
+    closedQuestionInsights: any[],
+    negativeTopics?: Array<{
+      topic: string;
+      negativePercentage: number;
+      count: number;
+    }>,
+    trends?: {
+      emergingTopics?: Array<{ topic: string; description: string }>;
+      decliningTopics?: Array<{ topic: string; description: string }>;
+      sentimentShifts?: Array<{
+        topic: string;
+        direction: string;
+        description: string;
+      }>;
+    },
+  ): { summaryContext: string } {
+    return {
+      summaryContext: this.buildSummaryContext(
+        form,
+        topTopics,
+        sentimentDistribution,
+        responseCount,
+        topicQuotes,
+        closedQuestionStats,
+        closedQuestionInsights,
+        negativeTopics,
+        trends,
+      ),
+    };
   }
 
   private buildSummaryContext(

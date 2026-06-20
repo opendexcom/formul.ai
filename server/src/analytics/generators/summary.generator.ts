@@ -49,16 +49,22 @@ export class SummaryGenerator {
       { positive: number; neutral: number; negative: number }
     >,
     trends?: TrendAnalysis,
+    responseCountOverride?: number,
+    sessionId?: string,
+    userId?: string,
   ): Promise<string> {
+    const responseCount = responseCountOverride ?? responses.length;
     try {
       // Find responses related to most common topics for citations
       const topicToResponses = new Map<string, ResponseDocument[]>();
 
-      // Group responses by their most common topics
+      // Group responses by their topics (prefer canonical, fall back to raw)
       for (const response of responses) {
-        const responseTopics = response.metadata?.allTopics || [];
+        const responseTopics =
+          response.metadata?.canonicalTopics?.length
+            ? response.metadata.canonicalTopics
+            : response.metadata?.allTopics || [];
         for (const topic of responseTopics.slice(0, 3)) {
-          // Top 3 topics per response
           if (topTopics.includes(topic)) {
             if (!topicToResponses.has(topic)) {
               topicToResponses.set(topic, []);
@@ -109,12 +115,12 @@ export class SummaryGenerator {
           }
         : undefined;
 
-      // Build and execute prompt
-      const prompt = await this.promptBuilder.buildAnalyticsSummaryPrompt(
+      // Build variables and run via registered MLflow flow (traced as formulai.analytics.summary)
+      const summaryVariables = this.promptBuilder.buildAnalyticsSummaryVariables(
         form,
         topTopics,
         sentimentDistribution,
-        responses.length,
+        responseCount,
         topicQuotes,
         closedQuestionStats,
         closedQuestionInsights,
@@ -123,14 +129,20 @@ export class SummaryGenerator {
       );
 
       console.log(
-        '[SummaryGenerator] Sending prompt to AI service, prompt length:',
-        prompt.length,
+        '[SummaryGenerator] Invoking analytics.summary flow, context length:',
+        summaryVariables.summaryContext.length,
       );
-      const { content: summary } = await this.aiService.analyzeTextWithUsage(
-        prompt,
-        false,
-        false,
-      ); // Validate prompt; use plain text, not JSON format
+      const { content: summary } = await this.aiService.invokeFlow(
+        'analytics.summary',
+        summaryVariables,
+        {
+          skipValidation: true,
+          useJsonFormat: false,
+          formId: String((form as FormDocument)._id ?? ''),
+          ...(sessionId ? { sessionId } : {}),
+          ...(userId ? { userId } : {}),
+        },
+      );
       console.log(
         '[SummaryGenerator] AI service returned summary, length:',
         summary?.length || 0,
@@ -142,7 +154,7 @@ export class SummaryGenerator {
         );
         return this.generateFallbackSummary(
           form,
-          responses.length,
+          responseCount,
           topTopics,
           sentimentDistribution,
           highlightedQuotes,
@@ -155,7 +167,7 @@ export class SummaryGenerator {
       // Fallback to basic summary with quote if available
       return this.generateFallbackSummary(
         form,
-        responses.length,
+        responseCount,
         topTopics,
         sentimentDistribution,
         highlightedQuotes,
@@ -217,7 +229,7 @@ export class SummaryGenerator {
       const ratingValues: number[] = [];
 
       responses.forEach((r) => {
-        const answer = r.answers.find((a) => a.questionId === q.id);
+        const answer = (r.answers ?? []).find((a) => a.questionId === q.id);
         if (answer?.value != null) {
           const values = Array.isArray(answer.value)
             ? answer.value
