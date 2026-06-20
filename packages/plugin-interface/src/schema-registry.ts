@@ -16,6 +16,12 @@ export function markSchemaCompiled(name: string): void {
     compiledSchemaNames.add(name);
 }
 
+export function markAllSchemasCompiled(): void {
+    for (const name of schemaRegistry.keys()) {
+        compiledSchemaNames.add(name);
+    }
+}
+
 export function isSchemaCompiled(name: string): boolean {
     return compiledSchemaNames.has(name);
 }

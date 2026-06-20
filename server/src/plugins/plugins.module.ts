@@ -7,7 +7,7 @@ import {
     getSchema,
     getSchemaOrThrow,
     hasSchema,
-    markSchemaCompiled,
+    markAllSchemasCompiled,
 } from '@opendexcom/plugin-interface';
 import { PluginLoaderService } from './plugin-loader.service';
 import { PLUGIN_CONTRIBUTION_REGISTRY } from './plugin-contribution.registry';
@@ -38,6 +38,7 @@ export class PluginsModule {
         };
         const pluginLoader = new PluginLoaderService(contributionRegistry, pluginContext);
         const pluginModules = await pluginLoader.loadPlugins();
+        markAllSchemasCompiled();
 
         return {
             module: PluginsModule,

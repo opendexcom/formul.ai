@@ -1,4 +1,4 @@
-import { getSchemaOrThrow, registerSchema, markSchemaCompiled } from '@opendexcom/plugin-interface';
+import { getSchemaOrThrow, registerSchema } from '@opendexcom/plugin-interface';
 import { Schema } from 'mongoose';
 import { Settings, SettingsSchema } from '../settings/schemas/settings.schema';
 import { AnalyticsTaskSchema } from './analytics-task.schema';
@@ -37,6 +37,5 @@ export function registerCoreSchemas(): void {
 
 export function getCoreSchemaOrThrow(name: string): Schema {
   registerCoreSchemas();
-  markSchemaCompiled(name);
   return getSchemaOrThrow<Schema>(name);
 }

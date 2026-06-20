@@ -181,6 +181,9 @@ export class Form {
         relationship: string;
       }>;
 
+      /** Raw discovered topic → canonical label (for cross-card filtering). */
+      topicMapping?: Record<string, string>;
+
       discourseFrames?: Array<{
         frame: string;
         frequency: number;
@@ -520,3 +523,6 @@ export class Form {
 }
 
 export const FormSchema = SchemaFactory.createForClass(Form);
+
+FormSchema.index({ createdBy: 1 });
+FormSchema.index({ 'analytics.lastUpdated': -1 });

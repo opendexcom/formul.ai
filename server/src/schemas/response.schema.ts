@@ -89,6 +89,27 @@ export class ResponseMetadata {
   @Prop({ type: Object })
   topicMapping?: Record<string, string>; // Maps raw topics to canonical topics
 
+  @Prop({ type: [String] })
+  discoveredTopics?: string[];
+
+  @Prop({ type: [Object] })
+  topicDetails?: Array<{
+    topic: string;
+    inVivoCode?: string;
+    confidence?: number;
+    isPrimary?: boolean;
+    sentiment?: 'positive' | 'neutral' | 'negative' | 'ambivalent';
+    score?: number;
+  }>;
+
+  /** Per-canonical-topic sentiment for this response (topic-specific, not overall). */
+  @Prop({ type: [Object] })
+  canonicalTopicSentiments?: Array<{
+    topic: string;
+    label: 'positive' | 'neutral' | 'negative' | 'ambivalent';
+    score: number;
+  }>;
+
   @Prop({ type: Number })
   qualityScore?: number;
 
@@ -99,6 +120,8 @@ export class ResponseMetadata {
     inVivoCode?: string;
     confidence: number;
     isPrimary: boolean;
+    sentiment?: 'positive' | 'neutral' | 'negative' | 'ambivalent';
+    score?: number;
     sourceQuestions: string[];
     relatedPhrases?: string[];
   }>;
@@ -190,3 +213,8 @@ export class Response {
 }
 
 export const ResponseSchema = SchemaFactory.createForClass(Response);
+
+ResponseSchema.index({ formId: 1, 'metadata.processedForAnalytics': 1 });
+ResponseSchema.index({ formId: 1, 'metadata.processingTaskId': 1 });
+ResponseSchema.index({ formId: 1, 'metadata.allTopics': 1 });
+ResponseSchema.index({ formId: 1, createdAt: -1 });

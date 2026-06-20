@@ -11,6 +11,7 @@ import { MonitoringModule } from './monitoring/monitoring.module';
 import { SettingsModule } from './settings/settings.module';
 import { PluginsModule } from './plugins/plugins.module';
 import { CapabilitiesModule } from './capabilities/capabilities.module';
+import { MlflowModule } from './mlflow/mlflow.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { CapabilitiesModule } from './capabilities/capabilities.module';
       socketTimeoutMS: 45000,
     }),
     PluginsModule.forRoot(), // Load plugins dynamically
+    MlflowModule,
     CapabilitiesModule,
     AuthModule,
     FormsModule,

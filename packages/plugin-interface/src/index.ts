@@ -84,6 +84,7 @@ export {
     hasSchema,
     isSchemaCompiled,
     markSchemaCompiled,
+    markAllSchemasCompiled,
     registerSchema,
     registerSchemas,
 } from './schema-registry';

@@ -18,6 +18,7 @@ import { FindingsGenerator } from './analytics/generators/findings.generator';
 import { RecommendationsGenerator } from './analytics/generators/recommendations.generator';
 import { BatchProcessor } from './analytics/utils/batch.processor';
 import { PromptBuilder } from './analytics/utils/prompt.builder';
+import { TopicVectorStore } from './analytics/stores/topic-vector.store';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { PromptBuilder } from './analytics/utils/prompt.builder';
     RecommendationsGenerator,
     BatchProcessor,
     PromptBuilder,
+    TopicVectorStore,
   ],
 })
 export class WorkerModule {}
