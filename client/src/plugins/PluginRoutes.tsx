@@ -2,11 +2,13 @@ import React, { useEffect, useRef } from 'react';
 import { Navigate, Route } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCapabilities } from '../context/CapabilitiesContext';
+import { Header } from '../components/common';
 import {
   FORMULAI_UI_READY_EVENT,
   getFormulaiUiManifest,
   type PluginRouteDefinition,
 } from './types';
+export { usePluginNav } from './pluginNavigation';
 
 type PluginRouteHostProps = {
   path: string;
@@ -85,28 +87,28 @@ export function usePluginRoutes(): React.ReactNode {
 
   if (routes.length === 0) return null;
 
-  return routes.map((route) => (
-    <Route
-      key={route.path}
-      path={route.path}
-      element={
-        <PluginProtectedRoute route={route}>
-          <PluginRouteHost path={route.path} />
-        </PluginProtectedRoute>
-      }
-    />
-  ));
-}
+  return routes.map((route) => {
+    const routeElement = (
+      <PluginProtectedRoute route={route}>
+        <PluginRouteHost path={route.path} />
+      </PluginProtectedRoute>
+    );
 
-export function usePluginNav() {
-  const [nav, setNav] = React.useState(() => getFormulaiUiManifest()?.nav ?? []);
-
-  useEffect(() => {
-    const sync = () => setNav(getFormulaiUiManifest()?.nav ?? []);
-    sync();
-    window.addEventListener(FORMULAI_UI_READY_EVENT, sync);
-    return () => window.removeEventListener(FORMULAI_UI_READY_EVENT, sync);
-  }, []);
-
-  return nav;
+    return (
+      <Route
+        key={route.path}
+        path={route.path}
+        element={
+          route.path.startsWith('/settings/billing') ? (
+            <>
+              <Header title="FormulAI" />
+              {routeElement}
+            </>
+          ) : (
+            routeElement
+          )
+        }
+      />
+    );
+  });
 }

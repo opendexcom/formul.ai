@@ -8,6 +8,7 @@ interface EmptyStateProps {
   description: string;
   actionLabel?: string;
   onAction?: () => void;
+  actionDisabled?: boolean;
   className?: string;
 }
 
@@ -17,6 +18,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({
   description,
   actionLabel,
   onAction,
+  actionDisabled = false,
   className = ''
 }) => {
   return (
@@ -28,7 +30,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({
           {description}
         </p>
         {actionLabel && onAction && (
-          <Button onClick={onAction} variant="primary">
+          <Button onClick={onAction} variant="primary" disabled={actionDisabled}>
             {actionLabel}
           </Button>
         )}

@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useCapabilities } from '../../context/CapabilitiesContext';
 import { useNavigate } from 'react-router-dom';
 import Button from '../ui/Button';
-import { usePluginNav } from '../../plugins/PluginRoutes';
+import { usePluginNav } from '../../plugins/pluginNavigation';
 import type { PluginNavItem } from '../../plugins/types';
 
 interface HeaderProps {
@@ -71,20 +71,33 @@ const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className={`bg-white shadow-sm border-b ${className}`}>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="w-full px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          <div className="flex items-center">
+          <button
+            type="button"
+            onClick={() => navigate('/dashboard')}
+            className="flex items-center rounded-lg transition hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            aria-label="Go to dashboard"
+          >
             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center mr-3">
               <FileText className="w-4 h-4 text-white" />
             </div>
             <h1 className="text-xl font-semibold text-gray-900">{title}</h1>
-          </div>
+          </button>
 
           {showUserMenu && user && (
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-600">
                 Welcome, {user.firstName}
               </span>
+
+              <button
+                type="button"
+                onClick={() => navigate('/settings/preferences')}
+                className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                Settings
+              </button>
 
               {headerLinks.map((item) => (
                 <button

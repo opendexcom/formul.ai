@@ -12,6 +12,7 @@ import PublicFormView from './pages/PublicFormView';
 import EmailConfirmation from './pages/EmailConfirmation';
 import ResetPassword from './pages/ResetPassword';
 import AdminSettings from './pages/AdminSettings';
+import UserPreferencesPage from './pages/UserPreferencesPage';
 import { usePluginRoutes } from './plugins/PluginRoutes';
 import './App.css';
 
@@ -111,6 +112,14 @@ function AppRoutes() {
       <Route
         path="/reset-password"
         element={<ResetPassword />}
+      />
+      <Route
+        path="/settings/preferences"
+        element={
+          <ProtectedRoute>
+            <UserPreferencesPage />
+          </ProtectedRoute>
+        }
       />
       <Route
         path="/admin/settings"

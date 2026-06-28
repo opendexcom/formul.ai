@@ -126,7 +126,7 @@ const FormCanvas: React.FC<FormCanvasProps> = ({
   return (
     <div 
       ref={canvasRef}
-      className="max-w-4xl mx-auto p-8"
+      className="p-8"
       onDragOver={(e) => e.preventDefault()}
       onDrop={handleCanvasDrop}
     >

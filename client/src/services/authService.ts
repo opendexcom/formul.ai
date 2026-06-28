@@ -85,6 +85,10 @@ class AuthService {
     localStorage.removeItem('user');
   }
 
+  updateStoredUser(user: AuthResponse['user']): void {
+    localStorage.setItem('user', JSON.stringify(user));
+  }
+
   getCurrentUser() {
     const userStr = localStorage.getItem('user');
     return userStr ? JSON.parse(userStr) : null;

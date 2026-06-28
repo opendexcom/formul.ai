@@ -3,7 +3,7 @@ import { apiClient } from '../services/apiClient';
 import { useAuth } from '../context/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { Shield, Check, AlertCircle } from 'lucide-react';
-import { Header } from '../components/common';
+import { AppPageLayout } from '../components/common';
 
 const AdminSettings: React.FC = () => {
     const { user, loading: authLoading } = useAuth();
@@ -53,10 +53,7 @@ const AdminSettings: React.FC = () => {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
-            <Header />
-
-            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <AppPageLayout>
                 <div className="bg-white shadow rounded-lg overflow-hidden">
                     <div className="px-6 py-5 border-b border-gray-200 flex items-center">
                         <Shield className="h-6 w-6 text-blue-600 mr-3" />
@@ -100,8 +97,7 @@ const AdminSettings: React.FC = () => {
                         </div>
                     </div>
                 </div>
-            </main>
-        </div>
+        </AppPageLayout>
     );
 };
 

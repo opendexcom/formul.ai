@@ -18,6 +18,7 @@ export interface AuthContextType {
     acceptedTerms?: boolean,
   ) => Promise<void>;
   logout: () => void;
+  updateUser: (user: User) => void;
   loading: boolean;
   isAuthenticated: boolean;
 }

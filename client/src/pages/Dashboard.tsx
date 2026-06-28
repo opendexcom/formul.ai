@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, FileText } from 'lucide-react';
 import formsService, { FormData } from '../services/formsService';
-import { Header, FormCard, PageHeader, ShareFormModal } from '../components/common';
+import { AppPageLayout, FormCard, PageHeader, QuotaLimitBanner, ShareFormModal } from '../components/common';
 import { LoadingSpinner, Alert, EmptyState } from '../components/ui';
 import { logger } from '../utils/logger';
+import { useUsageLimits } from '../hooks/useUsageLimits';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -17,6 +18,8 @@ const Dashboard: React.FC = () => {
   const [activationConfirmOpen, setActivationConfirmOpen] = useState(false);
   const [formToActivate, setFormToActivate] = useState<FormData | null>(null);
   const [activating, setActivating] = useState(false);
+  const [deletingFormId, setDeletingFormId] = useState<string | null>(null);
+  const { formsExceeded } = useUsageLimits();
 
   useEffect(() => {
     loadForms();
@@ -53,6 +56,7 @@ const Dashboard: React.FC = () => {
   };
 
   const handleCreateForm = () => {
+    if (formsExceeded) return;
     navigate('/forms/new');
   };
 
@@ -104,6 +108,33 @@ const Dashboard: React.FC = () => {
     navigate(`/forms/${formId}/analytics`);
   };
 
+  const handleDeleteForm = async (formId: string) => {
+    const form = forms.find((f) => f._id === formId);
+    const title = form?.title ?? 'this form';
+    if (!window.confirm(`Delete "${title}"? This cannot be undone.`)) return;
+
+    setDeletingFormId(formId);
+    setError('');
+    try {
+      await formsService.deleteForm(formId);
+      setForms((prev) => prev.filter((f) => f._id !== formId));
+      setResponseCounts((prev) => {
+        const next = { ...prev };
+        delete next[formId];
+        return next;
+      });
+      if (selectedForm?._id === formId) {
+        setShareModalOpen(false);
+        setSelectedForm(null);
+      }
+    } catch (err) {
+      setError('Failed to delete form');
+      logger.error('Error deleting form:', err);
+    } finally {
+      setDeletingFormId(null);
+    }
+  };
+
   const handleFormUpdate = (updatedForm: FormData) => {
     setForms(prevForms => 
       prevForms.map(form => 
@@ -118,17 +149,22 @@ const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <AppPageLayout>
         <PageHeader
           title="Your Forms"
           description="Create and manage your forms"
           actionLabel="Create New Form"
           actionIcon={Plus}
           onAction={handleCreateForm}
+          actionDisabled={formsExceeded}
         />
+
+        {formsExceeded && (
+          <QuotaLimitBanner
+            message="You've reached your form limit."
+            className="mb-6"
+          />
+        )}
 
         {error && (
           <Alert
@@ -151,6 +187,7 @@ const Dashboard: React.FC = () => {
             description="Create your first form to get started with collecting responses and insights."
             actionLabel="Create Your First Form"
             onAction={handleCreateForm}
+            actionDisabled={formsExceeded}
           />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -162,12 +199,13 @@ const Dashboard: React.FC = () => {
                 onPreview={handlePreviewForm}
                 onShare={handleShareForm}
                 onAnalytics={handleAnalytics}
+                onDelete={handleDeleteForm}
+                isDeleting={deletingFormId === form._id}
                 responseCount={getResponseCount(form)}
               />
             ))}
           </div>
         )}
-      </main>
 
       {/* Share Form Modal */}
       <ShareFormModal
@@ -231,7 +269,7 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+    </AppPageLayout>
   );
 };
 
