@@ -11,6 +11,12 @@ export interface ProgressUpdate {
   stats?: any;
   processedResponseIds?: string[];
   modifiedCount?: number;
+  usage?: {
+    model?: string;
+    promptTokens?: number;
+    completionTokens?: number;
+    totalTokens?: number;
+  };
 }
 
 @Injectable()

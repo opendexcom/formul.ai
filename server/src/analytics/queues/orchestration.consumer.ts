@@ -28,6 +28,7 @@ import {
   withOrchestrationStageSpan,
 } from '../../mlflow/mlflow-trace-context';
 import { flushMlflowTraces } from '../../mlflow/mlflow-langchain-tracing';
+import { AnalyticsUsageTrackerService } from '../services/analytics-usage-tracker.service';
 
 @Processor(QueueName.ORCHESTRATION)
 export class OrchestrationConsumer {
@@ -49,6 +50,7 @@ export class OrchestrationConsumer {
   private readonly deadLetterService: DeadLetterService,
     private readonly topicVectorStore: TopicVectorStore,
     private readonly responseProcessor: ResponseProcessor,
+    private readonly analyticsUsageTracker: AnalyticsUsageTrackerService,
     @InjectModel(Response.name)
     private responseModel: Model<ResponseDocument>,
     @InjectModel(Form.name) 
@@ -127,11 +129,19 @@ export class OrchestrationConsumer {
         { taskId, formId },
         () => this.stageSaveResults(taskId, formId),
       );
+      const usage = this.analyticsUsageTracker.getAndClear(taskId);
+      await this.analyticsUsageTracker.notifyCompletion({
+        taskId,
+        formId,
+        userId,
+        usage,
+      });
       await this.progressService.publishProgress({
         taskId,
         type: 'complete',
         message: 'Analytics generation completed successfully',
         progress: 100,
+        usage: usage.totalTokens ? usage : undefined,
       });
       return { success: true, taskId, formId };
     } catch (error: any) {

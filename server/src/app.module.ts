@@ -9,6 +9,7 @@ import { MigrationModule } from './migrations/migration.module';
 import { AiModule } from './ai/ai.module';
 import { MonitoringModule } from './monitoring/monitoring.module';
 import { SettingsModule } from './settings/settings.module';
+import { UsersModule } from './users/users.module';
 import { PluginsModule } from './plugins/plugins.module';
 import { CapabilitiesModule } from './capabilities/capabilities.module';
 import { MlflowModule } from './mlflow/mlflow.module';
@@ -24,6 +25,7 @@ import { MlflowModule } from './mlflow/mlflow.module';
     MlflowModule,
     CapabilitiesModule,
     AuthModule,
+    UsersModule,
     FormsModule,
     MigrationModule,
     AiModule,

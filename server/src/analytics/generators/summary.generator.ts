@@ -4,6 +4,7 @@ import { PromptBuilder } from '../utils/prompt.builder';
 import { ResponseDocument } from '../../schemas/response.schema';
 import { Form, FormDocument } from '../../schemas/form.schema';
 import { TrendAnalysis } from '../calculators/trend.calculator';
+import { AnalyticsUsageTrackerService } from '../services/analytics-usage-tracker.service';
 
 /**
  * Summary Generator
@@ -20,6 +21,7 @@ export class SummaryGenerator {
   constructor(
     private aiService: AiService,
     private promptBuilder: PromptBuilder,
+    private analyticsUsageTracker: AnalyticsUsageTrackerService,
   ) {}
 
   /**
@@ -132,7 +134,7 @@ export class SummaryGenerator {
         '[SummaryGenerator] Invoking analytics.summary flow, context length:',
         summaryVariables.summaryContext.length,
       );
-      const { content: summary } = await this.aiService.invokeFlow(
+      const summaryFlow = await this.aiService.invokeFlow(
         'analytics.summary',
         summaryVariables,
         {
@@ -143,6 +145,10 @@ export class SummaryGenerator {
           ...(userId ? { userId } : {}),
         },
       );
+      if (sessionId) {
+        this.analyticsUsageTracker.recordUsage(sessionId, summaryFlow.usage);
+      }
+      const summary = summaryFlow.content;
       console.log(
         '[SummaryGenerator] AI service returned summary, length:',
         summary?.length || 0,

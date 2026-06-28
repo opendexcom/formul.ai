@@ -18,6 +18,7 @@ import {
 } from '../utils/topic-question-filter.util';
 import { buildCanonicalTopicSentiments } from '../utils/topic-sentiment.util';
 import { ProgressCallback, ClusteringResult } from '../core/analytics.types';
+import { AnalyticsUsageTrackerService } from '../services/analytics-usage-tracker.service';
 
 const CLUSTER_BATCH_SIZE = parseInt(
   process.env.ANALYTICS_CLUSTER_BATCH_SIZE ?? '200',
@@ -39,6 +40,7 @@ export class TopicClusterer {
   constructor(
     private aiService: AiService,
     private topicVectorStore: TopicVectorStore,
+    private analyticsUsageTracker: AnalyticsUsageTrackerService,
     @InjectModel(Response.name) private responseModel: Model<ResponseDocument>,
     @InjectModel(Form.name) private formModel: Model<FormDocument>,
   ) {}
@@ -299,12 +301,13 @@ export class TopicClusterer {
     userId?: string,
   ): Promise<string | null> {
     try {
-      const { content: resultRaw } = await this.aiService.invokeFlow(
+      const flowResult = await this.aiService.invokeFlow(
         'analytics.topic_clustering',
         { clusterTopics: JSON.stringify(clusterTopics, null, 2) },
         { skipValidation: true, formId, sessionId: taskId, userId },
       );
-      const result = JSON.parse(resultRaw);
+      this.analyticsUsageTracker.recordUsage(taskId, flowResult.usage);
+      const result = JSON.parse(flowResult.content);
       if (typeof result.canonicalLabel === 'string' && result.canonicalLabel.trim()) {
         return result.canonicalLabel.trim();
       }
@@ -491,13 +494,14 @@ export class TopicClusterer {
   ): Promise<Record<string, string>> {
     if (rawTopics.length === 0) return {};
 
-    const { content: resultRaw } = await this.aiService.invokeFlow(
+    const batchFlow = await this.aiService.invokeFlow(
       'analytics.topic_clustering_batch',
       { rawTopics: JSON.stringify(rawTopics, null, 2) },
       { skipValidation: true, formId, sessionId: taskId, userId },
     );
+    this.analyticsUsageTracker.recordUsage(taskId, batchFlow.usage);
     try {
-      const result = JSON.parse(resultRaw);
+      const result = JSON.parse(batchFlow.content);
       const mapping = (result.mapping || {}) as Record<string, string>;
       const normalized: Record<string, string> = {};
       Object.entries(mapping).forEach(([k, v]) => {

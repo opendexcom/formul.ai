@@ -30,6 +30,7 @@ import { TopicVectorStore } from '../stores/topic-vector.store';
 import { DeadLetterService } from './dead-letter.service';
 import { DeadLetterConsumer } from './dead-letter.consumer';
 import { AnalyticsInsightsGraphService } from '../../graphs/analytics/analytics-insights.graph.service';
+import { AnalyticsUsageTrackerService } from '../services/analytics-usage-tracker.service';
 
 @Module({
   imports: [
@@ -150,7 +151,8 @@ import { AnalyticsInsightsGraphService } from '../../graphs/analytics/analytics-
     AnalyticsAggregationService,
     TopicVectorStore,
     AnalyticsInsightsGraphService,
+    AnalyticsUsageTrackerService,
   ],
-  exports: [OrchestrationProducer, ProgressService],
+  exports: [OrchestrationProducer, ProgressService, AnalyticsUsageTrackerService],
 })
 export class AnalyticsQueueModule {}

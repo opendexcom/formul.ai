@@ -12,6 +12,7 @@ import {
   filterDiscoveredTopics,
 } from '../utils/topic-question-filter.util';
 import { ProgressCallback, ProcessingResult } from '../core/analytics.types';
+import { AnalyticsUsageTrackerService } from '../services/analytics-usage-tracker.service';
 
 /**
  * Response Processor
@@ -39,6 +40,7 @@ export class ResponseProcessor {
     private batchProcessor: BatchProcessor,
     private promptBuilder: PromptBuilder,
     private topicVectorStore: TopicVectorStore,
+    private analyticsUsageTracker: AnalyticsUsageTrackerService,
     @InjectModel(Response.name) private responseModel: Model<ResponseDocument>,
   ) {}
 
@@ -340,6 +342,7 @@ export class ResponseProcessor {
         this.promptBuilder.getCombinedAnalysisVariables(chunk, form as Form),
         flowOpts,
       );
+      this.analyticsUsageTracker.recordUsage(taskId, combinedFlow.usage);
 
       const parsed = JSON.parse(combinedFlow.content);
       const resultsArray = Array.isArray(parsed)
