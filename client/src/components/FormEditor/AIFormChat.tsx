@@ -1,9 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { Sparkles } from 'lucide-react';
 import { GeneratedForm } from '../../services/aiService';
 import PluginSlot from '../../plugins/PluginSlot';
 import { usePluginSlot } from '../../plugins/usePluginSlot';
 import type { DocumentSlotApi } from '../../plugins/types';
 import { FORMULAI_SLOT_API_UPDATED_EVENT } from '../../plugins/types';
+import { useUsageLimits } from '../../hooks/useUsageLimits';
+import { parseQuotaErrorFromResponse } from '../../utils/quotaErrors';
+import { resolveApiBaseUrl } from '../../utils/apiBaseUrl';
 
 const DOCUMENT_ATTACH_SLOT = 'formEditor.aiChat.documentAttach';
 
@@ -56,6 +61,7 @@ const AIFormChat: React.FC<AIFormChatProps> = ({ currentForm, onFormGenerated })
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const { slotActive: documentSlotActive, refresh: refreshDocumentSlot } =
     usePluginSlot(DOCUMENT_ATTACH_SLOT);
+  const { tokensExceeded, loading: limitsLoading } = useUsageLimits();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -103,7 +109,7 @@ const AIFormChat: React.FC<AIFormChatProps> = ({ currentForm, onFormGenerated })
   const sendPrompt = async (promptText: string, file: File | null = null) => {
     const hasText = promptText.trim().length > 0;
     const hasFile = !!file;
-    if ((!hasText && !hasFile) || isProcessing) return;
+    if ((!hasText && !hasFile) || isProcessing || tokensExceeded) return;
 
     const effectivePrompt = hasText ? promptText.trim() : 'Create a form based on this document.';
     const userMessageContent = hasFile
@@ -128,7 +134,7 @@ const AIFormChat: React.FC<AIFormChatProps> = ({ currentForm, onFormGenerated })
 
     try {
       const token = localStorage.getItem('token');
-      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
+      const API_BASE_URL = resolveApiBaseUrl();
       const isRefine = !!(currentForm && (currentForm.questions?.length || 0) > 0);
 
       let response: Response;
@@ -160,7 +166,10 @@ const AIFormChat: React.FC<AIFormChatProps> = ({ currentForm, onFormGenerated })
         });
       }
 
-      if (!response.ok) throw new Error('Failed to generate form');
+      if (!response.ok) {
+        const quotaMessage = await parseQuotaErrorFromResponse(response);
+        throw new Error(quotaMessage || 'Failed to generate form');
+      }
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
@@ -220,13 +229,17 @@ const AIFormChat: React.FC<AIFormChatProps> = ({ currentForm, onFormGenerated })
 
     } catch (error) {
       console.error('Error generating form:', error);
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Failed to generate form. Please try again.';
       setMessages(prev => [...prev, {
         id: Date.now().toString(),
         type: 'system',
-        content: '❌ Failed to generate form. Please try again.',
+        content: `❌ ${message}`,
         timestamp: new Date(),
       }]);
-      setErrorMessage('Failed to generate form.');
+      setErrorMessage(message);
     } finally {
       setIsProcessing(false);
     }
@@ -253,6 +266,36 @@ const AIFormChat: React.FC<AIFormChatProps> = ({ currentForm, onFormGenerated })
       handleSend();
     }
   };
+
+  if (limitsLoading) {
+    return (
+      <div className="flex flex-col h-full bg-gray-50 items-center justify-center p-6">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+      </div>
+    );
+  }
+
+  if (tokensExceeded) {
+    return (
+      <div className="flex flex-col h-full bg-gray-50 items-center justify-center p-6 text-center">
+        <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center mb-4">
+          <Sparkles className="w-6 h-6 text-amber-600" />
+        </div>
+        <h3 className="text-base font-semibold text-gray-900 mb-2">
+          AI chat unavailable
+        </h3>
+        <p className="text-sm text-gray-600 max-w-[240px] mb-6 leading-relaxed">
+          You&apos;ve used all tokens for this billing period. Upgrade your plan to continue using AI, or wait until your quota resets.
+        </p>
+        <Link
+          to="/settings/billing"
+          className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
+        >
+          View plan &amp; usage
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full bg-gray-50">

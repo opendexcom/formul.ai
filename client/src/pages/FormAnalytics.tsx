@@ -12,10 +12,12 @@ import {
   Filter
 } from 'lucide-react';
 import formsService, { FormData } from '../services/formsService';
-import { Header } from '../components/common';
+import { QuotaLimitBanner } from '../components/common';
 import { Button, LoadingSpinner, Alert } from '../components/ui';
 import { computeOverallClimate } from '../utils/analysis';
 import { expandSelectedTopics, normalizeTopicLabelList, normalizeThemes } from '../utils/topic-filter.util';
+import { useUsageLimits } from '../hooks/useUsageLimits';
+import { parseQuotaErrorFromResponse } from '../utils/quotaErrors';
 import {
   AnalyticsSummaryCard,
   OverallClimateCard,
@@ -27,6 +29,7 @@ import {
   TopicSentimentCard,
   RawResponsesTable
 } from '../components/analytics';
+import { AppPageLayout } from '../components/common';
 import { KeyFindingsCard } from '../components/analytics/KeyFindingsCard';
 import { RecommendationsCard } from '../components/analytics/RecommendationsCard';
 import { ClosedQuestionTopicsCard } from '../components/analytics/ClosedQuestionTopicsCard';
@@ -77,6 +80,8 @@ const FormAnalytics: React.FC = () => {
   const [progressPercent, setProgressPercent] = useState<number>(0);
   const [showRefreshModal, setShowRefreshModal] = useState(false);
   const [, setCurrentTaskId] = useState<string | null>(null);
+  const { tokensExceeded } = useUsageLimits();
+  const analyticsBlocked = tokensExceeded;
 
   // Detailed progress stats
   const [progressStats, setProgressStats] = useState<{
@@ -154,6 +159,10 @@ const FormAnalytics: React.FC = () => {
 
   const handleRefreshAnalytics = async (options: RefreshOptions) => {
     if (!formId) return;
+    if (analyticsBlocked) {
+      setError('Monthly token quota exceeded. Upgrade your plan to run analytics.');
+      return;
+    }
 
     logger.debug('[Frontend] Starting analytics refresh with options:', options);
 
@@ -214,6 +223,15 @@ const FormAnalytics: React.FC = () => {
         logger.debug('[Frontend] SSE response status:', response.status);
 
         if (!response.ok) {
+          if (response.status === 429) {
+            const quotaMessage = await parseQuotaErrorFromResponse(response);
+            setError(
+              quotaMessage ||
+                'Monthly token quota exceeded. Upgrade your plan to run analytics.',
+            );
+            setRefreshingAnalytics(false);
+            return;
+          }
           throw new Error(`HTTP error! status: ${response.status}`);
         }
 
@@ -506,36 +524,32 @@ const FormAnalytics: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <Header />
+      <AppPageLayout>
         <div className="flex items-center justify-center py-12">
           <LoadingSpinner size="lg" text="Loading analytics..." />
         </div>
-      </div>
+      </AppPageLayout>
     );
   }
 
   if (error && !form) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <Header />
-        <div className="max-w-4xl mx-auto px-4 py-8">
+      <AppPageLayout>
+        <div>
           <Alert type="error" message={error} className="mb-4" />
           <Button variant="secondary" onClick={() => navigate('/dashboard')}>
             Back to Dashboard
           </Button>
         </div>
-      </div>
+      </AppPageLayout>
     );
   }
 
   if (!form) return null;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
-
-      <div className="max-w-7xl mx-auto px-4 py-8">
+    <AppPageLayout>
+      <div className="w-full">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center space-x-4">
@@ -557,7 +571,7 @@ const FormAnalytics: React.FC = () => {
               variant="secondary"
               icon={RefreshCw}
               onClick={() => setShowRefreshModal(true)}
-              disabled={refreshingAnalytics || responses.length < 10}
+              disabled={analyticsBlocked || refreshingAnalytics || responses.length < 10}
               loading={refreshingAnalytics}
             >
               {hasAnalyticsData(analytics) ? 'Refresh Analytics' : 'Generate Analytics'}
@@ -572,6 +586,13 @@ const FormAnalytics: React.FC = () => {
             </Button>
           </div>
         </div>
+
+        {analyticsBlocked && (
+          <QuotaLimitBanner
+            message="Monthly token quota exceeded. You can view cached analytics but cannot generate or refresh until you upgrade."
+            className="mb-6"
+          />
+        )}
 
         {error && (
           <Alert type="error" message={error} className="mb-6" />
@@ -700,7 +721,7 @@ const FormAnalytics: React.FC = () => {
                 variant="primary"
                 icon={RefreshCw}
                 onClick={() => setShowRefreshModal(true)}
-                disabled={responses.length < 10}
+                disabled={analyticsBlocked || responses.length < 10}
               >
                 Generate Analytics
               </Button>
@@ -872,7 +893,7 @@ const FormAnalytics: React.FC = () => {
         pendingResponses={responses.filter(r => !r.metadata?.processedForAnalytics && r.metadata?.hasTextContent).length}
         hasExistingAnalytics={hasAnalyticsData(analytics)}
       />
-    </div>
+    </AppPageLayout>
   );
 };
 

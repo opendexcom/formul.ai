@@ -5,11 +5,14 @@ import FormCanvas from '../components/FormEditor/FormCanvas';
 import FormSettings from '../components/FormEditor/FormSettings';
 import FormPreview from '../components/FormEditor/FormPreview';
 import AIFormChat from '../components/FormEditor/AIFormChat';
+import { QuotaLimitBanner } from '../components/common';
 import { FormData, Question, QuestionType, FormSettings as FormSettingsType } from '../services/formsService';
 import formsService from '../services/formsService';
 import { GeneratedForm } from '../services/aiService';
 import { useAuth } from '../context/AuthContext';
 import { migrateQuestionForOther } from '../utils/otherOption';
+import { useUsageLimits } from '../hooks/useUsageLimits';
+import { parseQuotaErrorFromAxios } from '../utils/quotaErrors';
 
 const FormEditor: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -33,6 +36,9 @@ const FormEditor: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const { formsExceeded } = useUsageLimits();
+  const isNewForm = !id || id === 'new';
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -73,7 +79,10 @@ const FormEditor: React.FC = () => {
   };
 
   const saveForm = async () => {
+    if (isNewForm && formsExceeded) return;
+
     setSaving(true);
+    setSaveError('');
     try {
       if (id && id !== 'new') {
         await formsService.updateForm(id, form);
@@ -84,6 +93,9 @@ const FormEditor: React.FC = () => {
       setHasUnsavedChanges(false);
     } catch (error) {
       console.error('Error saving form:', error);
+      setSaveError(
+        parseQuotaErrorFromAxios(error) || 'Failed to save form. Please try again.',
+      );
     } finally {
       setSaving(false);
     }
@@ -197,6 +209,8 @@ const FormEditor: React.FC = () => {
     // Persist automatically
     (async () => {
       try {
+        if (isNewForm && formsExceeded) return;
+
         setSaving(true);
         if (id && id !== 'new') {
           const updated = await formsService.updateForm(id, merged);
@@ -209,7 +223,10 @@ const FormEditor: React.FC = () => {
         setHasUnsavedChanges(false);
       } catch (err) {
         console.error('Auto-save after AI generation failed:', err);
-        // Keep hasUnsavedChanges=true so the user can click Save manually
+        const quotaMessage = parseQuotaErrorFromAxios(err);
+        if (quotaMessage) {
+          setSaveError(quotaMessage);
+        }
       } finally {
         setSaving(false);
       }
@@ -289,7 +306,7 @@ const FormEditor: React.FC = () => {
 
             <button
               onClick={saveForm}
-              disabled={saving}
+              disabled={saving || (isNewForm && formsExceeded)}
               className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 flex items-center space-x-2"
             >
               {saving ? (
@@ -303,6 +320,17 @@ const FormEditor: React.FC = () => {
             </button>
           </div>
         </div>
+        {isNewForm && formsExceeded && (
+          <QuotaLimitBanner
+            message="You've reached your form limit and cannot create a new form."
+            className="mt-4"
+          />
+        )}
+        {saveError && (
+          <p className="mt-3 text-sm text-red-600" role="alert">
+            {saveError}
+          </p>
+        )}
       </div>
 
       {/* Main Content */}
