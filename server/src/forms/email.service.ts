@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import nodemailer from 'nodemailer';
+import { createSmtpTransport } from './smtp-transport.util';
 
 export interface SendInvitationDto {
   formId: string;
@@ -35,15 +35,7 @@ export class EmailService {
           html: this.generateHtmlEmail(formTitle, personalizedMessage, formUrl),
         };
 
-        const transporter = nodemailer.createTransport({
-          host: process.env.SMTP_HOST || 'localhost',
-          port: Number(process.env.SMTP_PORT) || 1025,
-          secure: false,
-          auth: {
-            user: process.env.SMTP_USER || 'user',
-            pass: process.env.SMTP_PASS || 'pass',
-          },
-        });
+        const transporter = createSmtpTransport();
 
         const info = await transporter.sendMail(mailOptions);
 
@@ -95,15 +87,7 @@ export class EmailService {
       `,
     };
 
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'localhost',
-      port: Number(process.env.SMTP_PORT) || 1025,
-      secure: false,
-      auth: {
-        user: process.env.SMTP_USER || 'user',
-        pass: process.env.SMTP_PASS || 'pass',
-      },
-    });
+    const transporter = createSmtpTransport();
 
     const info = await transporter.sendMail(mailOptions);
     console.log(`Confirmation email sent to ${email}: ${info.messageId}`);
@@ -138,15 +122,7 @@ export class EmailService {
       `,
     };
 
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'localhost',
-      port: Number(process.env.SMTP_PORT) || 1025,
-      secure: false,
-      auth: {
-        user: process.env.SMTP_USER || 'user',
-        pass: process.env.SMTP_PASS || 'pass',
-      },
-    });
+    const transporter = createSmtpTransport();
 
     const info = await transporter.sendMail(mailOptions);
     console.log(`Password reset email sent to ${email}: ${info.messageId}`);
