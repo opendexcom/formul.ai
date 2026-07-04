@@ -1,4 +1,5 @@
 import { Injectable, Logger, DynamicModule } from '@nestjs/common';
+import { statSync } from 'fs';
 import { resolve } from 'path';
 import { pathToFileURL } from 'url';
 import {
@@ -33,6 +34,7 @@ export class PluginLoaderService {
     const pluginConfigs = this.getPluginConfigs();
     const modules: DynamicModule[] = [];
     const orderedNames = this.getPluginLoadOrder(Object.keys(pluginConfigs));
+    const failures: Array<{ name: string; message: string }> = [];
 
     for (const pluginName of orderedNames) {
       const config = pluginConfigs[pluginName];
@@ -52,12 +54,18 @@ export class PluginLoaderService {
         this.loadedPlugins.set(pluginName, plugin);
         this.logger.log(`✓ Loaded plugin: ${plugin.name} v${plugin.version}`);
       } catch (error) {
-        this.logger.error(
-          `✗ Failed to load plugin ${pluginName}:`,
-          error.message,
-        );
-        // Continue loading other plugins
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.error(`✗ Failed to load plugin ${pluginName}:`, message);
+        failures.push({ name: pluginName, message });
       }
+    }
+
+    if (failures.length > 0) {
+      const summary = failures.map((f) => `${f.name}: ${f.message}`).join('; ');
+      throw new Error(
+        `One or more configured plugins failed to load (${summary}). ` +
+          'Fix the error and restart the server — billing and other EE routes will not be available until the plugin loads.',
+      );
     }
 
     return modules;
@@ -83,7 +91,9 @@ export class PluginLoaderService {
         const pluginDir =
           process.env.PLUGIN_DIR || resolve(__dirname, '../../plugins');
         const localPath = resolve(pluginDir, pluginName, 'dist', 'index.js');
-        const localUrl = pathToFileURL(localPath).href;
+        const mtimeMs = statSync(localPath).mtimeMs;
+        // Bust Node ESM import cache so ee-backend route changes apply after nest restart.
+        const localUrl = `${pathToFileURL(localPath).href}?v=${mtimeMs}`;
         this.logger.log(
           `Attempting to load plugin ${pluginName} from local path ${localPath}...`,
         );
@@ -154,6 +164,11 @@ export class PluginLoaderService {
    */
   getPlugin(name: string): FormulAIPlugin | undefined {
     return this.loadedPlugins.get(name);
+  }
+
+  /** Names of plugins that loaded successfully (from PLUGINS env). */
+  getLoadedPluginNames(): string[] {
+    return Array.from(this.loadedPlugins.keys());
   }
 
   /**

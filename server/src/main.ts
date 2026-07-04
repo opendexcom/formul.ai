@@ -44,13 +44,20 @@ async function bootstrap() {
   const pluginLoader = app.get(PluginLoaderService);
   await pluginLoader.initializePlugins(app);
 
+  const loadedPlugins = pluginLoader.getLoadedPluginNames();
+  const pluginsEnv = (process.env.PLUGINS || '').trim();
+  if (pluginsEnv && loadedPlugins.length === 0) {
+    throw new Error(
+      `PLUGINS=${pluginsEnv} is set but no plugins loaded. ` +
+        'Check server startup logs for plugin load errors.',
+    );
+  }
+
   const port = process.env.PORT ?? 3001;
   await app.listen(port);
   console.log(`Application is running on: http://localhost:${port}`);
   console.log(`API Documentation: http://localhost:${port}/api/docs`);
 
-  // Log loaded plugins
-  const loadedPlugins = Array.from(pluginLoader['loadedPlugins'].keys());
   if (loadedPlugins.length > 0) {
     console.log(`🔌 Loaded plugins: ${loadedPlugins.join(', ')}`);
   } else {
