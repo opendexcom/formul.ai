@@ -35,6 +35,22 @@ flows:
       prompt: formulai-analytics-summary
       allowed_variables: [summaryContext]
       cache: { enabled: true, mode: exact, scope: form, ttl_seconds: 604800 }
+    cross_variant_topic_alignment:
+      prompt: formulai-analytics-cross-variant-topic-alignment
+      allowed_variables: [alignmentContext]
+      cache: { enabled: true, mode: exact, scope: form, ttl_seconds: 604800 }
+    cross_variant_hypothesis:
+      prompt: formulai-analytics-cross-variant-hypothesis
+      allowed_variables: [hypothesisContext]
+      cache: { enabled: true, mode: exact, scope: form, ttl_seconds: 604800 }
+    cross_variant_report:
+      prompt: formulai-analytics-cross-variant-report
+      allowed_variables: [reportContext]
+      cache: { enabled: true, mode: exact, scope: form, ttl_seconds: 604800 }
+    study_synthesis:
+      prompt: formulai-analytics-study-synthesis
+      allowed_variables: [studyContext]
+      cache: { enabled: true, mode: exact, scope: form, ttl_seconds: 604800 }
 
   form_generation:
     single_shot_create:
