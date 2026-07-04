@@ -1,9 +1,9 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { GraphRunnerService } from './graph-runner.service';
-import { AiModule } from '../ai/ai.module';
+import { AiCoreModule } from '../ai/ai.module';
 
 @Module({
-  imports: [forwardRef(() => AiModule)],
+  imports: [forwardRef(() => AiCoreModule)],
   providers: [GraphRunnerService],
   exports: [GraphRunnerService],
 })

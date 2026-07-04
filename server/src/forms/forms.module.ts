@@ -7,11 +7,13 @@ import { EmailService } from './email.service';
 import { AnalyticsService } from './analytics.service';
 import { FormsController, PublicFormsController } from './forms.controller';
 import { Form } from '../schemas/form.schema';
+import { Project } from '../schemas/project.schema';
 import { Response } from '../schemas/response.schema';
 import { getCoreSchemaOrThrow } from '../schemas/core-schema-registry';
 import { AiModule } from '../ai/ai.module';
 import { BullConfigModule } from '../bull/bull.module';
 import { AnalyticsQueueModule } from '../analytics/queues/analytics-queue.module';
+import { ProjectsModule } from '../projects/projects.module';
 
 // Analytics modules
 import { AnalyticsOrchestrator } from '../analytics/core/analytics.orchestrator';
@@ -34,6 +36,7 @@ import { TopicVectorStore } from '../analytics/stores/topic-vector.store';
   imports: [
     MongooseModule.forFeature([
       { name: Form.name, schema: getCoreSchemaOrThrow(Form.name) },
+      { name: Project.name, schema: getCoreSchemaOrThrow(Project.name) },
       { name: Response.name, schema: getCoreSchemaOrThrow(Response.name) },
       { name: 'AnalyticsTask', schema: getCoreSchemaOrThrow('AnalyticsTask') },
       { name: 'FormLock', schema: getCoreSchemaOrThrow('FormLock') },
@@ -44,7 +47,8 @@ import { TopicVectorStore } from '../analytics/stores/topic-vector.store';
     }),
     forwardRef(() => AiModule),
     BullConfigModule,
-    AnalyticsQueueModule,
+    forwardRef(() => AnalyticsQueueModule),
+    forwardRef(() => ProjectsModule),
   ],
   controllers: [FormsController, PublicFormsController],
   providers: [

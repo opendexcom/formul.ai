@@ -22,6 +22,8 @@ export class TopicVectorStore implements OnModuleInit {
   private readonly logger = new Logger(TopicVectorStore.name);
   private redis: Redis | null = null;
   private vectorIndexReady = false;
+  private vectorIndexInitPromise: Promise<boolean> | null = null;
+  private warnedMissingSearchModule = false;
 
   constructor(private readonly embeddingService: EmbeddingService) {}
 
@@ -33,7 +35,7 @@ export class TopicVectorStore implements OnModuleInit {
     const host = process.env.REDIS_HOST || 'localhost';
     const port = parseInt(process.env.REDIS_PORT || '6379', 10);
     this.redis = new Redis({ host, port, maxRetriesPerRequest: 3 });
-    void this.ensureVectorIndex();
+    void this.prepareForClustering();
   }
 
   isAvailable(): boolean {
@@ -43,6 +45,26 @@ export class TopicVectorStore implements OnModuleInit {
       this.vectorIndexReady &&
       this.embeddingService.isAvailable()
     );
+  }
+
+  /** Ensures RediSearch index exists; safe to call before clustering. */
+  async prepareForClustering(): Promise<boolean> {
+    if (process.env.ANALYTICS_TOPIC_VECTOR_CLUSTERING === 'false') {
+      return false;
+    }
+    if (this.vectorIndexReady && this.embeddingService.isAvailable()) {
+      return true;
+    }
+    if (this.vectorIndexInitPromise) {
+      return this.vectorIndexInitPromise;
+    }
+
+    this.vectorIndexInitPromise = this.ensureVectorIndex();
+    try {
+      return await this.vectorIndexInitPromise;
+    } finally {
+      this.vectorIndexInitPromise = null;
+    }
   }
 
   topicKeyFromText(topicText: string): string {
@@ -78,8 +100,51 @@ export class TopicVectorStore implements OnModuleInit {
     return value.replace(/[^a-zA-Z0-9_-]/g, '_');
   }
 
-  private async ensureVectorIndex(): Promise<void> {
-    if (!this.redis) return;
+  private async redisHasSearchModule(): Promise<boolean> {
+    if (!this.redis) return false;
+    try {
+      const modules = (await this.redis.call('MODULE', 'LIST')) as unknown[];
+      return modules.some((entry) => this.moduleEntryHasSearch(entry));
+    } catch {
+      return false;
+    }
+  }
+
+  /** Redis 7+ returns MODULE LIST as an array of per-module kv arrays. */
+  private moduleEntryHasSearch(entry: unknown): boolean {
+    if (!Array.isArray(entry)) return false;
+    for (let i = 0; i < entry.length; i += 2) {
+      const key = String(entry[i] ?? '').toLowerCase();
+      const value = String(entry[i + 1] ?? '').toLowerCase();
+      if (key === 'name' && (value.includes('search') || value.includes('redisearch'))) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private warnMissingSearchModule(): void {
+    if (this.warnedMissingSearchModule) return;
+    this.warnedMissingSearchModule = true;
+    this.logger.warn(
+      'Redis RediSearch module not available — topic clustering will fall back to LLM batch mapping. ' +
+        'Use Redis Stack (docker compose service `redis`, image redis/redis-stack-server) and recreate the container if you previously ran plain Redis.',
+    );
+  }
+
+  private async ensureVectorIndex(): Promise<boolean> {
+    if (!this.redis) return false;
+    if (this.vectorIndexReady) return true;
+
+    if (!(await this.redisHasSearchModule())) {
+      this.warnMissingSearchModule();
+      return false;
+    }
+
+    if (!this.embeddingService.isAvailable()) {
+      return false;
+    }
+
     try {
       await this.redis.call(
         'FT.CREATE',
@@ -114,13 +179,18 @@ export class TopicVectorStore implements OnModuleInit {
         'TEXT',
       );
       this.vectorIndexReady = true;
+      this.logger.log(
+        `Topic vector index ready (${INDEX_NAME}, dim=${this.getEmbeddingDimension()})`,
+      );
+      return true;
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       if (message.includes('Index already exists')) {
         this.vectorIndexReady = true;
-      } else {
-        this.logger.warn(`Topic vector index unavailable: ${message}`);
+        return true;
       }
+      this.logger.warn(`Topic vector index unavailable: ${message}`);
+      return false;
     }
   }
 
@@ -172,7 +242,8 @@ export class TopicVectorStore implements OnModuleInit {
     formId: string,
     topicCounts: Map<string, number>,
   ): Promise<void> {
-    if (!this.isAvailable() || topicCounts.size === 0) return;
+    if (topicCounts.size === 0) return;
+    if (!(await this.prepareForClustering())) return;
 
     for (const [topicText, count] of topicCounts.entries()) {
       await this.upsertTopic(formId, topicText, count);
@@ -201,7 +272,8 @@ export class TopicVectorStore implements OnModuleInit {
     k: number,
     minSimilarity?: number,
   ): Promise<Array<StoredTopicRecord & { similarity: number }>> {
-    if (!this.isAvailable() || !embedding.length) return [];
+    if (!embedding.length) return [];
+    if (!(await this.prepareForClustering())) return [];
 
     const threshold =
       minSimilarity ??

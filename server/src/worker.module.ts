@@ -7,18 +7,6 @@ import { AiCoreModule } from './ai/ai.module';
 import { Form } from './schemas/form.schema';
 import { Response } from './schemas/response.schema';
 import { getCoreSchemaOrThrow } from './schemas/core-schema-registry';
-// Analytics providers used by consumers
-import { ResponseProcessor } from './analytics/processors/response.processor';
-import { TopicClusterer } from './analytics/processors/topic.clusterer';
-import { StatisticsCalculator } from './analytics/calculators/statistics.calculator';
-import { CorrelationCalculator } from './analytics/calculators/correlation.calculator';
-import { SentimentCalculator } from './analytics/calculators/sentiment.calculator';
-import { SummaryGenerator } from './analytics/generators/summary.generator';
-import { FindingsGenerator } from './analytics/generators/findings.generator';
-import { RecommendationsGenerator } from './analytics/generators/recommendations.generator';
-import { BatchProcessor } from './analytics/utils/batch.processor';
-import { PromptBuilder } from './analytics/utils/prompt.builder';
-import { TopicVectorStore } from './analytics/stores/topic-vector.store';
 
 @Module({
   imports: [
@@ -31,20 +19,6 @@ import { TopicVectorStore } from './analytics/stores/topic-vector.store';
     BullConfigModule,
     AnalyticsQueueModule,
     AiCoreModule,
-  ],
-  providers: [
-    // Analytics providers consumed by workers
-    ResponseProcessor,
-    TopicClusterer,
-    StatisticsCalculator,
-    CorrelationCalculator,
-    SentimentCalculator,
-    SummaryGenerator,
-    FindingsGenerator,
-    RecommendationsGenerator,
-    BatchProcessor,
-    PromptBuilder,
-    TopicVectorStore,
   ],
 })
 export class WorkerModule {}

@@ -44,4 +44,25 @@ describe('TopicVectorStore', () => {
     await store.upsertTopics('form1', new Map([['Pay', 3]]));
     expect(embeddingService.embedQuery).not.toHaveBeenCalled();
   });
+
+  it('redisHasSearchModule detects nested MODULE LIST entries (Redis 7+ / Stack)', async () => {
+    const embeddingService = {
+      isAvailable: () => true,
+      getDimension: () => 384,
+    } as EmbeddingService;
+    const store = new TopicVectorStore(embeddingService);
+    const redis = {
+      call: jest.fn().mockResolvedValue([
+        ['name', 'ReJSON', 'ver', 20808],
+        ['name', 'search', 'ver', 21015],
+      ]),
+    };
+    (store as unknown as { redis: typeof redis }).redis = redis;
+
+    const hasSearch = await (
+      store as unknown as { redisHasSearchModule: () => Promise<boolean> }
+    ).redisHasSearchModule();
+
+    expect(hasSearch).toBe(true);
+  });
 });
