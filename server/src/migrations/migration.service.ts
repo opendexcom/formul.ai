@@ -2,11 +2,15 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Form, FormDocument } from '../schemas/form.schema';
+import { Project, ProjectDocument, ProjectStatus } from '../schemas/project.schema';
+import { Response, ResponseDocument } from '../schemas/response.schema';
 
 @Injectable()
 export class MigrationService {
   constructor(
     @InjectModel(Form.name) private formModel: Model<FormDocument>,
+    @InjectModel(Project.name) private projectModel: Model<ProjectDocument>,
+    @InjectModel(Response.name) private responseModel: Model<ResponseDocument>,
   ) {}
 
   /**
@@ -98,5 +102,75 @@ export class MigrationService {
       console.log(`   CreatedAt: ${form.createdAt}`);
       console.log('---');
     });
+  }
+
+  private deriveStatus(form: FormDocument, responseCount: number): ProjectStatus {
+    if (!form.isActive && responseCount === 0) return 'designing';
+    if (!form.isActive && responseCount > 0) return 'collecting';
+    if (form.isActive && responseCount === 0) return 'published';
+    if (form.analytics?.lastUpdated) return 'analyzed';
+    return 'collecting';
+  }
+
+  async migrateFormsToProjects(dryRun: boolean = false): Promise<{
+    scanned: number;
+    migrated: number;
+    skipped: number;
+  }> {
+    const forms = await this.formModel.find({ projectId: { $exists: false } }).exec();
+
+    let migrated = 0;
+    let skipped = 0;
+    for (const form of forms) {
+      const existingProject = await this.projectModel.findOne({
+        migratedFromFormId: form._id,
+      });
+
+      if (existingProject) {
+        skipped += 1;
+        if (!dryRun) {
+          await this.formModel.updateOne(
+            { _id: form._id },
+            { $set: { projectId: existingProject._id, variantKey: 'main' } },
+          );
+        }
+        continue;
+      }
+
+      const responseCount = await this.responseModel.countDocuments({ formId: form._id });
+      const status = this.deriveStatus(form, responseCount);
+      const projectId = new Types.ObjectId();
+
+      if (!dryRun) {
+        await this.projectModel.create({
+          _id: projectId,
+          name: form.title,
+          hypothesis: form.description ?? '',
+          ownerId: form.createdBy,
+          type: 'single',
+          status,
+          variants: [
+            {
+              key: 'main',
+              formId: form._id,
+              targetGroup: { name: 'General' },
+            },
+          ],
+          publishedAt: form.isActive ? form.updatedAt ?? form.createdAt : undefined,
+          migratedFromFormId: form._id,
+          createdAt: form.createdAt,
+          updatedAt: form.updatedAt,
+        });
+
+        await this.formModel.updateOne(
+          { _id: form._id },
+          { $set: { projectId, variantKey: 'main' } },
+        );
+      }
+
+      migrated += 1;
+    }
+
+    return { scanned: forms.length, migrated, skipped };
   }
 }

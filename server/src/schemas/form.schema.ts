@@ -48,6 +48,13 @@ export class Question {
 
   @Prop({ type: Object })
   validation?: Record<string, any>;
+
+  @Prop({ default: false })
+  reverseCoded?: boolean;
+
+  /** Question ID on the source variant (usually main) that this reverse-coded item pairs with. */
+  @Prop()
+  pairedQuestionId?: string;
 }
 
 export const QuestionSchema = SchemaFactory.createForClass(Question);
@@ -75,6 +82,12 @@ export class Form {
     },
   })
   createdBy: Types.ObjectId;
+
+  @Prop({ type: Types.ObjectId, ref: 'Project', index: true })
+  projectId?: Types.ObjectId;
+
+  @Prop({ type: String, enum: ['main', 'A', 'B'], default: 'main' })
+  variantKey?: 'main' | 'A' | 'B';
 
   @Prop({ type: [QuestionSchema], default: [] })
   questions: Question[];

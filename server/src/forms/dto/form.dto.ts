@@ -73,6 +73,24 @@ export class CreateQuestionDto {
   @ApiPropertyOptional()
   @IsOptional()
   validation?: Record<string, any>;
+
+  @ApiPropertyOptional({
+    example: false,
+    description:
+      'When true, higher values mean the opposite of the construct; analytics invert scores before comparison.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  reverseCoded?: boolean;
+
+  @ApiPropertyOptional({
+    example: 'q3',
+    description:
+      'When reverse-coded on a variant branch, the question ID on the source variant (usually main) that this item pairs with.',
+  })
+  @IsOptional()
+  @IsString()
+  pairedQuestionId?: string;
 }
 
 export class CreateFormDto {
@@ -104,6 +122,16 @@ export class CreateFormDto {
       fontFamily?: string;
     };
   };
+
+  @ApiPropertyOptional({ description: 'Owning project ID' })
+  @IsOptional()
+  @IsString()
+  projectId?: string;
+
+  @ApiPropertyOptional({ enum: ['main', 'A', 'B'], default: 'main' })
+  @IsOptional()
+  @IsString()
+  variantKey?: 'main' | 'A' | 'B';
 }
 
 export class UpdateFormDto {

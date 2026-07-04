@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/commo
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Form, FormDocument } from '../schemas/form.schema';
+import { Project, ProjectDocument } from '../schemas/project.schema';
 import { CreateFormDto, UpdateFormDto } from './dto/form.dto';
 import { ResponseService } from './response.service';
 
@@ -9,13 +10,20 @@ import { ResponseService } from './response.service';
 export class FormsService {
   constructor(
     @InjectModel(Form.name) private formModel: Model<FormDocument>,
+    @InjectModel(Project.name) private projectModel: Model<ProjectDocument>,
     private responseService: ResponseService,
   ) {}
 
   async create(createFormDto: CreateFormDto, userId: string): Promise<Form> {
+    const ownerId = new Types.ObjectId(userId);
+    const projectId = createFormDto.projectId
+      ? new Types.ObjectId(createFormDto.projectId)
+      : new Types.ObjectId();
     const form = new this.formModel({
       ...createFormDto,
-      createdBy: new Types.ObjectId(userId),
+      createdBy: ownerId,
+      projectId,
+      variantKey: createFormDto.variantKey ?? 'main',
       settings: {
         allowMultipleResponses: true,
         requireLogin: false,
@@ -24,7 +32,27 @@ export class FormsService {
       },
     });
 
-    return form.save();
+    const savedForm = await form.save();
+
+    if (!createFormDto.projectId) {
+      await this.projectModel.create({
+        _id: projectId,
+        name: savedForm.title,
+        hypothesis: savedForm.description ?? '',
+        ownerId,
+        type: 'single',
+        status: savedForm.isActive ? 'published' : 'designing',
+        variants: [
+          {
+            key: 'main',
+            formId: savedForm._id,
+            targetGroup: { name: 'General' },
+          },
+        ],
+      });
+    }
+
+    return savedForm;
   }
 
   async findAllByUser(userId: string): Promise<Form[]> {
@@ -97,7 +125,70 @@ export class FormsService {
     form.updatedAt = new Date();
     
     console.log('UPDATE FORM - About to save form');
-    return form.save();
+    const saved = await form.save();
+    await this.syncSplitQuestionnaireDesign(saved);
+    return saved;
+  }
+
+  private async syncSplitQuestionnaireDesign(form: FormDocument): Promise<void> {
+    const variantKey = form.variantKey;
+    if (!form.projectId || !variantKey || variantKey === 'main') {
+      return;
+    }
+
+    const project = await this.projectModel.findById(form.projectId);
+    if (!project) {
+      return;
+    }
+
+    const mainVariant = project.variants.find((variant) => variant.key === 'main');
+    const mainForm = mainVariant
+      ? await this.formModel.findById(mainVariant.formId).lean()
+      : null;
+    const coreQuestionIds =
+      mainForm?.questions?.map((question) => question.id) ??
+      project.splitQuestionnaireDesign?.coreQuestionIds ??
+      [];
+
+    const reverseCodedQuestions = (form.questions ?? []).filter((question) => question.reverseCoded);
+    const polarityFlippedQuestionIds = reverseCodedQuestions.map((question) => question.id);
+    const existingVariantDesign =
+      project.splitQuestionnaireDesign?.perVariant?.[variantKey] ?? {
+        modifiedQuestionIds: [],
+        excludedQuestionIds: [],
+        polarityFlippedQuestionIds: [],
+        polarityPairs: {},
+      };
+
+    const modifiedQuestionIds = [
+      ...new Set([
+        ...existingVariantDesign.modifiedQuestionIds,
+        ...polarityFlippedQuestionIds,
+      ]),
+    ];
+
+    const polarityPairs = Object.fromEntries(
+      reverseCodedQuestions.map((question) => [
+        question.id,
+        question.pairedQuestionId ?? question.id,
+      ]),
+    );
+
+    project.researchDesignType = 'split_questionnaire';
+    project.splitQuestionnaireDesign = {
+      coreQuestionIds,
+      perVariant: {
+        ...(project.splitQuestionnaireDesign?.perVariant ?? {}),
+        [variantKey]: {
+          ...existingVariantDesign,
+          modifiedQuestionIds,
+          polarityFlippedQuestionIds,
+          polarityPairs,
+        },
+      },
+    };
+
+    await project.save();
   }
 
   async remove(id: string, userId: string): Promise<void> {

@@ -13,6 +13,9 @@ import { UsersModule } from './users/users.module';
 import { PluginsModule } from './plugins/plugins.module';
 import { CapabilitiesModule } from './capabilities/capabilities.module';
 import { MlflowModule } from './mlflow/mlflow.module';
+import { ProjectsModule } from './projects/projects.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { IntegrationsModule } from './integrations/integrations.module';
 
 @Module({
   imports: [
@@ -27,6 +30,9 @@ import { MlflowModule } from './mlflow/mlflow.module';
     AuthModule,
     UsersModule,
     FormsModule,
+    ProjectsModule,
+    NotificationsModule,
+    IntegrationsModule,
     MigrationModule,
     AiModule,
     MonitoringModule,
