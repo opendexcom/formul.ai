@@ -1,4 +1,4 @@
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 
 WORKDIR /app
 
@@ -18,7 +18,7 @@ RUN --mount=type=cache,target=/root/.local/share/pnpm/store pnpm install --froze
 
 RUN pnpm --filter server build
 
-FROM node:20-alpine
+FROM node:24-alpine
 
 WORKDIR /app
 

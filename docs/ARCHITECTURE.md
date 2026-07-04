@@ -446,7 +446,7 @@ User → Analytics Dashboard → GET /forms/:id/analytics
 ### Backend
 - **Framework**: NestJS 10
 - **Language**: TypeScript 5
-- **Runtime**: Node.js 20+
+- **Runtime**: Node.js 24+
 - **API Style**: REST with Swagger documentation
 - **Authentication**: JWT (jsonwebtoken)
 - **Validation**: class-validator, class-transformer
