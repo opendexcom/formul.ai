@@ -4,26 +4,23 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { CapabilitiesProvider } from './context/CapabilitiesContext';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import LandingPage from './pages/LandingPage';
-import Dashboard from './pages/Dashboard';
 import FormEditor from './pages/FormEditor';
 import FormAnalytics from './pages/FormAnalytics';
 import PrintableAnalytics from './pages/PrintableAnalytics';
 import PublicFormView from './pages/PublicFormView';
 import EmailConfirmation from './pages/EmailConfirmation';
 import ResetPassword from './pages/ResetPassword';
-import AdminSettings from './pages/AdminSettings';
-import UserPreferencesPage from './pages/UserPreferencesPage';
-import { usePluginRoutes } from './plugins/PluginRoutes';
+import AuthenticatedApp from './routes/AuthenticatedApp';
+import { usePublicPluginRoutes } from './plugins/PluginRoutes';
 import './App.css';
 
-// Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
       </div>
     );
   }
@@ -31,23 +28,22 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   return isAuthenticated ? <>{children}</> : <Navigate to="/" replace />;
 };
 
-// Public Route Component (redirect to dashboard if authenticated)
 const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
       </div>
     );
   }
 
-  return !isAuthenticated ? <>{children}</> : <Navigate to="/dashboard" replace />;
+  return !isAuthenticated ? <>{children}</> : <Navigate to="/overview" replace />;
 };
 
 function AppRoutes() {
-  const pluginRoutes = usePluginRoutes();
+  const publicPluginRoutes = usePublicPluginRoutes();
 
   return (
     <Routes>
@@ -59,14 +55,10 @@ function AppRoutes() {
           </PublicRoute>
         }
       />
-      <Route
-        path="/dashboard"
-        element={
-          <ProtectedRoute>
-            <Dashboard />
-          </ProtectedRoute>
-        }
-      />
+      {publicPluginRoutes}
+      <Route path="/form/:formId" element={<PublicFormView />} />
+      <Route path="/confirm-email" element={<EmailConfirmation />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route
         path="/forms/new"
         element={
@@ -99,38 +91,14 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-      {/* Public form route - accessible without authentication */}
       <Route
-        path="/form/:formId"
-        element={<PublicFormView />}
-      />
-      {pluginRoutes}
-      <Route
-        path="/confirm-email"
-        element={<EmailConfirmation />}
-      />
-      <Route
-        path="/reset-password"
-        element={<ResetPassword />}
-      />
-      <Route
-        path="/settings/preferences"
+        path="/*"
         element={
           <ProtectedRoute>
-            <UserPreferencesPage />
+            <AuthenticatedApp />
           </ProtectedRoute>
         }
       />
-      <Route
-        path="/admin/settings"
-        element={
-          <ProtectedRoute>
-            <AdminSettings />
-          </ProtectedRoute>
-        }
-      />
-      {/* Redirect any unknown routes to home */}
-      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

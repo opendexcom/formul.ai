@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { Navigate, Route } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCapabilities } from '../context/CapabilitiesContext';
-import { Header } from '../components/common';
+import { isBillingRouteAllowed } from '../hooks/useBillingAvailable';
 import {
   FORMULAI_UI_READY_EVENT,
   getFormulaiUiManifest,
@@ -37,7 +37,7 @@ const PluginRouteHost: React.FC<PluginRouteHostProps> = ({ path }) => {
     };
   }, [path]);
 
-  return <div ref={containerRef} className="min-h-screen" />;
+  return <div ref={containerRef} className="min-h-[200px]" />;
 };
 
 function PluginProtectedRoute({
@@ -52,8 +52,8 @@ function PluginProtectedRoute({
 
   if (loading || capsLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
+      <div className="min-h-[200px] flex items-center justify-center">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
       </div>
     );
   }
@@ -62,18 +62,18 @@ function PluginProtectedRoute({
     return <Navigate to="/" replace />;
   }
 
-  if (route.requiresFeature && !hasFeature(route.requiresFeature)) {
-    return <Navigate to="/dashboard" replace />;
+  if (route.requiresFeature && !isBillingRouteAllowed(route.requiresFeature, hasFeature)) {
+    return <Navigate to="/overview" replace />;
   }
 
   if (route.requiresRole && !user?.roles?.includes(route.requiresRole)) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/overview" replace />;
   }
 
   return <>{children}</>;
 }
 
-export function usePluginRoutes(): React.ReactNode {
+function useManifestRoutes(): PluginRouteDefinition[] {
   const [routes, setRoutes] = React.useState<PluginRouteDefinition[]>(
     () => getFormulaiUiManifest()?.routes ?? [],
   );
@@ -85,30 +85,49 @@ export function usePluginRoutes(): React.ReactNode {
     return () => window.removeEventListener(FORMULAI_UI_READY_EVENT, sync);
   }, []);
 
+  return routes;
+}
+
+type PluginRouteOptions = {
+  publicOnly?: boolean;
+  authenticatedOnly?: boolean;
+};
+
+function filterRoutes(
+  routes: PluginRouteDefinition[],
+  options?: PluginRouteOptions,
+): PluginRouteDefinition[] {
+  if (options?.publicOnly) {
+    return routes.filter((route) => route.public);
+  }
+  if (options?.authenticatedOnly) {
+    return routes.filter((route) => !route.public);
+  }
+  return routes;
+}
+
+export function usePluginRoutes(options?: PluginRouteOptions): React.ReactNode {
+  const routes = filterRoutes(useManifestRoutes(), options);
+
   if (routes.length === 0) return null;
 
-  return routes.map((route) => {
-    const routeElement = (
-      <PluginProtectedRoute route={route}>
-        <PluginRouteHost path={route.path} />
-      </PluginProtectedRoute>
-    );
+  return routes.map((route) => (
+    <Route
+      key={route.path}
+      path={route.path.replace(/^\//, '')}
+      element={
+        <PluginProtectedRoute route={route}>
+          <PluginRouteHost path={route.path} />
+        </PluginProtectedRoute>
+      }
+    />
+  ));
+}
 
-    return (
-      <Route
-        key={route.path}
-        path={route.path}
-        element={
-          route.path.startsWith('/settings/billing') ? (
-            <>
-              <Header title="FormulAI" />
-              {routeElement}
-            </>
-          ) : (
-            routeElement
-          )
-        }
-      />
-    );
-  });
+export function usePublicPluginRoutes(): React.ReactNode {
+  return usePluginRoutes({ publicOnly: true });
+}
+
+export function useAuthenticatedPluginRoutes(): React.ReactNode {
+  return usePluginRoutes({ authenticatedOnly: true });
 }

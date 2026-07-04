@@ -3,7 +3,8 @@ import { apiClient } from '../services/apiClient';
 import { useAuth } from '../context/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { Shield, Check, AlertCircle } from 'lucide-react';
-import { AppPageLayout } from '../components/common';
+import { AdminSubNav } from '../components/shell';
+import { shellCardClass, shellPageDescriptionClass, shellPageTitleClass } from '../components/shell/design-tokens';
 
 const AdminSettings: React.FC = () => {
     const { user, loading: authLoading } = useAuth();
@@ -47,57 +48,66 @@ const AdminSettings: React.FC = () => {
 
     if (authLoading) return <div>Loading...</div>;
 
-    // Simple role check - in a real app this would be more robust
     if (!user || !user.roles?.includes('admin')) {
-        return <Navigate to="/dashboard" replace />;
+        return <Navigate to="/overview" replace />;
     }
 
     return (
-        <AppPageLayout>
-                <div className="bg-white shadow rounded-lg overflow-hidden">
-                    <div className="px-6 py-5 border-b border-gray-200 flex items-center">
-                        <Shield className="h-6 w-6 text-blue-600 mr-3" />
-                        <h1 className="text-xl font-semibold text-gray-900">Admin Settings</h1>
-                    </div>
-
-                    <div className="p-6">
-                        {error && (
-                            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center text-red-700">
-                                <AlertCircle className="h-5 w-5 mr-2" />
-                                {error}
-                            </div>
-                        )}
-
-                        {success && (
-                            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center text-green-700">
-                                <Check className="h-5 w-5 mr-2" />
-                                {success}
-                            </div>
-                        )}
-
-                        <div className="flex items-center justify-between py-4 border-b border-gray-100">
-                            <div>
-                                <h3 className="text-lg font-medium text-gray-900">User Registration</h3>
-                                <p className="text-sm text-gray-500 mt-1">
-                                    Allow new users to sign up for an account.
-                                </p>
-                            </div>
-
-                            <button
-                                onClick={handleToggle}
-                                disabled={loading}
-                                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${allowRegistration ? 'bg-blue-600' : 'bg-gray-200'
-                                    }`}
-                            >
-                                <span
-                                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${allowRegistration ? 'translate-x-5' : 'translate-x-0'
-                                        }`}
-                                />
-                            </button>
+        <div>
+            <AdminSubNav />
+            <div className="space-y-8">
+                <div>
+                    <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100">
+                            <Shield className="h-5 w-5 text-blue-600" />
+                        </div>
+                        <div>
+                            <h1 className={shellPageTitleClass}>Platform Settings</h1>
+                            <p className={shellPageDescriptionClass}>
+                                Configure global platform behavior.
+                            </p>
                         </div>
                     </div>
                 </div>
-        </AppPageLayout>
+
+                <div className={shellCardClass}>
+                    <div className="flex items-start justify-between gap-4">
+                        <div>
+                            <h2 className="text-lg font-medium text-gray-900">User Registration</h2>
+                            <p className="mt-1 text-sm text-gray-500">
+                                Allow new users to create accounts on the landing page.
+                            </p>
+                        </div>
+                        <button
+                            onClick={handleToggle}
+                            disabled={loading}
+                            className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${allowRegistration ? 'bg-blue-600' : 'bg-gray-200'
+                                } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                            <span
+                                aria-hidden="true"
+                                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${allowRegistration ? 'translate-x-5' : 'translate-x-0'
+                                    }`}
+                            />
+                        </button>
+                    </div>
+
+                    {error && (
+                        <div className="mt-4 flex items-center gap-2 text-sm text-red-600">
+                            <AlertCircle className="h-4 w-4" />
+                            {error}
+                        </div>
+                    )}
+
+                    {success && (
+                        <div className="mt-4 flex items-center gap-2 text-sm text-green-600">
+                            <Check className="h-4 w-4" />
+                            {success}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
     );
 };
 

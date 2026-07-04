@@ -14,10 +14,13 @@ const PluginSlot: React.FC<PluginSlotProps> = ({ name, className }) => {
     const mountSlot = () => {
       const container = containerRef.current;
       const slot = getFormulaiUiManifest()?.slots?.[name];
-      if (!container || !slot || unmountRef.current) return;
+      if (!container || !slot) return;
 
-      const handle = slot.mount(container);
-      unmountRef.current = handle.unmount;
+      unmountRef.current?.();
+      unmountRef.current = null;
+
+      const result = slot.mount(container);
+      unmountRef.current = result.unmount;
     };
 
     mountSlot();
@@ -30,7 +33,7 @@ const PluginSlot: React.FC<PluginSlotProps> = ({ name, className }) => {
     };
   }, [name]);
 
-  return <div ref={containerRef} className={className} />;
+  return <div ref={containerRef} className={className} data-plugin-slot={name} />;
 };
 
 export default PluginSlot;

@@ -86,7 +86,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const updateUser = (updatedUser: User): void => {
-    authService.updateStoredUser(updatedUser);
+    authService.updateStoredUser({
+      ...updatedUser,
+      roles: updatedUser.roles ?? ['user'],
+    });
     setUser(updatedUser);
   };
 

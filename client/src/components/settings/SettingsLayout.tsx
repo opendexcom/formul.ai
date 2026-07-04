@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { useCapabilities } from '../../context/CapabilitiesContext';
+import { useBillingAvailable } from '../../hooks/useBillingAvailable';
 
 interface SettingsLayoutProps {
   children: React.ReactNode;
@@ -10,13 +10,11 @@ const inputClass =
   'block rounded-lg px-3 py-2 text-sm font-medium transition';
 
 const SettingsLayout: React.FC<SettingsLayoutProps> = ({ children }) => {
-  const { hasFeature } = useCapabilities();
+  const hasBilling = useBillingAvailable();
 
   const navItems = [
     { label: 'Profile', to: '/settings/preferences' },
-    ...(hasFeature('billing')
-      ? [{ label: 'Billing', to: '/settings/billing' }]
-      : []),
+    ...(hasBilling ? [{ label: 'Billing', to: '/settings/billing' }] : []),
   ];
 
   return (

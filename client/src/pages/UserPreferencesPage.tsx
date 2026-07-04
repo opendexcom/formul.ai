@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Eye, EyeOff, User as UserIcon } from 'lucide-react';
-import { Header } from '../components/common';
-import SettingsLayout from '../components/settings/SettingsLayout';
+import { SettingsSubNav } from '../components/shell';
+import { shellCardClass, shellPageDescriptionClass, shellPageTitleClass } from '../components/shell/design-tokens';
 import { Alert, Button, LoadingSpinner, PasswordStrengthIndicator } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
 import userService, { type UserProfile } from '../services/userService';
@@ -111,31 +111,29 @@ const UserPreferencesPage: React.FC = () => {
     : null;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
-
-      <SettingsLayout>
-        {loading ? (
-          <div className="flex justify-center py-16">
-            <LoadingSpinner size="lg" />
-          </div>
-        ) : (
-          <div className="space-y-8">
-            <div>
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100">
-                  <UserIcon className="h-5 w-5 text-blue-600" />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-semibold text-gray-900">Profile</h1>
-                  <p className="text-sm text-gray-500">
-                    Manage your account details and password.
-                  </p>
-                </div>
+    <div>
+      <SettingsSubNav />
+      {loading ? (
+        <div className="flex justify-center py-16">
+          <LoadingSpinner size="lg" />
+        </div>
+      ) : (
+        <div className="space-y-8">
+          <div>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100">
+                <UserIcon className="h-5 w-5 text-blue-600" />
+              </div>
+              <div>
+                <h1 className={shellPageTitleClass}>Profile</h1>
+                <p className={shellPageDescriptionClass}>
+                  Manage your account details and password.
+                </p>
               </div>
             </div>
+          </div>
 
-            <section className="rounded-lg border border-gray-200 bg-white shadow-sm">
+          <section className={shellCardClass}>
               <div className="border-b border-gray-200 px-6 py-4">
                 <h2 className="text-lg font-medium text-gray-900">Personal information</h2>
               </div>
@@ -201,10 +199,10 @@ const UserPreferencesPage: React.FC = () => {
               </form>
             </section>
 
-            <section className="rounded-lg border border-gray-200 bg-white shadow-sm">
-              <div className="border-b border-gray-200 px-6 py-4">
-                <h2 className="text-lg font-medium text-gray-900">Change password</h2>
-              </div>
+          <section className={shellCardClass}>
+            <div className="border-b border-gray-200 px-6 py-4">
+              <h2 className="text-lg font-medium text-gray-900">Change password</h2>
+            </div>
 
               <form onSubmit={handlePasswordSubmit} className="space-y-5 px-6 py-6">
                 {passwordError && <Alert type="error" message={passwordError} />}
@@ -282,10 +280,9 @@ const UserPreferencesPage: React.FC = () => {
                   </Button>
                 </div>
               </form>
-            </section>
-          </div>
-        )}
-      </SettingsLayout>
+          </section>
+        </div>
+      )}
     </div>
   );
 };

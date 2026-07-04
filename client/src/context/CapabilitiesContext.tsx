@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, ReactNode } from 'react';
-import { createApiClient } from '../services/apiClient';
+import { resolveApiBaseUrl } from '../utils/apiBaseUrl';
 
 type CapabilitiesContextValue = {
   features: string[];
@@ -18,10 +18,9 @@ export function CapabilitiesProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const client = createApiClient();
-    client
-      .get<{ features?: string[] }>('/capabilities')
-      .then((res) => setFeatures(res.data.features ?? []))
+    fetch(`${resolveApiBaseUrl()}/capabilities`)
+      .then((res) => (res.ok ? res.json() : { features: [] }))
+      .then((data: { features?: string[] }) => setFeatures(data.features ?? []))
       .catch(() => setFeatures([]))
       .finally(() => setLoading(false));
   }, []);

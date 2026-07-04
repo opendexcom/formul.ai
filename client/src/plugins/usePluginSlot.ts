@@ -1,40 +1,38 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
-  FORMULAI_SLOT_API_UPDATED_EVENT,
   FORMULAI_UI_READY_EVENT,
+  FORMULAI_SLOT_API_UPDATED_EVENT,
   getFormulaiUiManifest,
   type PluginSlotApi,
 } from './types';
 
-export function usePluginSlot(slotName: string) {
-  const [slotActive, setSlotActive] = useState(
-    () => Boolean(getFormulaiUiManifest()?.slots?.[slotName]),
-  );
+export function usePluginSlot(name: string): {
+  slotActive: boolean;
+  api: PluginSlotApi | undefined;
+  refresh: () => void;
+} {
+  const [slotActive, setSlotActive] = useState(() => !!getFormulaiUiManifest()?.slots?.[name]);
   const [api, setApi] = useState<PluginSlotApi | undefined>(
-    () => window.__FORMULAI_SLOT_APIS__?.[slotName],
+    () => window.__FORMULAI_SLOT_APIS__?.[name],
   );
+  const [, setRevision] = useState(0);
 
-  const refresh = () => {
-    setSlotActive(Boolean(getFormulaiUiManifest()?.slots?.[slotName]));
-    setApi(window.__FORMULAI_SLOT_APIS__?.[slotName]);
-  };
+  const refresh = useCallback(() => {
+    setSlotActive(!!getFormulaiUiManifest()?.slots?.[name]);
+    setApi(window.__FORMULAI_SLOT_APIS__?.[name]);
+    setRevision((value) => value + 1);
+  }, [name]);
 
   useEffect(() => {
-    refresh();
-    const onReady = () => refresh();
-    const onSlotApiUpdated = (event: Event) => {
-      const detail = (event as CustomEvent<{ slotName?: string }>).detail;
-      if (!detail?.slotName || detail.slotName === slotName) {
-        refresh();
-      }
-    };
-    window.addEventListener(FORMULAI_UI_READY_EVENT, onReady);
-    window.addEventListener(FORMULAI_SLOT_API_UPDATED_EVENT, onSlotApiUpdated);
+    const sync = () => refresh();
+    sync();
+    window.addEventListener(FORMULAI_UI_READY_EVENT, sync);
+    window.addEventListener(FORMULAI_SLOT_API_UPDATED_EVENT, sync);
     return () => {
-      window.removeEventListener(FORMULAI_UI_READY_EVENT, onReady);
-      window.removeEventListener(FORMULAI_SLOT_API_UPDATED_EVENT, onSlotApiUpdated);
+      window.removeEventListener(FORMULAI_UI_READY_EVENT, sync);
+      window.removeEventListener(FORMULAI_SLOT_API_UPDATED_EVENT, sync);
     };
-  }, [slotName]);
+  }, [refresh]);
 
   return { slotActive, api, refresh };
 }
