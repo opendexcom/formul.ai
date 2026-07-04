@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { FormData, Question, QuestionType } from '../../services/formsService';
 import QuestionEditor from './QuestionEditor';
+import { QuestionRole } from '../variants/QuestionRoleBadge';
 
 interface FormCanvasProps {
   form: FormData;
@@ -11,6 +12,9 @@ interface FormCanvasProps {
   onDeleteQuestion: (questionId: string) => void;
   onDuplicateQuestion: (questionId: string) => void;
   onReorderQuestions: (startIndex: number, endIndex: number) => void;
+  questionDesignRoles?: Record<string, QuestionRole>;
+  sourceVariantQuestions?: Question[];
+  sourceVariantLabel?: string;
 }
 
 const FormCanvas: React.FC<FormCanvasProps> = ({
@@ -22,6 +26,9 @@ const FormCanvas: React.FC<FormCanvasProps> = ({
   onDeleteQuestion,
   onDuplicateQuestion,
   onReorderQuestions,
+  questionDesignRoles,
+  sourceVariantQuestions,
+  sourceVariantLabel,
 }) => {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
@@ -190,6 +197,9 @@ const FormCanvas: React.FC<FormCanvasProps> = ({
                   onUpdate={(updates) => onUpdateQuestion(question.id, updates)}
                   onDelete={() => onDeleteQuestion(question.id)}
                   onDuplicate={() => onDuplicateQuestion(question.id)}
+                  questionDesignRole={questionDesignRoles?.[question.id]}
+                  sourceVariantQuestions={sourceVariantQuestions}
+                  sourceVariantLabel={sourceVariantLabel}
                 />
               </div>
             ))}

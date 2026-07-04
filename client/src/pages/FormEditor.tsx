@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import FormFieldsPanel from '../components/FormEditor/FormFieldsPanel';
 import FormCanvas from '../components/FormEditor/FormCanvas';
@@ -6,19 +6,24 @@ import FormSettings from '../components/FormEditor/FormSettings';
 import FormPreview from '../components/FormEditor/FormPreview';
 import AIFormChat from '../components/FormEditor/AIFormChat';
 import { QuotaLimitBanner } from '../components/common';
+import { useShareFormModal } from '../hooks/useShareFormModal';
 import { FormData, Question, QuestionType, FormSettings as FormSettingsType } from '../services/formsService';
 import formsService from '../services/formsService';
+import projectsService, { ProjectData } from '../services/projectsService';
 import { GeneratedForm } from '../services/aiService';
 import { useAuth } from '../context/AuthContext';
 import { migrateQuestionForOther } from '../utils/otherOption';
 import { useUsageLimits } from '../hooks/useUsageLimits';
 import { parseQuotaErrorFromAxios } from '../utils/quotaErrors';
+import { QuestionRole } from '../components/variants/QuestionRoleBadge';
 
 const FormEditor: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const [searchParams] = useSearchParams();
+  const projectId = searchParams.get('projectId');
+  const editQuestionsParam = searchParams.get('editQuestions');
   const [form, setForm] = useState<FormData>({
     title: 'Untitled Form',
     description: '',
@@ -37,8 +42,15 @@ const FormEditor: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [project, setProject] = useState<ProjectData | null>(null);
+  const [sourceVariantQuestions, setSourceVariantQuestions] = useState<Question[]>([]);
   const { formsExceeded } = useUsageLimits();
   const isNewForm = !id || id === 'new';
+  const displayVariantKey = searchParams.get('variant') ?? form.variantKey;
+  const backTarget = projectId ? `/projects/${projectId}/variants` : '/overview';
+  const { openShareForForm, ShareFormUI } = useShareFormModal((updatedForm) => {
+    setForm(updatedForm);
+  });
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -57,6 +69,60 @@ const FormEditor: React.FC = () => {
     }
   }, [id, isAuthenticated, navigate, searchParams]);
 
+  useEffect(() => {
+    if (!projectId) {
+      setProject(null);
+      return;
+    }
+    projectsService.getProject(projectId).then(setProject).catch(() => setProject(null));
+  }, [projectId]);
+
+  useEffect(() => {
+    if (!project || !form.variantKey || form.variantKey === 'main') {
+      setSourceVariantQuestions([]);
+      return;
+    }
+    const sourceVariant = project.variants.find((variant) => variant.key === 'main');
+    if (!sourceVariant) {
+      setSourceVariantQuestions([]);
+      return;
+    }
+    formsService
+      .getForm(sourceVariant.formId)
+      .then((sourceForm) => setSourceVariantQuestions(sourceForm.questions))
+      .catch(() => setSourceVariantQuestions([]));
+  }, [project, form.variantKey]);
+
+  useEffect(() => {
+    if (!editQuestionsParam || form.questions.length === 0) return;
+    const firstEditId = editQuestionsParam.split(',')[0];
+    if (firstEditId) setSelectedQuestionId(firstEditId);
+  }, [editQuestionsParam, form.questions.length]);
+
+  const questionDesignRoles = useMemo(() => {
+    if (!project?.splitQuestionnaireDesign || !form.variantKey) return undefined;
+    const design = project.splitQuestionnaireDesign.perVariant?.[form.variantKey];
+    if (!design) return undefined;
+    const roles: Record<string, QuestionRole> = {};
+    for (const id of project.splitQuestionnaireDesign.coreQuestionIds ?? []) {
+      roles[id] = 'core';
+    }
+    for (const id of design.modifiedQuestionIds ?? []) {
+      roles[id] = 'modify';
+    }
+    for (const id of design.excludedQuestionIds ?? []) {
+      roles[id] = 'exclude';
+    }
+    for (const id of design.polarityFlippedQuestionIds ?? []) {
+      roles[id] = 'polarity_flip';
+    }
+    return roles;
+  }, [project, form.variantKey]);
+
+  const editQuestionIds = editQuestionsParam
+    ? editQuestionsParam.split(',').filter(Boolean)
+    : [];
+
   const loadForm = async (formId: string) => {
     setLoading(true);
     try {
@@ -66,8 +132,7 @@ const FormEditor: React.FC = () => {
       setForm(migratedForm);
     } catch (error) {
       console.error('Error loading form:', error);
-      // If form not found or error, redirect to dashboard
-      navigate('/dashboard');
+      navigate(backTarget);
     } finally {
       setLoading(false);
     }
@@ -244,16 +309,17 @@ const FormEditor: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
+      <div className="border-b border-gray-200 bg-white px-6 py-4 shadow-sm">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <button
-              onClick={() => navigate('/dashboard')}
-              className="text-gray-600 hover:text-gray-900"
+              onClick={() => navigate(backTarget)}
+              className="inline-flex items-center gap-2 rounded-lg px-2 py-1 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900"
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
+              Back to study
             </button>
             <div>
               <input
@@ -266,12 +332,22 @@ const FormEditor: React.FC = () => {
               {hasUnsavedChanges && (
                 <span className="text-sm text-orange-600 ml-2">• Unsaved changes</span>
               )}
+              {displayVariantKey && (
+                <span className="ml-2 rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-800">
+                  Variant {displayVariantKey}
+                </span>
+              )}
+              {project?.researchDesignType === 'split_questionnaire' && (
+                <span className="ml-2 rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-800">
+                  Split questionnaire
+                </span>
+              )}
             </div>
           </div>
 
           <div className="flex items-center space-x-4">
             {/* Tab Navigation */}
-            <div className="flex bg-gray-100 rounded-lg p-1">
+            <div className="flex rounded-xl bg-gray-100 p-1">
               <button
                 onClick={() => setActiveTab('design')}
                 className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
@@ -318,6 +394,15 @@ const FormEditor: React.FC = () => {
                 <span>Save</span>
               )}
             </button>
+
+            {!isNewForm && form._id && (
+              <button
+                onClick={() => openShareForForm(form)}
+                className="border border-gray-300 bg-white px-4 py-2 rounded-md text-gray-700 hover:bg-gray-50"
+              >
+                Share
+              </button>
+            )}
           </div>
         </div>
         {isNewForm && formsExceeded && (
@@ -330,6 +415,12 @@ const FormEditor: React.FC = () => {
           <p className="mt-3 text-sm text-red-600" role="alert">
             {saveError}
           </p>
+        )}
+        {editQuestionIds.length > 0 && (
+          <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+            Edit the {editQuestionIds.length} question(s) marked for modification in this split
+            variant. Questions with reverse polarity already have reverse coding enabled.
+          </div>
         )}
       </div>
 
@@ -353,6 +444,9 @@ const FormEditor: React.FC = () => {
                 onDeleteQuestion={deleteQuestion}
                 onDuplicateQuestion={duplicateQuestion}
                 onReorderQuestions={reorderQuestions}
+                questionDesignRoles={questionDesignRoles}
+                sourceVariantQuestions={sourceVariantQuestions}
+                sourceVariantLabel="main"
               />
             </div>
 
@@ -389,6 +483,8 @@ const FormEditor: React.FC = () => {
           </div>
         )}
       </div>
+
+      <ShareFormUI />
     </div>
   );
 };

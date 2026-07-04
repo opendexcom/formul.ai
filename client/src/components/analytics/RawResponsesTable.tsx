@@ -31,7 +31,7 @@ interface RawResponsesTableProps {
 export const RawResponsesTable: React.FC<RawResponsesTableProps> = ({
   form,
   responses,
-  showAnalyticsStatus = false
+  showAnalyticsStatus = false,
 }) => {
   if (responses.length === 0) {
     return null;

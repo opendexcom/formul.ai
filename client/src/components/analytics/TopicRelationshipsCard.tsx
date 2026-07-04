@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Network, TrendingUp, ChevronDown, ChevronUp } from 'lucide-react';
 import { AnalyticsData } from '../../types/analytics';
-import { topicMatchesFilter, anyTopicMatchesFilter } from '../../utils/topic-filter.util';
+import { anyTopicMatchesFilter } from '../../utils/topic-filter.util';
 
 interface TopicRelationshipsCardProps {
   analytics?: AnalyticsData;

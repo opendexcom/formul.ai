@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Question, QuestionType } from '../../services/formsService';
 import { isOtherOption, getOptionLabel, markAsOtherOption, findOtherOption, getOtherOptionIndex, migrateQuestionForOther } from '../../utils/otherOption';
+import { QuestionRoleBadge, QuestionRole } from '../variants/QuestionRoleBadge';
 
 interface QuestionEditorProps {
   question: Question;
@@ -8,6 +9,10 @@ interface QuestionEditorProps {
   onUpdate: (updates: Partial<Question>) => void;
   onDelete: () => void;
   onDuplicate: () => void;
+  questionDesignRole?: QuestionRole;
+  /** Questions from the source variant (usually main) for pairing reverse-coded items. */
+  sourceVariantQuestions?: Question[];
+  sourceVariantLabel?: string;
 }
 
 const QuestionEditor: React.FC<QuestionEditorProps> = ({
@@ -16,7 +21,26 @@ const QuestionEditor: React.FC<QuestionEditorProps> = ({
   onUpdate,
   onDelete,
   onDuplicate,
+  questionDesignRole,
+  sourceVariantQuestions,
+  sourceVariantLabel = 'main',
 }) => {
+  const pairedOriginal = sourceVariantQuestions?.find(
+    (candidate) => candidate.id === (question.pairedQuestionId ?? question.id),
+  );
+
+  const handleReverseCodedChange = (checked: boolean) => {
+    const updates: Partial<Question> = { reverseCoded: checked };
+    if (checked && sourceVariantQuestions?.length) {
+      const match =
+        sourceVariantQuestions.find((candidate) => candidate.id === question.id) ??
+        sourceVariantQuestions.find((candidate) => candidate.type === question.type);
+      updates.pairedQuestionId = match?.id ?? sourceVariantQuestions[0].id;
+    } else if (!checked) {
+      updates.pairedQuestionId = undefined;
+    }
+    onUpdate(updates);
+  };
   const [isEditing, setIsEditing] = useState(false);
   const [placeholderInputs, setPlaceholderInputs] = useState<Record<string, string>>({});
 
@@ -528,6 +552,11 @@ const QuestionEditor: React.FC<QuestionEditorProps> = ({
     <div className="p-6">
       {/* Question Title */}
       <div className="mb-4">
+        {questionDesignRole && questionDesignRole !== 'core' && (
+          <div className="mb-2">
+            <QuestionRoleBadge role={questionDesignRole} />
+          </div>
+        )}
         {isSelected ? (
           <input
             type="text"
@@ -568,40 +597,82 @@ const QuestionEditor: React.FC<QuestionEditorProps> = ({
 
       {/* Question Actions */}
       {isSelected && (
-        <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-          <div className="flex items-center space-x-4">
-            {question.type !== QuestionType.COMMENT && (
-              <label className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  checked={question.required}
-                  onChange={(e) => onUpdate({ required: e.target.checked })}
-                  className="text-blue-600"
-                />
-                <span className="text-sm text-gray-700">Required</span>
+        <div className="space-y-3 border-t border-gray-200 pt-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-4">
+              {question.type !== QuestionType.COMMENT && (
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={question.required}
+                    onChange={(e) => onUpdate({ required: e.target.checked })}
+                    className="text-blue-600"
+                  />
+                  <span className="text-sm text-gray-700">Required</span>
+                </label>
+              )}
+              {question.type === QuestionType.RATING && (
+                <label className="flex items-center space-x-2" title="Higher values mean the opposite of the construct">
+                  <input
+                    type="checkbox"
+                    checked={question.reverseCoded ?? false}
+                    onChange={(e) => handleReverseCodedChange(e.target.checked)}
+                    className="text-purple-600"
+                  />
+                  <span className="text-sm text-gray-700">Reverse coded</span>
+                </label>
+              )}
+            </div>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={onDuplicate}
+                className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
+                title="Duplicate question"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+              </button>
+              <button
+                onClick={onDelete}
+                className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded"
+                title="Delete question"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+            </div>
+          </div>
+          {question.reverseCoded && sourceVariantQuestions && sourceVariantQuestions.length > 0 && (
+            <div className="max-w-md">
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                Original question (variant {sourceVariantLabel})
               </label>
-            )}
-          </div>
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={onDuplicate}
-              className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
-              title="Duplicate question"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-              </svg>
-            </button>
-            <button
-              onClick={onDelete}
-              className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded"
-              title="Delete question"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
-            </button>
-          </div>
+              <select
+                value={question.pairedQuestionId ?? question.id}
+                onChange={(e) => onUpdate({ pairedQuestionId: e.target.value, reverseCoded: true })}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+              >
+                {sourceVariantQuestions.map((candidate) => (
+                  <option key={candidate.id} value={candidate.id}>
+                    {candidate.title}
+                  </option>
+                ))}
+              </select>
+              {pairedOriginal && (
+                <p className="mt-1 text-xs text-purple-700">
+                  This reverse-coded item pairs with: &ldquo;{pairedOriginal.title}&rdquo;
+                </p>
+              )}
+            </div>
+          )}
+          {question.type === QuestionType.RATING && question.reverseCoded && (
+            <p className="text-xs text-purple-700">
+              Higher values mean the opposite of the construct; analytics will invert scores before
+              comparison.
+            </p>
+          )}
         </div>
       )}
 

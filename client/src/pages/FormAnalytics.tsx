@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
   Users,
@@ -9,7 +9,7 @@ import {
   PieChart,
   TrendingUp,
   RefreshCw,
-  Filter
+  Filter,
 } from 'lucide-react';
 import formsService, { FormData } from '../services/formsService';
 import { QuotaLimitBanner } from '../components/common';
@@ -67,9 +67,21 @@ const hasAnalyticsData = (analytics: AnalyticsData | null): boolean => {
          (analytics.topics?.topTopics && analytics.topics.topTopics.length > 0);
 };
 
-const FormAnalytics: React.FC = () => {
-  const { formId } = useParams<{ formId: string }>();
+const FormAnalytics: React.FC<{
+  embedded?: boolean;
+  formIdOverride?: string;
+  projectIdOverride?: string;
+  variantOverride?: string;
+}> = ({ embedded = false, formIdOverride, projectIdOverride, variantOverride }) => {
+  const { formId: routeFormId } = useParams<{ formId: string }>();
+  const formId = formIdOverride ?? routeFormId;
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const projectIdFromQuery = projectIdOverride ?? searchParams.get('projectId');
+  const variantFromQuery = variantOverride ?? searchParams.get('variant');
+  const backTarget = projectIdFromQuery
+    ? `/projects/${projectIdFromQuery}/variants`
+    : '/overview';
   const [form, setForm] = useState<FormData | null>(null);
   const [responses, setResponses] = useState<ResponseData[]>([]);
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
@@ -82,6 +94,9 @@ const FormAnalytics: React.FC = () => {
   const [, setCurrentTaskId] = useState<string | null>(null);
   const { tokensExceeded } = useUsageLimits();
   const analyticsBlocked = tokensExceeded;
+
+  const LayoutWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) =>
+    embedded ? <>{children}</> : <AppPageLayout>{children}</AppPageLayout>;
 
   // Detailed progress stats
   const [progressStats, setProgressStats] = useState<{
@@ -524,45 +539,54 @@ const FormAnalytics: React.FC = () => {
 
   if (loading) {
     return (
-      <AppPageLayout>
+      <LayoutWrapper>
         <div className="flex items-center justify-center py-12">
           <LoadingSpinner size="lg" text="Loading analytics..." />
         </div>
-      </AppPageLayout>
+      </LayoutWrapper>
     );
   }
 
   if (error && !form) {
     return (
-      <AppPageLayout>
+      <LayoutWrapper>
         <div>
           <Alert type="error" message={error} className="mb-4" />
-          <Button variant="secondary" onClick={() => navigate('/dashboard')}>
-            Back to Dashboard
-          </Button>
+          {!embedded && (
+            <Button variant="secondary" onClick={() => navigate(backTarget)}>
+              Back
+            </Button>
+          )}
         </div>
-      </AppPageLayout>
+      </LayoutWrapper>
     );
   }
 
   if (!form) return null;
 
   return (
-    <AppPageLayout>
+    <LayoutWrapper>
       <div className="w-full">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center space-x-4">
-            <Button
-              variant="ghost"
-              icon={ArrowLeft}
-              onClick={() => navigate('/dashboard')}
-            >
-              Back
-            </Button>
+            {!embedded && (
+              <Button
+                variant="ghost"
+                icon={ArrowLeft}
+                onClick={() => navigate(backTarget)}
+              >
+                Back
+              </Button>
+            )}
             <div>
               <h1 className="text-2xl font-bold text-gray-900">{form.title}</h1>
               <p className="text-gray-600">Form Analytics</p>
+              {projectIdFromQuery && (variantFromQuery || form.variantKey) && (
+                <p className="mt-1 text-sm text-blue-700">
+                  Variant {variantFromQuery || form.variantKey}
+                </p>
+              )}
             </div>
           </div>
 
@@ -657,9 +681,11 @@ const FormAnalytics: React.FC = () => {
           <div className="bg-white rounded-lg shadow-sm border p-10 text-center">
             <PieChart className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No responses yet</h3>
-            <p className="text-gray-600 mb-4">Share your form to start collecting responses and see analytics here.</p>
-            <Button variant="primary" onClick={() => navigate(`/forms/${formId}/edit`)}>
-              Share Form
+            <p className="text-gray-600 mb-4">
+              Collect responses first, then return here to review analytics.
+            </p>
+            <Button variant="secondary" onClick={() => navigate(backTarget)}>
+              Back to study
             </Button>
           </div>
         ) : hasActiveFilters && filteredResponses.length === 0 ? (
@@ -893,7 +919,7 @@ const FormAnalytics: React.FC = () => {
         pendingResponses={responses.filter(r => !r.metadata?.processedForAnalytics && r.metadata?.hasTextContent).length}
         hasExistingAnalytics={hasAnalyticsData(analytics)}
       />
-    </AppPageLayout>
+    </LayoutWrapper>
   );
 };
 
