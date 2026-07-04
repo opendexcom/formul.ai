@@ -5,6 +5,7 @@ import { ResponseDocument } from '../../schemas/response.schema';
 import { Form, FormDocument } from '../../schemas/form.schema';
 import { TrendAnalysis } from '../calculators/trend.calculator';
 import { AnalyticsUsageTrackerService } from '../services/analytics-usage-tracker.service';
+import { ResearchContextService } from '../../projects/research-context.service';
 
 /**
  * Summary Generator
@@ -22,6 +23,7 @@ export class SummaryGenerator {
     private aiService: AiService,
     private promptBuilder: PromptBuilder,
     private analyticsUsageTracker: AnalyticsUsageTrackerService,
+    private researchContextService: ResearchContextService,
   ) {}
 
   /**
@@ -118,6 +120,9 @@ export class SummaryGenerator {
         : undefined;
 
       // Build variables and run via registered MLflow flow (traced as formulai.analytics.summary)
+      const researchContext = await this.researchContextService.resolveForForm(
+        form as FormDocument,
+      );
       const summaryVariables = this.promptBuilder.buildAnalyticsSummaryVariables(
         form,
         topTopics,
@@ -128,6 +133,7 @@ export class SummaryGenerator {
         closedQuestionInsights,
         negativeTopics,
         formattedTrends,
+        researchContext,
       );
 
       console.log(

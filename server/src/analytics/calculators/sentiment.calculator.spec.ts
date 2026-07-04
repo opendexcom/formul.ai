@@ -29,6 +29,20 @@ describe('SentimentCalculator', () => {
       expect(dist.averageScore).toBeCloseTo((0.8 + -0.4) / 2, 5);
     });
 
+    it('counts ambivalent labels as neutral', () => {
+      const responses: MockResponse[] = [
+        { metadata: { overallSentiment: { label: 'ambivalent', score: 0.15 } } },
+        { metadata: { overallSentiment: { label: 'ambivalent', score: 0.1 } } },
+      ];
+
+      const dist = calculator.calculateSentimentDistribution(responses as any);
+
+      expect(dist.positive).toBe(0);
+      expect(dist.neutral).toBe(100);
+      expect(dist.negative).toBe(0);
+      expect(dist.averageScore).toBeCloseTo(0.125, 5);
+    });
+
     it('returns zeros when there are no responses', () => {
       const dist = calculator.calculateSentimentDistribution([] as any);
 

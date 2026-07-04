@@ -115,7 +115,13 @@ export class AnalyticsAggregationService {
               $sum: { $cond: [{ $eq: ['$sentiment', 'positive'] }, 1, 0] },
             },
             neutral: {
-              $sum: { $cond: [{ $eq: ['$sentiment', 'neutral'] }, 1, 0] },
+              $sum: {
+                $cond: [
+                  { $in: ['$sentiment', ['neutral', 'ambivalent']] },
+                  1,
+                  0,
+                ],
+              },
             },
             negative: {
               $sum: { $cond: [{ $eq: ['$sentiment', 'negative'] }, 1, 0] },
@@ -200,7 +206,10 @@ export class AnalyticsAggregationService {
               $sum: {
                 $cond: [
                   {
-                    $eq: ['$metadata.overallSentiment.label', 'neutral'],
+                    $in: [
+                      '$metadata.overallSentiment.label',
+                      ['neutral', 'ambivalent'],
+                    ],
                   },
                   1,
                   0,

@@ -6,6 +6,9 @@ import { Form, FormDocument } from '../../schemas/form.schema';
 import { AiService } from '../../ai/ai.service';
 import { TopicVectorStore } from '../stores/topic-vector.store';
 import {
+  buildDeterministicTopicMapping,
+} from '../utils/normalize-canonical-topic.util';
+import {
   buildClustersFromGroups,
   normalizeTopicKey,
   pickCanonicalLabelFromCluster,
@@ -31,6 +34,10 @@ const BULK_WRITE_BATCH_SIZE = parseInt(
 const KNN_K = parseInt(process.env.ANALYTICS_TOPIC_KNN_K ?? '15', 10);
 const LLM_LABEL_CLUSTERS =
   process.env.ANALYTICS_TOPIC_LLM_LABEL_CLUSTERS !== 'false';
+const LLM_CLUSTERING_MIN_TOPICS = parseInt(
+  process.env.ANALYTICS_LLM_CLUSTERING_MIN_TOPICS ?? '25',
+  10,
+);
 
 /**
  * Topic Clusterer — vector-first canonical topic creation with LLM fallback.
@@ -112,7 +119,8 @@ export class TopicClusterer {
     const topicCounts = await this.getTopicCounts(formId, questionFocusPhrases);
     await this.topicVectorStore.upsertTopics(formIdStr, topicCounts);
 
-    const canonicalMapping = this.topicVectorStore.isAvailable()
+    const vectorClusteringReady = await this.topicVectorStore.prepareForClustering();
+    const canonicalMapping = vectorClusteringReady
       ? await this.createVectorCanonicalMapping(
           formIdStr,
           filteredUniqueTopics,
@@ -493,6 +501,15 @@ export class TopicClusterer {
     userId?: string,
   ): Promise<Record<string, string>> {
     if (rawTopics.length === 0) return {};
+
+    const deterministic = buildDeterministicTopicMapping(rawTopics);
+    const uniqueCanonical = new Set(Object.values(deterministic));
+    if (uniqueCanonical.size <= LLM_CLUSTERING_MIN_TOPICS) {
+      console.log(
+        `[TopicClusterer][${taskId}] Skipping LLM topic clustering: ${uniqueCanonical.size} unique topics after normalization`,
+      );
+      return deterministic;
+    }
 
     const batchFlow = await this.aiService.invokeFlow(
       'analytics.topic_clustering_batch',

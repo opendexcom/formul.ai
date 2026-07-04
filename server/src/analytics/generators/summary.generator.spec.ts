@@ -2,6 +2,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { SummaryGenerator } from './summary.generator';
 import { AiService } from '../../ai/ai.service';
 import { PromptBuilder } from '../utils/prompt.builder';
+import { AnalyticsUsageTrackerService } from '../services/analytics-usage-tracker.service';
+import { ResearchContextService } from '../../projects/research-context.service';
 
 describe('SummaryGenerator', () => {
   let generator: SummaryGenerator;
@@ -34,6 +36,14 @@ describe('SummaryGenerator', () => {
           useValue: {
             buildAnalyticsSummaryVariables: mockBuildAnalyticsSummaryVariables,
           },
+        },
+        {
+          provide: AnalyticsUsageTrackerService,
+          useValue: { recordUsage: jest.fn() },
+        },
+        {
+          provide: ResearchContextService,
+          useValue: { resolveForForm: jest.fn().mockResolvedValue(null) },
         },
       ],
     }).compile();

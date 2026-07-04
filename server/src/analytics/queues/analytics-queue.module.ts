@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { BullModule } from '@nestjs/bull';
 import { MongooseModule } from '@nestjs/mongoose';
 import { QueueName } from './queue.names';
@@ -31,6 +31,8 @@ import { DeadLetterService } from './dead-letter.service';
 import { DeadLetterConsumer } from './dead-letter.consumer';
 import { AnalyticsInsightsGraphService } from '../../graphs/analytics/analytics-insights.graph.service';
 import { AnalyticsUsageTrackerService } from '../services/analytics-usage-tracker.service';
+import { ProjectsModule } from '../../projects/projects.module';
+import { NotificationsModule } from '../../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -123,6 +125,8 @@ import { AnalyticsUsageTrackerService } from '../services/analytics-usage-tracke
       { name: Response.name, schema: getCoreSchemaOrThrow(Response.name) },
     ]),
     AiCoreModule,
+    forwardRef(() => ProjectsModule),
+    NotificationsModule,
   ],
   providers: [
     // Queue producers/consumers

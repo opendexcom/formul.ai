@@ -12,6 +12,7 @@ import { ProgressService } from './progress.service';
 import { DeadLetterService } from './dead-letter.service';
 import { MlflowPromptService } from '../../mlflow/mlflow-prompt.service';
 import { AnalyticsAggregationService } from '../utils/analytics-aggregation.service';
+import { NotificationsService } from '../../notifications/notifications.service';
 import { extractQuestionFocusPhrases } from '../utils/topic-question-filter.util';
 import { Form } from '../../schemas/form.schema';
 import type { FormDocument } from '../../schemas/form.schema';
@@ -27,6 +28,7 @@ export class AggregationConsumer {
     private readonly deadLetterService: DeadLetterService,
     private readonly mlflowPrompts: MlflowPromptService,
     private readonly aggregationService: AnalyticsAggregationService,
+    private readonly notificationsService: NotificationsService,
     @InjectModel(Form.name) private readonly formModel: Model<FormDocument>,
   ) {}
 
@@ -255,6 +257,21 @@ export class AggregationConsumer {
     };
 
     await form.save();
+
+    const ownerId = form.createdBy?.toString();
+    if (ownerId) {
+      const params = new URLSearchParams();
+      if (form.projectId) params.set('projectId', String(form.projectId));
+      if (form.variantKey) params.set('variant', form.variantKey);
+      const query = params.toString();
+      await this.notificationsService.create({
+        userId: ownerId,
+        type: 'analysis_complete',
+        title: 'Analysis ready',
+        body: `Analytics for "${form.title}" are ready to review.`,
+        href: `/forms/${formId}/analytics${query ? `?${query}` : ''}`,
+      });
+    }
 
     console.log(
       `[AggregationConsumer][${taskId}] Aggregation complete - stored analytics for ${responseCount} responses (sampling strategy: ${samplingStrategy.description}, quality score: ${qualitySummary.avgCompleteness})`,

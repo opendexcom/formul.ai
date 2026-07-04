@@ -13,6 +13,9 @@ import {
 } from '../utils/topic-question-filter.util';
 import { ProgressCallback, ProcessingResult } from '../core/analytics.types';
 import { AnalyticsUsageTrackerService } from '../services/analytics-usage-tracker.service';
+import { ResearchContextService } from '../../projects/research-context.service';
+import { ResearchContext } from '../../projects/research-context.types';
+import { normalizeCanonicalTopicLabel } from '../utils/normalize-canonical-topic.util';
 
 /**
  * Response Processor
@@ -41,6 +44,7 @@ export class ResponseProcessor {
     private promptBuilder: PromptBuilder,
     private topicVectorStore: TopicVectorStore,
     private analyticsUsageTracker: AnalyticsUsageTrackerService,
+    private researchContextService: ResearchContextService,
     @InjectModel(Response.name) private responseModel: Model<ResponseDocument>,
   ) {}
 
@@ -57,6 +61,9 @@ export class ResponseProcessor {
     console.log(`[ResponseProcessor][${taskId}] Starting response processing`);
 
     const formId = (form as FormDocument)._id || (form as any).id;
+    const researchContext = await this.researchContextService.resolveForForm(
+      form as FormDocument,
+    );
 
     // 1. Claim unprocessed responses (get list and send event to reset frontend to "Not started")
   const claimResult = await this.claimUnprocessedResponses(formId as Types.ObjectId, taskId, progressCallback, allowedResponseIds);
@@ -115,6 +122,15 @@ export class ResponseProcessor {
 
     console.log(`[ResponseProcessor][${taskId}] Created ${chunks.length} chunks (size: ${chunkSize}, avg length: ${avgLength})`);
 
+    const knownCanonicalTopics = new Set<string>(
+      (
+        await this.responseModel.distinct('metadata.allTopics', {
+          formId,
+          'metadata.processedForAnalytics': true,
+        })
+      ).filter((t): t is string => typeof t === 'string' && t.trim().length > 0),
+    );
+
     // 4. Send initial "processing started" event (no specific response IDs yet)
     const totalWaves = Math.ceil(chunks.length / this.MAX_CONCURRENCY);
     progressCallback({
@@ -157,7 +173,15 @@ export class ResponseProcessor {
       try {
         const waveResults = await Promise.all(
           wave.map((chunk, waveIdx) => 
-            this.processChunkInParallel(chunk, form, i + waveIdx, taskId, userId)
+            this.processChunkInParallel(
+              chunk,
+              form,
+              i + waveIdx,
+              taskId,
+              userId,
+              researchContext,
+              [...knownCanonicalTopics],
+            )
           )
         );
 
@@ -166,6 +190,17 @@ export class ResponseProcessor {
           form,
           wave.flat(),
         );
+        for (const chunkResult of waveResults) {
+          for (const entry of chunkResult?.topics || []) {
+            for (const t of entry.topics || []) {
+              const label =
+                typeof t?.topic === 'string'
+                  ? normalizeCanonicalTopicLabel(t.topic)
+                  : '';
+              if (label) knownCanonicalTopics.add(label);
+            }
+          }
+        }
         omittedResponseIds.push(...omittedIds);
         processedChunks += wave.length;
 
@@ -199,6 +234,7 @@ export class ResponseProcessor {
         omittedResponseIds,
         progressCallback,
         userId,
+        researchContext,
       );
       if (retriedIds.length > 0) {
         progressCallback({
@@ -228,6 +264,7 @@ export class ResponseProcessor {
     omittedIds: string[],
     progressCallback: ProgressCallback,
     userId?: string,
+    researchContext?: ResearchContext | null,
   ): Promise<string[]> {
     const uniqueIds = [...new Set(omittedIds)];
     console.warn(
@@ -259,6 +296,7 @@ export class ResponseProcessor {
           i,
           taskId,
           userId,
+          researchContext,
         );
         const { processedIds, omittedIds } = await this.saveChunkResults(
           [chunkResult],
@@ -332,6 +370,8 @@ export class ResponseProcessor {
     chunkIndex: number,
     taskId: string,
     userId?: string,
+    researchContext?: ResearchContext | null,
+    knownCanonicalTopics: string[] = [],
   ): Promise<any> {
     const formId = String((form as FormDocument)._id ?? (form as any).id ?? '');
     const flowOpts = { skipValidation: true, formId, sessionId: taskId, userId };
@@ -339,7 +379,12 @@ export class ResponseProcessor {
     try {
       const combinedFlow = await this.aiService.invokeFlow(
         'analytics.combined_analysis',
-        this.promptBuilder.getCombinedAnalysisVariables(chunk, form as Form),
+        this.promptBuilder.getCombinedAnalysisVariables(
+          chunk,
+          form as Form,
+          researchContext,
+          knownCanonicalTopics,
+        ),
         flowOpts,
       );
       this.analyticsUsageTracker.recordUsage(taskId, combinedFlow.usage);
@@ -456,15 +501,21 @@ export class ResponseProcessor {
         };
 
         if (topicData?.topics) {
+          const normalizedTopics = (topicData.topics || []).map((t: any) =>
+            this.normalizeTopicEntry(t),
+          );
           // Backward-compat: keep legacy field while also storing enhanced fields
-          updateFields['metadata.topics'] = topicData.topics || [];
-          const topicNames = topicData.topics.map((t: any) => t.topic) || [];
+          updateFields['metadata.topics'] = normalizedTopics;
+          const topicNames = normalizedTopics.map((t: any) => t.topic) || [];
           const quoteThemes = (quoteData?.quotes || []).flatMap(
             (q: any) => q.themes || [],
           );
+          const normalizedQuoteThemes = quoteThemes.map((theme: string) =>
+            normalizeCanonicalTopicLabel(theme),
+          );
           const mergedTopics = [
             ...new Set(
-              [...topicNames, ...quoteThemes].filter(
+              [...topicNames, ...normalizedQuoteThemes].filter(
                 (t): t is string => typeof t === 'string' && t.trim().length > 0,
               ),
             ),
@@ -474,8 +525,8 @@ export class ResponseProcessor {
             mergedTopics,
             questionFocusPhrases,
           );
-          updateFields['metadata.primaryTopics'] = topicData.topics.filter((t: any) => t.isPrimary).map((t: any) => t.topic) || [];
-          updateFields['metadata.topicDetails'] = topicData.topics || [];
+          updateFields['metadata.primaryTopics'] = normalizedTopics.filter((t: any) => t.isPrimary).map((t: any) => t.topic) || [];
+          updateFields['metadata.topicDetails'] = normalizedTopics || [];
 
           if (mergedTopics.length > 0) {
             console.log(`[saveChunkResults] Response ${responseId} has ${mergedTopics.length} topics:`, mergedTopics);
@@ -611,11 +662,20 @@ export class ResponseProcessor {
       }
     }
 
-    if (this.topicVectorStore.isAvailable() && topicCounts.size > 0 && formIdStr) {
+    if (topicCounts.size > 0 && formIdStr) {
       await this.topicVectorStore.upsertTopics(formIdStr, topicCounts);
     }
     
     return { processedIds, omittedIds };
+  }
+
+  private normalizeTopicEntry(topicEntry: Record<string, unknown>) {
+    const rawTopic = typeof topicEntry.topic === 'string' ? topicEntry.topic : '';
+    const rawInVivo =
+      typeof topicEntry.inVivoCode === 'string' ? topicEntry.inVivoCode : rawTopic;
+    const topic = normalizeCanonicalTopicLabel(rawTopic || rawInVivo);
+    const inVivoCode = rawInVivo.trim() || topic;
+    return { ...topicEntry, topic, inVivoCode };
   }
 
   /**
