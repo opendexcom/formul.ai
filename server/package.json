@@ -62,7 +62,7 @@
     "js-yaml": "^4.2.0",
     "langchain": "^1.2.23",
     "libreoffice-convert": "^1.8.1",
-    "mongoose": "^8.24.0",
+    "mongoose": "^8.24.1",
     "nodemailer": "^8.0.7",
     "openai": "^6.7.0",
     "passport": "^0.7.0",
