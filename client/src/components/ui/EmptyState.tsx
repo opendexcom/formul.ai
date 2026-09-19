@@ -10,6 +10,7 @@ interface EmptyStateProps {
   onAction?: () => void;
   actionDisabled?: boolean;
   className?: string;
+  embedded?: boolean;
 }
 
 const EmptyState: React.FC<EmptyStateProps> = ({
@@ -19,10 +20,11 @@ const EmptyState: React.FC<EmptyStateProps> = ({
   actionLabel,
   onAction,
   actionDisabled = false,
-  className = ''
+  className = '',
+  embedded = false,
 }) => {
   return (
-    <div className={`bg-white rounded-xl shadow-sm border ${className}`}>
+    <div className={`${embedded ? '' : 'bg-white rounded-xl shadow-sm border'} ${className}`}>
       <div className="text-center py-12">
         <Icon className="w-12 h-12 text-gray-300 mx-auto mb-4" />
         <h4 className="text-lg font-medium text-gray-900 mb-2">{title}</h4>

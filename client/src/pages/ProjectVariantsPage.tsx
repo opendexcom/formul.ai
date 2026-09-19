@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { List, Pencil, Plus, Share2, Users, BarChart3 } from 'lucide-react';
 import { Alert, Button, LoadingSpinner } from '../components/ui';
 import { useShareFormModal } from '../hooks/useShareFormModal';
 import formsService from '../services/formsService';
@@ -115,9 +114,6 @@ const ProjectVariantsPage: React.FC = () => {
   const getOverview = (variant: ProjectVariant) =>
     variantOverviews.find((overview) => overview.key === variant.key);
 
-  const getVariantLabel = (variant: ProjectVariant, overview?: VariantOverview) =>
-    variant.targetGroup?.name ?? overview?.title ?? variant.key;
-
   if (loading) {
     return <LoadingSpinner size="lg" className="py-12" text="Loading project..." />;
   }
@@ -132,109 +128,85 @@ const ProjectVariantsPage: React.FC = () => {
 
   return (
     <>
-      {error && <Alert type="error" className="mb-6" message={error} />}
+      {error && <Alert type="error" className="mb-5" message={error} />}
 
-      <div className="mx-auto max-w-3xl space-y-4">
+      <div className="space-y-5">
         {project.variants.map((variant) => {
           const overview = getOverview(variant);
-          const label = getVariantLabel(variant, overview);
+          const groupName = variant.targetGroup?.name ?? 'General';
           const displayIndex = variantDisplayIndex[variant.key] ?? variant.key;
 
           return (
             <div
               key={variant.key}
-              className="rounded-xl border border-gray-200 bg-white p-5"
+              className="flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
             >
-              <div className="flex flex-col gap-4">
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                      Variant {displayIndex}: {label}
-                    </p>
-                    {overview?.isActive && (
-                      <span className="rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
-                        Active
-                      </span>
-                    )}
-                    {overview?.isPublic && (
-                      <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
-                        Public
-                      </span>
-                    )}
-                    {variant.targetGroup?.name && (
-                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
-                        {variant.targetGroup.name}
-                      </span>
-                    )}
-                  </div>
-                  {overview?.title && overview.title !== label && (
-                    <p className="mt-1 text-sm text-gray-600">{overview.title}</p>
-                  )}
-                  <div className="mt-3 flex flex-wrap gap-4 text-sm text-gray-500">
-                    <span>{overview?.questionCount ?? 0} questions</span>
-                    <span className="inline-flex items-center gap-1">
-                      <Users className="h-4 w-4" />
-                      {overview?.responseCount ?? 0} responses
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap gap-2 border-t border-gray-100 pt-4">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      navigate(`/projects/${project._id}/variants/${variant.key}/edit`)
-                    }
-                    className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-                  >
-                    <Pencil className="h-4 w-4" />
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleShareVariant(variant.formId, variant.key)}
-                    disabled={sharingVariantKey === variant.key}
-                    className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                  >
-                    <Share2 className="h-4 w-4" />
-                    {sharingVariantKey === variant.key ? 'Loading...' : 'Share'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      navigate(`/projects/${project._id}/variants/${variant.key}/responses`)
-                    }
-                    className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-                  >
-                    <List className="h-4 w-4" />
-                    Results ({overview?.responseCount ?? 0})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      navigate(`/projects/${project._id}/variants/${variant.key}/analytics`)
-                    }
-                    className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-                  >
-                    <BarChart3 className="h-4 w-4" />
-                    Analyze
-                  </button>
-                </div>
+              <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                <span>Variant {displayIndex}: {groupName}</span>
+                <span className="font-normal normal-case tracking-normal text-gray-400">•</span>
+                <span className="text-xs font-medium normal-case tracking-normal text-gray-500">
+                  {groupName}
+                </span>
+              </p>
+              <div>
+                <p className="text-base font-medium leading-6 text-gray-900">
+                  {overview?.title || 'Untitled form'}
+                </p>
+                <p className="mt-1 text-[13px] leading-[18px] text-gray-500">
+                  {overview?.questionCount ?? 0} questions · {overview?.responseCount ?? 0} responses
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2 border-t border-gray-200 pt-4">
+                <Button
+                  type="button"
+                  onClick={() =>
+                    navigate(`/projects/${project._id}/variants/${variant.key}/edit`)
+                  }
+                >
+                  Edit
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => handleShareVariant(variant.formId, variant.key)}
+                  disabled={sharingVariantKey === variant.key}
+                  className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50 disabled:cursor-not-allowed disabled:border-transparent disabled:bg-gray-100 disabled:text-gray-400"
+                >
+                  {sharingVariantKey === variant.key ? 'Loading...' : 'Share'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate(`/projects/${project._id}/variants/${variant.key}/responses`)
+                  }
+                  className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50"
+                >
+                  Results ({overview?.responseCount ?? 0})
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate(`/projects/${project._id}/variants/${variant.key}/analytics`)
+                  }
+                  className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50"
+                >
+                  Analyze
+                </button>
               </div>
             </div>
           );
         })}
 
         {nextVariantKey && (
-          <Button
-            variant="secondary"
-            icon={Plus}
-            onClick={handleAddVariant}
-            loading={addingVariant}
-            className="w-full"
-          >
-            Add variant
-          </Button>
+          <div className="flex justify-center pt-3">
+            <Button
+              variant="secondary"
+              onClick={handleAddVariant}
+              loading={addingVariant}
+              className="w-full max-w-3xl"
+            >
+              Add variant
+            </Button>
+          </div>
         )}
       </div>
 

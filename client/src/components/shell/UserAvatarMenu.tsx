@@ -11,7 +11,11 @@ import {
   usePlanUsageSnapshot,
 } from '../../hooks/usePlanUsageSnapshot';
 
-const UserAvatarMenu: React.FC = () => {
+interface UserAvatarMenuProps {
+  collapsed?: boolean;
+}
+
+const UserAvatarMenu: React.FC<UserAvatarMenuProps> = ({ collapsed = false }) => {
   const { user, logout } = useAuth();
   const { hasFeature } = useCapabilities();
   const hasBilling = useBillingAvailable();
@@ -21,6 +25,7 @@ const UserAvatarMenu: React.FC = () => {
   const menuRef = useRef<HTMLDivElement>(null);
 
   const initials = `${user?.firstName?.[0] ?? ''}${user?.lastName?.[0] ?? ''}`.toUpperCase() || '?';
+  const displayName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Account';
   const isAdmin = user?.roles?.includes('admin');
   const tokens = resolveTokenUsage(usage);
   const projects = resolveProjectUsage(usage);
@@ -45,20 +50,33 @@ const UserAvatarMenu: React.FC = () => {
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="flex items-center gap-2 rounded-lg py-1.5 pl-1.5 pr-2 transition hover:bg-gray-100"
+        className={`flex items-center rounded-lg transition hover:bg-gray-100 ${
+          collapsed ? 'mx-auto justify-center p-1' : 'mt-1 w-full gap-2 px-3 py-2.5'
+        }`}
         aria-expanded={open}
+        aria-haspopup="menu"
+        title={collapsed ? displayName : undefined}
       >
-        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-600 text-sm font-semibold text-white">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-semibold text-blue-600">
           {initials}
         </span>
-        <span className="hidden text-sm text-gray-700 sm:inline">
-          Welcome, {user?.firstName}
-        </span>
-        <ChevronDown className="hidden h-4 w-4 text-gray-400 sm:block" />
+        {!collapsed && (
+          <>
+            <span className="min-w-0 flex-1 truncate text-left text-sm font-medium text-gray-900">
+              {displayName}
+            </span>
+            <ChevronDown className="h-4 w-4 shrink-0 text-gray-400" />
+          </>
+        )}
       </button>
 
       {open && (
-        <div className="absolute right-0 z-50 mt-2 w-64 rounded-xl border border-gray-200 bg-white py-1 shadow-lg">
+        <div
+          role="menu"
+          className={`absolute z-50 w-64 rounded-xl border border-gray-200 bg-white py-1 shadow-lg ${
+            collapsed ? 'bottom-0 left-full ml-2' : 'bottom-full left-0 mb-2'
+          }`}
+        >
           <div className="border-b border-gray-100 px-4 py-3">
             <p className="text-sm font-semibold text-gray-900">
               {user?.firstName} {user?.lastName}
@@ -93,6 +111,7 @@ const UserAvatarMenu: React.FC = () => {
           </div>
           <button
             type="button"
+            role="menuitem"
             onClick={() => go('/settings/preferences')}
             className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
           >
@@ -100,6 +119,7 @@ const UserAvatarMenu: React.FC = () => {
           </button>
           <button
             type="button"
+            role="menuitem"
             onClick={() => go('/settings/preferences')}
             className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
           >
@@ -108,6 +128,7 @@ const UserAvatarMenu: React.FC = () => {
           {hasBilling && (
             <button
               type="button"
+              role="menuitem"
               onClick={() => go('/settings/billing')}
               className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
             >
@@ -117,6 +138,7 @@ const UserAvatarMenu: React.FC = () => {
           {isAdmin && (
             <button
               type="button"
+              role="menuitem"
               onClick={() => go(hasFeature('admin') ? '/admin' : '/admin/settings')}
               className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
             >
@@ -126,6 +148,7 @@ const UserAvatarMenu: React.FC = () => {
           <div className="my-1 border-t border-gray-100" />
           <button
             type="button"
+            role="menuitem"
             onClick={() => {
               setOpen(false);
               logout();

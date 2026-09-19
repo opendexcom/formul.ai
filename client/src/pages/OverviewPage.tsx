@@ -1,7 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ChevronDown, FlaskConical, Plus } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { QuotaLimitBanner } from '../components/common';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   CreateStudyModal,
   OverviewMetrics,
@@ -10,18 +8,15 @@ import {
   useStudiesFiltering,
   type StudySortOption,
 } from '../components/studies';
-import { Alert, EmptyState, LoadingSpinner } from '../components/ui';
-import { useBillingAvailable } from '../hooks/useBillingAvailable';
+import { Alert, Button, LoadingSpinner } from '../components/ui';
 import { useUsageLimits } from '../hooks/useUsageLimits';
 import projectsService, { type DashboardSummary } from '../services/projectsService';
 import { shellPageDescriptionClass, shellPageTitleClass } from '../components/shell/design-tokens';
-import { usePlanUsageSnapshot } from '../hooks/usePlanUsageSnapshot';
 
 const OverviewPage: React.FC = () => {
   const navigate = useNavigate();
-  const hasBilling = useBillingAvailable();
+  const location = useLocation();
   const { formsExceeded } = useUsageLimits();
-  const { planName } = usePlanUsageSnapshot();
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -54,10 +49,10 @@ const OverviewPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (window.location.hash === '#studies') {
+    if (location.hash === '#studies') {
       document.getElementById('studies-section')?.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [loading]);
+  }, [loading, location.hash]);
 
   const filteredStudies = useStudiesFiltering(
     summary?.studies ?? [],
@@ -78,71 +73,66 @@ const OverviewPage: React.FC = () => {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="flex flex-col gap-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
+        <div className="min-w-0">
           <h1 className={shellPageTitleClass}>Overview</h1>
           <p className={shellPageDescriptionClass}>
             Track the progress of your research and uncover insights.
           </p>
         </div>
-        <div className="relative">
-          <button
+        <div className="flex w-full max-w-xs flex-col items-end gap-1">
+          <Button
             type="button"
+            variant={formsExceeded ? 'secondary' : 'primary'}
             disabled={formsExceeded}
             onClick={() => setCreateOpen(true)}
-            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <Plus className="h-4 w-4" />
-            New Study
-            <ChevronDown className="h-4 w-4 opacity-80" />
-          </button>
+            + New Study
+          </Button>
+          {formsExceeded && (
+            <Link
+              to="/settings/billing"
+              className="text-right text-[13px] font-medium leading-[18px] text-red-800 hover:underline"
+            >
+              Study limit reached. Upgrade to create more.
+            </Link>
+          )}
         </div>
       </div>
 
-      {formsExceeded && (
-        <QuotaLimitBanner message="You've reached your studies limit." className="mb-2" />
-      )}
       {error && <Alert type="error" message={error} />}
 
-      {summary && (
-        <OverviewMetrics
-          summary={summary}
-          planName={planName}
-          showPlanCard={hasBilling}
-        />
-      )}
+      {summary && <OverviewMetrics summary={summary} />}
 
-      <section id="studies-section" className="space-y-4">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900">Your studies</h2>
-          <p className="text-sm text-gray-500">
-            Design variants, collect responses, and review analytics.
-          </p>
+      <section id="studies-section" className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-semibold leading-7 text-gray-900">Your studies</h2>
+            <p className="mt-1 text-[13px] leading-[18px] text-gray-500">
+              Design variants, collect responses, and review analytics.
+            </p>
+          </div>
+          <StudiesToolbar
+            search={search}
+            onSearchChange={setSearch}
+            statusFilter={statusFilter}
+            onStatusFilterChange={setStatusFilter}
+            typeFilter={typeFilter}
+            onTypeFilterChange={setTypeFilter}
+          />
         </div>
 
-        <StudiesToolbar
-          search={search}
-          onSearchChange={setSearch}
-          sort={sort}
-          onSortChange={setSort}
-          statusFilter={statusFilter}
-          onStatusFilterChange={setStatusFilter}
-          typeFilter={typeFilter}
-          onTypeFilterChange={setTypeFilter}
-        />
-
-        {!summary || summary.studies.length === 0 ? (
-          <EmptyState
-            icon={FlaskConical}
-            title="No studies yet"
-            description="Create your first study and start building variants with AI chat."
-            actionLabel="Create first study"
-            onAction={() => setCreateOpen(true)}
-            actionDisabled={formsExceeded}
+        {summary && (
+          <StudiesList
+            studies={filteredStudies}
+            hasAnyStudies={summary.studies.length > 0}
+            onRefresh={() => void loadSummary()}
+            sort={sort}
+            onSortChange={setSort}
+            onCreate={() => setCreateOpen(true)}
+            createDisabled={formsExceeded}
           />
-        ) : (
-          <StudiesList studies={filteredStudies} onRefresh={() => void loadSummary()} />
         )}
       </section>
 

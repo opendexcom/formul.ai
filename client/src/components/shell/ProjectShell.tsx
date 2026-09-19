@@ -1,16 +1,9 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { Link, NavLink, Outlet, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, BarChart3 } from 'lucide-react';
+import { NavLink, Outlet, useNavigate, useParams } from 'react-router-dom';
 import projectsService, { type ProjectData } from '../../services/projectsService';
 import { useCrossVariantAccess } from '../../hooks/useCrossVariantAccess';
 import { Alert, Button, LoadingSpinner } from '../ui';
-import {
-  shellPageTitleClass,
-  shellSubNavLinkClass,
-  studyStatusBadgeClass,
-  studyStatusLabels,
-  studyTypeBadgeClass,
-} from './design-tokens';
+import { studyStatusLabels } from './design-tokens';
 
 type ProjectShellContextValue = {
   project: ProjectData | null;
@@ -30,20 +23,21 @@ export function useProjectShell(): ProjectShellContextValue {
 }
 
 const tabClass = ({ isActive }: { isActive: boolean }) =>
-  `${shellSubNavLinkClass} ${
+  `inline-flex h-11 items-center border-b-2 px-4 text-sm transition ${
     isActive
-      ? 'bg-blue-50 text-blue-700'
-      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+      ? 'border-blue-600 font-semibold text-blue-600'
+      : 'border-transparent font-medium text-gray-500 hover:text-gray-700'
   }`;
 
 const ProjectShell: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
-  const { available: crossVariantAvailable, loading: crossVariantAccessLoading } =
-    useCrossVariantAccess();
+  const { available: crossVariantAvailable } = useCrossVariantAccess();
   const [project, setProject] = useState<ProjectData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!projectId) return;
@@ -55,6 +49,21 @@ const ProjectShell: React.FC = () => {
       setProject(null);
     }
   }, [projectId]);
+
+  const handleDelete = async () => {
+    if (!projectId) return;
+    try {
+      setDeleting(true);
+      setError('');
+      await projectsService.deleteProject(projectId);
+      navigate('/overview#studies');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete study');
+      setConfirmDelete(false);
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -102,62 +111,39 @@ const ProjectShell: React.FC = () => {
 
   return (
     <ProjectShellContext.Provider value={contextValue}>
-      <div className="space-y-6">
-        <Link
-          to="/overview#studies"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-gray-900"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to studies
-        </Link>
-
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h1 className={shellPageTitleClass}>{project.name}</h1>
-            {project.hypothesis && (
-              <p className="mt-1 max-w-3xl text-sm text-gray-600">{project.hypothesis}</p>
-            )}
-            <div className="mt-3 flex flex-wrap gap-2">
-              <span
-                className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${
-                  studyTypeBadgeClass[project.type]
-                }`}
-              >
-                {project.type === 'ab_test' ? 'A/B test' : 'Single study'}
+      <div className="space-y-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-0 flex-wrap items-center gap-3">
+            <h1 className="text-2xl font-semibold leading-8 text-gray-900">{project.name}</h1>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
+                {project.type === 'ab_test' ? 'A/B Study' : 'Single study'}
               </span>
-              <span
-                className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                  studyStatusBadgeClass[project.status]
-                }`}
-              >
+              <span className="inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
                 {studyStatusLabels[project.status] ?? project.status}
               </span>
             </div>
           </div>
-          {showCompareTab && (
-            <Button
-              variant="primary"
-              icon={BarChart3}
-              onClick={() => navigate(`/projects/${projectId}/compare`)}
-            >
-              Cross-variant analysis
-            </Button>
-          )}
-          {!crossVariantAccessLoading && crossVariantAvailable && project.variants.length < 2 && (
-            <p className="text-sm text-gray-500">
-              Add another variant to unlock cross-variant analysis.
-            </p>
-          )}
+          <Button
+            variant={confirmDelete ? 'danger' : 'secondary'}
+            disabled={deleting}
+            onClick={() => {
+              if (!confirmDelete) {
+                setConfirmDelete(true);
+                return;
+              }
+              void handleDelete();
+            }}
+          >
+            {deleting ? 'Deleting…' : confirmDelete ? 'Confirm delete' : 'Delete study'}
+          </Button>
         </div>
 
-        <nav
-          aria-label="Study sections"
-          className="flex flex-wrap gap-2 border-b border-gray-200 pb-4"
-        >
+        <nav aria-label="Study sections" className="flex gap-2 border-b border-gray-200">
           <NavLink to={`/projects/${projectId}/overview`} className={tabClass}>
-            Overview
+            Brief
           </NavLink>
-          <NavLink to={`/projects/${projectId}/variants`} className={tabClass}>
+          <NavLink to={`/projects/${projectId}/variants`} className={tabClass} end>
             Variants
           </NavLink>
           <NavLink to={`/projects/${projectId}/variants/main/responses`} className={tabClass}>

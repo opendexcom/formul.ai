@@ -76,7 +76,7 @@ const NotificationBell: React.FC = () => {
       <button
         type="button"
         onClick={handleOpen}
-        className="relative rounded-lg p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-700"
+        className="relative flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition hover:bg-gray-100 hover:text-gray-700"
         aria-label="Notifications"
         aria-expanded={open}
       >

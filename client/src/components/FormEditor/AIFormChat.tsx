@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Sparkles } from 'lucide-react';
 import { GeneratedForm } from '../../services/aiService';
@@ -70,6 +70,20 @@ const AIFormChat: React.FC<AIFormChatProps> = ({ currentForm, onFormGenerated })
   useEffect(() => {
     scrollToBottom();
   }, [messages, processingSteps]);
+
+  useLayoutEffect(() => {
+    const field = inputRef.current;
+    if (!field) return;
+    if (!field.value) {
+      field.style.height = '';
+      field.style.overflowY = 'hidden';
+      return;
+    }
+    field.style.height = 'auto';
+    const next = Math.min(field.scrollHeight, 160);
+    field.style.height = `${next}px`;
+    field.style.overflowY = field.scrollHeight > 160 ? 'auto' : 'hidden';
+  }, [input, limitsLoading, tokensExceeded]);
 
   useEffect(() => {
     const onSlotApiUpdated = (event: Event) => {
@@ -298,18 +312,25 @@ const AIFormChat: React.FC<AIFormChatProps> = ({ currentForm, onFormGenerated })
   }
 
   return (
-    <div className="flex flex-col h-full bg-gray-50">
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+    <div className="flex h-full flex-col bg-gray-50">
+      <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-4">
         {messages.map((message) => (
           <div key={message.id} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-[80%] rounded-lg px-4 py-2 ${message.type === 'user'
-                ? 'bg-blue-600 text-white'
-                : message.type === 'system'
-                  ? 'bg-red-50 text-red-900 border border-red-200'
-                  : 'bg-white text-gray-900 border border-gray-200'
-                }`}>
-              <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-              <span className="text-xs opacity-70 mt-1 block">
+            <div
+              className={`flex max-w-[85%] flex-col gap-1 rounded-xl p-3 ${
+                message.type === 'user'
+                  ? 'bg-blue-600 text-white'
+                  : message.type === 'system'
+                    ? 'border border-red-200 bg-red-50 text-red-900'
+                    : 'w-[230px] max-w-full bg-white text-gray-900'
+              }`}
+            >
+              <p className="whitespace-pre-wrap text-[13px] leading-[18px]">{message.content}</p>
+              <span
+                className={`text-[10px] leading-3 ${
+                  message.type === 'user' ? 'text-white/70' : 'text-gray-400'
+                }`}
+              >
                 {message.timestamp.toLocaleTimeString()}
               </span>
             </div>
@@ -317,13 +338,13 @@ const AIFormChat: React.FC<AIFormChatProps> = ({ currentForm, onFormGenerated })
         ))}
 
         {isProcessing && processingSteps.length > 0 && (
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <div className="rounded-xl bg-white p-3">
             <div className="space-y-2">
               {processingSteps.map((step) => (
                 <div key={step.step} className="flex items-start gap-3">
                   <div className="mt-0.5">{getStepIcon(step.status)}</div>
                   <div className="flex-1">
-                    <p className="text-sm text-gray-900">{step.message}</p>
+                    <p className="text-[13px] leading-[18px] text-gray-900">{step.message}</p>
                   </div>
                 </div>
               ))}
@@ -335,78 +356,69 @@ const AIFormChat: React.FC<AIFormChatProps> = ({ currentForm, onFormGenerated })
       </div>
 
       {errorMessage && !isProcessing && (
-        <div className="border-t border-gray-200 bg-white p-3 flex items-center justify-between">
-          <span className="text-sm text-red-600 truncate">{errorMessage}</span>
+        <div className="flex items-center justify-between bg-white p-3">
+          <span className="truncate text-sm text-red-600">{errorMessage}</span>
           <button
             onClick={handleRetry}
-            className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm"
+            className="rounded bg-red-600 px-3 py-1 text-sm text-white hover:bg-red-700"
           >
             Retry
           </button>
         </div>
       )}
 
-      <div className="border-t border-gray-200 bg-white p-4">
+      <div className="p-3">
         {getAttachedFile() && (
-          <div className="flex items-center gap-2 mb-2 text-sm">
-            <span className="text-gray-600 truncate flex-1 min-w-0" title={getAttachedFile()!.name}>
-              📎 {getAttachedFile()!.name}
+          <div className="mb-2 flex items-center gap-2 text-sm">
+            <span className="min-w-0 flex-1 truncate text-gray-600" title={getAttachedFile()!.name}>
+              {getAttachedFile()!.name}
             </span>
             <button
               type="button"
               onClick={() => getLiveDocumentApi()?.clearAttachedFile?.()}
-              className="shrink-0 text-gray-500 hover:text-red-600 p-0.5 rounded"
+              className="shrink-0 rounded p-0.5 text-gray-500 hover:text-red-600"
               aria-label="Remove attachment"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           </div>
         )}
-        <div className="flex items-end gap-2 w-full">
-          {documentSlotActive && <PluginSlot name="formEditor.aiChat.documentAttach" />}
+        <div className="flex flex-col gap-2 rounded-2xl border border-gray-200 bg-white px-3 py-2 focus-within:border-gray-300">
           <textarea
             ref={inputRef}
             value={input}
+            rows={1}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Describe the form you want to create or how to modify it..."
-            className="flex-1 min-w-0 resize-none border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            rows={2}
+            placeholder="Describe the form you want to create..."
+            className="max-h-40 w-full resize-none overflow-hidden bg-transparent px-1 py-1 text-sm leading-5 text-gray-900 outline-none placeholder:text-gray-400"
             disabled={isProcessing}
           />
-
-          <button
-            onClick={handleSend}
-            disabled={(!input.trim() && !getAttachedFile()) || isProcessing}
-            className="h-10 w-10 shrink-0 flex items-center justify-center rounded-full bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
-            aria-label="Send message"
-          >
-            {isProcessing ? (
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+          <div className="flex h-7 items-center justify-between">
+            {documentSlotActive ? (
+              <PluginSlot name="formEditor.aiChat.documentAttach" />
             ) : (
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M5 12h14M12 5l7 7-7 7"
-                />
-              </svg>
+              <span className="flex h-7 w-7 items-center justify-center text-lg leading-none text-gray-400" aria-hidden>
+                +
+              </span>
             )}
-          </button>
+            <button
+              type="button"
+              onClick={handleSend}
+              disabled={(!input.trim() && !getAttachedFile()) || isProcessing}
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-600 text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
+              aria-label="Send message"
+            >
+              {isProcessing ? (
+                <div className="h-3.5 w-3.5 animate-spin rounded-full border-b-2 border-current"></div>
+              ) : (
+                <span className="text-base font-bold leading-none">↑</span>
+              )}
+            </button>
+          </div>
         </div>
-
-        <p className="text-xs text-gray-500 mt-2">
-          Press Enter to send, Shift+Enter for new line.
-          {documentSlotActive ? ' Attach a PDF to create a form from a document.' : ''}
-        </p>
       </div>
     </div>
   );

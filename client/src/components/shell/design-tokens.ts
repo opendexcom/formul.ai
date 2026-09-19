@@ -1,17 +1,25 @@
 /** Shared Tailwind class fragments for the redesign design system. */
 
 export const shellCardClass =
-  'rounded-xl border border-gray-200 bg-white p-5 shadow-sm';
+  'rounded-xl border border-gray-200 bg-white p-4 shadow-sm';
 
-export const shellPageTitleClass = 'text-2xl font-semibold text-gray-900';
+export const shellPageTitleClass = 'text-[28px] font-bold leading-9 text-gray-900';
 
-export const shellPageDescriptionClass = 'mt-1 text-sm text-gray-600';
+export const shellPageDescriptionClass = 'mt-1.5 text-sm leading-5 text-gray-500';
 
 export const shellSubNavLinkClass =
   'inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium transition';
 
-export const shellTableHeaderClass =
-  'text-xs font-semibold uppercase tracking-wide text-gray-500';
+export const shellTableCardClass =
+  'rounded-lg border border-gray-200 bg-white';
+
+export const shellTableHeaderRowClass = 'flex h-12 items-center bg-gray-50 px-4';
+
+export const shellTableHeaderClass = 'text-xs font-medium text-gray-500';
+
+export const shellStageTextClass = 'text-xs font-medium text-blue-600';
+
+export const shellStudyTypeClass = 'text-xs font-medium text-blue-600';
 
 export type StudyType = 'single' | 'ab_test';
 

@@ -1,21 +1,32 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { Archive, Copy, MoreHorizontal } from 'lucide-react';
+import { Archive, Copy, FlaskConical, MoreHorizontal, Trash2 } from 'lucide-react';
 import {
-  aiStatusBadgeClass,
   aiStatusLabels,
-  shellCardClass,
-  studyStatusBadgeClass,
+  shellStageTextClass,
+  shellStudyTypeClass,
+  shellTableCardClass,
+  shellTableHeaderClass,
   studyStatusLabels,
-  studyTypeBadgeClass,
 } from '../shell/design-tokens';
+import { EmptyState } from '../ui';
 import type { DashboardStudySummary } from '../../services/projectsService';
 import projectsService from '../../services/projectsService';
+import type { StudySortOption } from './StudiesToolbar';
 
 interface StudiesListProps {
   studies: DashboardStudySummary[];
+  hasAnyStudies: boolean;
   onRefresh: () => void;
+  sort: StudySortOption;
+  onSortChange: (value: StudySortOption) => void;
+  onCreate: () => void;
+  createDisabled: boolean;
 }
+
+const rowGridClass =
+  'grid min-w-[720px] grid-cols-[minmax(0,1fr)_150px_120px_120px_150px] items-center px-4';
 
 function formatRelativeTime(value?: string): string {
   if (!value) return 'Recently updated';
@@ -29,146 +40,255 @@ function formatRelativeTime(value?: string): string {
   return `Updated ${diffDays}d ago`;
 }
 
-const StudiesList: React.FC<StudiesListProps> = ({ studies, onRefresh }) => {
+const StudiesList: React.FC<StudiesListProps> = ({
+  studies,
+  hasAnyStudies,
+  onRefresh,
+  sort,
+  onSortChange,
+  onCreate,
+  createDisabled,
+}) => {
   const navigate = useNavigate();
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  const [menuPosition, setMenuPosition] = useState<{ top?: number; bottom?: number; right: number } | null>(null);
+  const [actionError, setActionError] = useState('');
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setMenuOpenId(null);
-      }
+      const target = event.target as HTMLElement;
+      if (menuRef.current?.contains(target)) return;
+      if (target.closest('[data-study-menu-button]')) return;
+      setMenuOpenId(null);
+      setMenuPosition(null);
+      setConfirmDeleteId(null);
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleArchive = async (studyId: string) => {
+  const closeMenu = () => {
     setMenuOpenId(null);
-    await projectsService.archiveProject(studyId);
-    onRefresh();
+    setMenuPosition(null);
+    setConfirmDeleteId(null);
   };
 
-  if (studies.length === 0) {
-    return (
-      <div className={`${shellCardClass} py-12 text-center`}>
-        <p className="text-sm font-medium text-gray-900">No studies match your filters</p>
-        <p className="mt-1 text-sm text-gray-500">Try adjusting search or filters.</p>
-      </div>
-    );
-  }
+  const openMenu = (studyId: string, button: HTMLButtonElement) => {
+    if (menuOpenId === studyId) {
+      closeMenu();
+      return;
+    }
+    const rect = button.getBoundingClientRect();
+    const openUp = window.innerHeight - rect.bottom < 160;
+    setMenuPosition({
+      right: Math.max(8, window.innerWidth - rect.right),
+      ...(openUp
+        ? { bottom: window.innerHeight - rect.top + 8 }
+        : { top: rect.bottom + 8 }),
+    });
+    setMenuOpenId(studyId);
+  };
+
+  const handleDelete = async (studyId: string) => {
+    closeMenu();
+    try {
+      setActionError('');
+      await projectsService.deleteProject(studyId);
+      onRefresh();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to delete study');
+    }
+  };
+  const handleArchive = async (studyId: string) => {
+    closeMenu();
+    try {
+      setActionError('');
+      await projectsService.archiveProject(studyId);
+      onRefresh();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to archive study');
+    }
+  };
+
+  const openStudy = (studyId: string) => {
+    navigate(`/projects/${studyId}/variants`);
+  };
+
+  const headerButtonClass = (active: boolean) =>
+    `${shellTableHeaderClass} text-left hover:text-gray-700 ${active ? 'text-gray-900' : ''}`;
 
   return (
-    <div className="space-y-3">
-      {studies.map((study) => (
-        <div
-          key={study._id}
-          className={`${shellCardClass} grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-center`}
-        >
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <span
-                className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ring-1 ring-inset ${
-                  studyTypeBadgeClass[study.type]
-                }`}
-              >
-                {study.type === 'ab_test' ? 'A/B test' : 'Single study'}
-              </span>
-            </div>
-            <h3 className="mt-2 text-base font-semibold text-gray-900">{study.name}</h3>
-            {study.hypothesis && (
-              <p className="mt-1 line-clamp-2 text-sm text-gray-600">{study.hypothesis}</p>
-            )}
-          </div>
+    <div className={`${shellTableCardClass} overflow-x-auto`}>
+      {actionError && (
+        <p className="border-b border-red-100 bg-red-50 px-4 py-2 text-sm text-red-700" role="alert">
+          {actionError}
+        </p>
+      )}
+      {hasAnyStudies && (
+        <div className={`${rowGridClass} h-12 bg-gray-50`}>
+          <button
+            type="button"
+            className={headerButtonClass(sort === 'name')}
+            onClick={() => onSortChange('name')}
+          >
+            Name
+          </button>
+          <button
+            type="button"
+            className={headerButtonClass(sort === 'responses')}
+            onClick={() => onSortChange('responses')}
+          >
+            Responses
+          </button>
+          <span className={shellTableHeaderClass}>Status</span>
+          <span className={shellTableHeaderClass}>Stage</span>
+          <button
+            type="button"
+            className={headerButtonClass(sort === 'newest' || sort === 'oldest')}
+            onClick={() => onSortChange(sort === 'newest' ? 'oldest' : 'newest')}
+          >
+            Last Updated
+          </button>
+        </div>
+      )}
 
-          <div>
-            <p className="text-sm font-medium text-gray-900">
+      {!hasAnyStudies ? (
+        <EmptyState
+          embedded
+          icon={FlaskConical}
+          title="No studies yet"
+          description="Create your first study and start building variants with AI chat."
+          actionLabel="Create first study"
+          onAction={onCreate}
+          actionDisabled={createDisabled}
+        />
+      ) : studies.length === 0 ? (
+        <div className="px-4 py-12 text-center">
+          <p className="text-sm font-medium text-gray-900">No studies match your filters</p>
+          <p className="mt-1 text-sm text-gray-500">Try adjusting search or filters.</p>
+        </div>
+      ) : (
+        studies.map((study) => (
+          <div
+            key={study._id}
+            role="link"
+            tabIndex={0}
+            onClick={() => openStudy(study._id)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') openStudy(study._id);
+            }}
+            className={`${rowGridClass} group cursor-pointer border-b border-gray-200 bg-white py-4 last:border-b-0 hover:bg-gray-50`}
+          >
+            <div className="min-w-0 pr-4">
+              <p className="truncate text-sm font-medium text-gray-900">{study.name}</p>
+              <p className={shellStudyTypeClass}>
+                {study.type === 'ab_test' ? 'A/B test' : 'Single study'}
+              </p>
+            </div>
+            <p className="text-[13px] text-gray-500">
               {study.responseCount.toLocaleString()} responses
             </p>
-            <p className="text-xs text-gray-500">
-              {study.responsesThisWeek > 0
-                ? `+${study.responsesThisWeek} this week`
-                : 'No new responses this week'}
-            </p>
-          </div>
-
-          <div>
-            <span
-              className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                aiStatusBadgeClass[study.aiStatus]
-              }`}
-            >
-              {aiStatusLabels[study.aiStatus]}
-            </span>
-            {study.aiStatus === 'needs_data' && (
-              <p className="mt-1 text-xs text-gray-500">Collect more responses</p>
-            )}
-          </div>
-
-          <div>
-            <span
-              className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                studyStatusBadgeClass[study.status]
-              }`}
-            >
+            <p className="text-[13px] text-gray-500">{aiStatusLabels[study.aiStatus]}</p>
+            <p className={shellStageTextClass}>
               {studyStatusLabels[study.status] ?? study.status}
-            </span>
-            <p className="mt-1 text-xs text-gray-500">{formatRelativeTime(study.updatedAt)}</p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => navigate(`/projects/${study._id}/variants`)}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-            >
-              Open study
-            </button>
-            <div className="relative" ref={menuOpenId === study._id ? menuRef : undefined}>
+            </p>
+            <div className="relative flex items-center justify-between gap-2">
+              <p className="truncate text-xs text-gray-400">{formatRelativeTime(study.updatedAt)}</p>
               <button
                 type="button"
-                onClick={() =>
-                  setMenuOpenId((current) => (current === study._id ? null : study._id))
-                }
-                className="rounded-lg border border-gray-200 p-2 text-gray-500 hover:bg-gray-50"
+                data-study-menu-button
+                onClick={(event) => {
+                  event.stopPropagation();
+                  openMenu(study._id, event.currentTarget);
+                }}
+                className="shrink-0 rounded-lg border border-gray-200 bg-white p-1.5 text-gray-500 hover:bg-gray-50"
                 aria-label="More actions"
+                aria-expanded={menuOpenId === study._id}
               >
                 <MoreHorizontal className="h-4 w-4" />
               </button>
-              {menuOpenId === study._id && (
-                <div className="absolute right-0 z-10 mt-1 w-44 rounded-xl border border-gray-200 bg-white py-1 shadow-lg">
-                  <button
-                    type="button"
-                    onClick={() => navigate(`/projects/${study._id}/variants`)}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                  >
-                    Open study
-                  </button>
-                  <button
-                    type="button"
-                    disabled
-                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-400"
-                  >
-                    <Copy className="h-4 w-4" />
-                    Duplicate (soon)
-                  </button>
-                  {study.status !== 'archived' && (
-                    <button
-                      type="button"
-                      onClick={() => void handleArchive(study._id)}
-                      className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                    >
-                      <Archive className="h-4 w-4" />
-                      Archive
-                    </button>
-                  )}
-                </div>
-              )}
             </div>
           </div>
-        </div>
-      ))}
+        ))
+      )}
+      {menuOpenId &&
+        menuPosition &&
+        createPortal(
+          <div
+            ref={menuRef}
+            className="fixed z-50 w-44 rounded-xl border border-gray-200 bg-white py-1 shadow-lg"
+            style={{
+              top: menuPosition.top,
+              bottom: menuPosition.bottom,
+              right: menuPosition.right,
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                closeMenu();
+                openStudy(menuOpenId);
+              }}
+              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+            >
+              Open study
+            </button>
+            <button
+              type="button"
+              disabled
+              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-400"
+            >
+              <Copy className="h-4 w-4" />
+              Duplicate (soon)
+            </button>
+            {confirmDeleteId === menuOpenId ? (
+              <>
+                <p className="px-3 py-2 text-xs text-gray-500">
+                  Delete this study? This cannot be undone.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void handleDelete(menuOpenId)}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Confirm delete
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmDeleteId(null)}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+              </>
+            ) : (
+              <>
+                {studies.find((study) => study._id === menuOpenId)?.status !== 'archived' && (
+                  <button
+                    type="button"
+                    onClick={() => void handleArchive(menuOpenId)}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  >
+                    <Archive className="h-4 w-4" />
+                    Archive
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setConfirmDeleteId(menuOpenId)}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete
+                </button>
+              </>
+            )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 };

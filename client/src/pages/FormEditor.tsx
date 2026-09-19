@@ -1,11 +1,16 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { ArrowLeft, Eye, Search, Settings } from 'lucide-react';
 import FormFieldsPanel from '../components/FormEditor/FormFieldsPanel';
 import FormCanvas from '../components/FormEditor/FormCanvas';
 import FormSettings from '../components/FormEditor/FormSettings';
 import FormPreview from '../components/FormEditor/FormPreview';
 import AIFormChat from '../components/FormEditor/AIFormChat';
 import { QuotaLimitBanner } from '../components/common';
+import Button from '../components/ui/Button';
+import NotificationBell from '../components/shell/NotificationBell';
+import GlobalSearch from '../components/shell/GlobalSearch';
+import { GlobalSearchProvider, useGlobalSearch } from '../components/shell/GlobalSearchContext';
 import { useShareFormModal } from '../hooks/useShareFormModal';
 import { FormData, Question, QuestionType, FormSettings as FormSettingsType } from '../services/formsService';
 import formsService from '../services/formsService';
@@ -16,6 +21,18 @@ import { migrateQuestionForOther } from '../utils/otherOption';
 import { useUsageLimits } from '../hooks/useUsageLimits';
 import { parseQuotaErrorFromAxios } from '../utils/quotaErrors';
 import { QuestionRole } from '../components/variants/QuestionRoleBadge';
+
+const iconButtonClass =
+  'flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition hover:bg-gray-100 hover:text-gray-700';
+
+const EditorSearchButton: React.FC = () => {
+  const { openSearch } = useGlobalSearch();
+  return (
+    <button type="button" onClick={openSearch} className={iconButtonClass} aria-label="Search">
+      <Search className="h-5 w-5" />
+    </button>
+  );
+};
 
 const FormEditor: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -300,192 +317,170 @@ const FormEditor: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
+  const showMeta =
+    hasUnsavedChanges ||
+    project?.researchDesignType === 'split_questionnaire' ||
+    (isNewForm && formsExceeded) ||
+    Boolean(saveError) ||
+    editQuestionIds.length > 0;
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="border-b border-gray-200 bg-white px-6 py-4 shadow-sm">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
+    <GlobalSearchProvider>
+      <div className="flex h-screen flex-col overflow-hidden bg-gray-50">
+        <header className="flex h-16 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-8">
+          <div className="flex min-w-0 items-center gap-2">
             <button
+              type="button"
               onClick={() => navigate(backTarget)}
-              className="inline-flex items-center gap-2 rounded-lg px-2 py-1 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+              className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-gray-700"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-              Back to study
+              <ArrowLeft className="h-4 w-4 shrink-0" />
+              <span className="shrink-0">Studies</span>
+              <span className="text-gray-300">/</span>
+              <span className="truncate">{form.title || 'Untitled Form'}</span>
             </button>
-            <div>
-              <input
-                type="text"
-                value={form.title}
-                onChange={(e) => updateForm({ title: e.target.value })}
-                className="text-xl font-semibold text-gray-900 bg-transparent border-none focus:outline-none focus:ring-0 p-0"
-                placeholder="Untitled Form"
-              />
-              {hasUnsavedChanges && (
-                <span className="text-sm text-orange-600 ml-2">• Unsaved changes</span>
-              )}
-              {displayVariantKey && (
-                <span className="ml-2 rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-800">
-                  Variant {displayVariantKey}
-                </span>
-              )}
-              {project?.researchDesignType === 'split_questionnaire' && (
-                <span className="ml-2 rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-800">
-                  Split questionnaire
-                </span>
-              )}
-            </div>
+            {displayVariantKey && (
+              <span className="shrink-0 rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-800">
+                Variant {displayVariantKey}
+              </span>
+            )}
           </div>
 
-          <div className="flex items-center space-x-4">
-            {/* Tab Navigation */}
-            <div className="flex rounded-xl bg-gray-100 p-1">
-              <button
-                onClick={() => setActiveTab('design')}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  activeTab === 'design'
-                    ? 'bg-white text-blue-600 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Design
-              </button>
-              <button
-                onClick={() => setActiveTab('settings')}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  activeTab === 'settings'
-                    ? 'bg-white text-blue-600 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Settings
-              </button>
-              <button
-                onClick={() => setActiveTab('preview')}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  activeTab === 'preview'
-                    ? 'bg-white text-blue-600 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Preview
-              </button>
-            </div>
-
+          <div className="flex shrink-0 items-center gap-2">
             <button
+              type="button"
+              onClick={() => setActiveTab(activeTab === 'settings' ? 'design' : 'settings')}
+              className={`${iconButtonClass} ${activeTab === 'settings' ? 'bg-gray-100 text-gray-900' : ''}`}
+              aria-label="Settings"
+              aria-pressed={activeTab === 'settings'}
+            >
+              <Settings className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab(activeTab === 'preview' ? 'design' : 'preview')}
+              className={`${iconButtonClass} ${activeTab === 'preview' ? 'bg-gray-100 text-gray-900' : ''}`}
+              aria-label="Preview"
+              aria-pressed={activeTab === 'preview'}
+            >
+              <Eye className="h-5 w-5" />
+            </button>
+            <span className="mx-1 h-5 w-px bg-gray-200" aria-hidden />
+            <EditorSearchButton />
+            <NotificationBell />
+            <Button
+              type="button"
               onClick={saveForm}
               disabled={saving || (isNewForm && formsExceeded)}
-              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 flex items-center space-x-2"
+              loading={saving}
             >
-              {saving ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  <span>Saving...</span>
-                </>
-              ) : (
-                <span>Save</span>
-              )}
-            </button>
-
+              {saving ? 'Saving...' : 'Save'}
+            </Button>
             {!isNewForm && form._id && (
               <button
+                type="button"
                 onClick={() => openShareForForm(form)}
-                className="border border-gray-300 bg-white px-4 py-2 rounded-md text-gray-700 hover:bg-gray-50"
+                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50"
               >
                 Share
               </button>
             )}
           </div>
+        </header>
+
+        {showMeta && (
+          <div className="shrink-0 border-b border-gray-200 bg-white px-8 py-2">
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              {hasUnsavedChanges && <span className="font-medium text-orange-600">Unsaved changes</span>}
+              {project?.researchDesignType === 'split_questionnaire' && (
+                <span className="rounded-full bg-purple-100 px-2 py-0.5 font-medium text-purple-800">
+                  Split questionnaire
+                </span>
+              )}
+            </div>
+            {isNewForm && formsExceeded && (
+              <QuotaLimitBanner
+                message="You've reached your form limit and cannot create a new form."
+                className="mt-2"
+              />
+            )}
+            {saveError && (
+              <p className="mt-2 text-sm text-red-600" role="alert">
+                {saveError}
+              </p>
+            )}
+            {editQuestionIds.length > 0 && (
+              <div className="mt-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+                Edit the {editQuestionIds.length} question(s) marked for modification in this split
+                variant. Questions with reverse polarity already have reverse coding enabled.
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="flex min-h-0 flex-1">
+          {activeTab === 'design' && (
+            <>
+              <div className="w-[280px] shrink-0 overflow-y-auto border-r border-gray-200 bg-white">
+                <FormFieldsPanel onAddQuestion={addQuestion} />
+              </div>
+              <div className="min-w-0 flex-1 overflow-y-auto">
+                <FormCanvas
+                  form={form}
+                  selectedQuestionId={selectedQuestionId}
+                  onSelectQuestion={setSelectedQuestionId}
+                  onUpdateForm={updateForm}
+                  onUpdateQuestion={updateQuestion}
+                  onDeleteQuestion={deleteQuestion}
+                  onDuplicateQuestion={duplicateQuestion}
+                  onReorderQuestions={reorderQuestions}
+                  questionDesignRoles={questionDesignRoles}
+                  sourceVariantQuestions={sourceVariantQuestions}
+                  sourceVariantLabel="main"
+                />
+              </div>
+              <div className="flex w-[300px] shrink-0 flex-col overflow-hidden border-l border-gray-200 bg-gray-50">
+                <AIFormChat
+                  currentForm={{
+                    title: form.title,
+                    description: form.description || '',
+                    questions: form.questions,
+                  }}
+                  onFormGenerated={handleAIFormGenerated}
+                />
+              </div>
+            </>
+          )}
+
+          {activeTab === 'settings' && (
+            <div className="min-w-0 flex-1 overflow-y-auto">
+              <FormSettings
+                settings={form.settings}
+                isActive={form.isActive}
+                isPublic={form.isPublic}
+                onUpdateSettings={(settings: FormSettingsType) => updateForm({ settings })}
+                onToggleActive={(isActive: boolean) => updateForm({ isActive })}
+                onTogglePublic={(isPublic: boolean) => updateForm({ isPublic })}
+              />
+            </div>
+          )}
+
+          {activeTab === 'preview' && (
+            <div className="min-w-0 flex-1 overflow-y-auto">
+              <FormPreview form={form} />
+            </div>
+          )}
         </div>
-        {isNewForm && formsExceeded && (
-          <QuotaLimitBanner
-            message="You've reached your form limit and cannot create a new form."
-            className="mt-4"
-          />
-        )}
-        {saveError && (
-          <p className="mt-3 text-sm text-red-600" role="alert">
-            {saveError}
-          </p>
-        )}
-        {editQuestionIds.length > 0 && (
-          <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-            Edit the {editQuestionIds.length} question(s) marked for modification in this split
-            variant. Questions with reverse polarity already have reverse coding enabled.
-          </div>
-        )}
       </div>
-
-      {/* Main Content */}
-      <div className="flex h-[calc(100vh-80px)]">
-        {activeTab === 'design' && (
-          <>
-            {/* Left Panel - Form Fields */}
-            <div className="w-80 bg-white border-r border-gray-200 overflow-y-auto">
-              <FormFieldsPanel onAddQuestion={addQuestion} />
-            </div>
-
-            {/* Center - Form Canvas */}
-            <div className="flex-1 overflow-y-auto">
-              <FormCanvas
-                form={form}
-                selectedQuestionId={selectedQuestionId}
-                onSelectQuestion={setSelectedQuestionId}
-                onUpdateForm={updateForm}
-                onUpdateQuestion={updateQuestion}
-                onDeleteQuestion={deleteQuestion}
-                onDuplicateQuestion={duplicateQuestion}
-                onReorderQuestions={reorderQuestions}
-                questionDesignRoles={questionDesignRoles}
-                sourceVariantQuestions={sourceVariantQuestions}
-                sourceVariantLabel="main"
-              />
-            </div>
-
-            {/* Right Panel - Always show AI Chat */}
-            <div className="w-80 bg-white border-l border-gray-200 overflow-hidden flex flex-col">
-              <AIFormChat
-                currentForm={{
-                  title: form.title,
-                  description: form.description || '',
-                  questions: form.questions,
-                }}
-                onFormGenerated={handleAIFormGenerated}
-              />
-            </div>
-          </>
-        )}
-
-        {activeTab === 'settings' && (
-          <div className="flex-1 overflow-y-auto">
-            <FormSettings
-              settings={form.settings}
-              isActive={form.isActive}
-              isPublic={form.isPublic}
-              onUpdateSettings={(settings: FormSettingsType) => updateForm({ settings })}
-              onToggleActive={(isActive: boolean) => updateForm({ isActive })}
-              onTogglePublic={(isPublic: boolean) => updateForm({ isPublic })}
-            />
-          </div>
-        )}
-
-        {activeTab === 'preview' && (
-          <div className="flex-1 overflow-y-auto">
-            <FormPreview form={form} />
-          </div>
-        )}
-      </div>
-
+      <GlobalSearch />
       <ShareFormUI />
-    </div>
+    </GlobalSearchProvider>
   );
 };
 

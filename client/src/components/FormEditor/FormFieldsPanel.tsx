@@ -1,146 +1,132 @@
 import React from 'react';
+import {
+  AlignLeft,
+  Calendar,
+  CheckSquare,
+  ChevronDown,
+  Clock,
+  Hash,
+  Info,
+  List,
+  Mail,
+  Star,
+  Type,
+} from 'lucide-react';
 import { QuestionType } from '../../services/formsService';
 
 interface FormFieldsPanelProps {
   onAddQuestion: (type: QuestionType) => void;
 }
 
-const fieldTypes = [
+const fieldTypes: Array<{
+  type: QuestionType;
+  label: string;
+  description: string;
+  icon: React.ReactNode;
+}> = [
   {
     type: QuestionType.TEXT,
     label: 'Short Text',
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
-      </svg>
-    ),
-    description: 'Single line text input'
+    description: 'Single line text input',
+    icon: <Type className="h-4 w-4" />,
   },
   {
     type: QuestionType.TEXTAREA,
     label: 'Long Text',
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-      </svg>
-    ),
-    description: 'Multi-line text input'
+    description: 'Multi-line text input',
+    icon: <AlignLeft className="h-4 w-4" />,
   },
   {
     type: QuestionType.DROPDOWN,
     label: 'Dropdown',
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
-      </svg>
-    ),
-    description: 'Select from dropdown list'
+    description: 'Select from dropdown list',
+    icon: <ChevronDown className="h-4 w-4" />,
   },
   {
     type: QuestionType.CHECKBOX,
     label: 'Checkboxes',
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-    ),
-    description: 'Multiple selection checkboxes'
+    description: 'Multiple selection checkboxes',
+    icon: <CheckSquare className="h-4 w-4" />,
   },
   {
     type: QuestionType.MULTIPLE_CHOICE,
     label: 'Single Choice',
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-    ),
-    description: 'Single selection radio buttons'
+    description: 'Single selection radio buttons',
+    icon: <List className="h-4 w-4" />,
   },
   {
     type: QuestionType.DATE,
     label: 'Date',
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-      </svg>
-    ),
-    description: 'Date picker'
+    description: 'Date picker',
+    icon: <Calendar className="h-4 w-4" />,
   },
   {
     type: QuestionType.EMAIL,
     label: 'Email',
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-      </svg>
-    ),
-    description: 'Email address input'
-  },
-  {
-    type: QuestionType.NUMBER,
-    label: 'Number',
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
-      </svg>
-    ),
-    description: 'Numeric input'
+    description: 'Email address input',
+    icon: <Mail className="h-4 w-4" />,
   },
   {
     type: QuestionType.RATING,
     label: 'Rating',
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-      </svg>
-    ),
-    description: 'Star rating'
+    description: 'Star rating scale',
+    icon: <Star className="h-4 w-4" />,
+  },
+  {
+    type: QuestionType.NUMBER,
+    label: 'Number',
+    description: 'Numeric input',
+    icon: <Hash className="h-4 w-4" />,
+  },
+  {
+    type: QuestionType.TIME,
+    label: 'Time',
+    description: 'Time picker',
+    icon: <Clock className="h-4 w-4" />,
   },
   {
     type: QuestionType.COMMENT,
     label: 'Comment / Hint',
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-    ),
-    description: 'Static text or hint for respondents (not a field)'
-  }
+    description: 'Static text or hint for respondents',
+    icon: <Info className="h-4 w-4" />,
+  },
 ];
 
 const FormFieldsPanel: React.FC<FormFieldsPanelProps> = ({ onAddQuestion }) => {
   return (
-    <div className="h-full">
-      <div className="p-6 border-b border-gray-200">
-        <h2 className="text-lg font-semibold text-gray-900">Add Fields</h2>
-        <p className="text-sm text-gray-600 mt-1">Drag or click to add form fields</p>
+    <div className="flex h-full flex-col gap-4 p-5">
+      <div>
+        <h2 className="text-base font-semibold leading-6 text-gray-900">Add Fields</h2>
+        <p className="mt-1 text-[13px] leading-[18px] text-gray-500">Click to add form fields</p>
       </div>
-      
-      <div className="p-6 space-y-2">
+
+      <div className="flex flex-col gap-2">
         {fieldTypes.map((field) => (
           <button
             key={field.type}
+            type="button"
             onClick={() => onAddQuestion(field.type)}
-            className="w-full flex items-center space-x-3 p-3 text-left rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors group"
+            className="flex w-full items-center gap-3 rounded-lg border border-gray-200 bg-white p-3 text-left transition-colors hover:border-blue-300 hover:bg-blue-50"
             draggable
             onDragStart={(e) => {
-              e.dataTransfer.setData('application/json', JSON.stringify({
-                type: 'field',
-                fieldType: field.type
-              }));
+              e.dataTransfer.setData(
+                'application/json',
+                JSON.stringify({
+                  type: 'field',
+                  fieldType: field.type,
+                }),
+              );
             }}
           >
-            <div className="flex-shrink-0 text-gray-600 group-hover:text-blue-600">
+            <span className="flex shrink-0 items-center justify-center rounded-md bg-gray-50 p-1.5 text-gray-600">
               {field.icon}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-gray-900 group-hover:text-blue-900">
-                {field.label}
-              </div>
-              <div className="text-xs text-gray-500 group-hover:text-blue-700">
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-xs font-medium leading-4 text-gray-900">{field.label}</span>
+              <span className="block truncate text-[13px] leading-[18px] text-gray-400">
                 {field.description}
-              </div>
-            </div>
+              </span>
+            </span>
           </button>
         ))}
       </div>
