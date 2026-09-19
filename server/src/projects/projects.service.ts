@@ -251,6 +251,16 @@ export class ProjectsService {
     return project.save();
   }
 
+  async remove(projectId: string, userId: string): Promise<void> {
+    const project = await this.findOne(projectId, userId);
+    const formIds = project.variants.map((variant) => variant.formId).filter(Boolean);
+    if (formIds.length > 0) {
+      await this.responseModel.deleteMany({ formId: { $in: formIds } });
+      await this.formModel.deleteMany({ _id: { $in: formIds } });
+    }
+    await this.projectModel.deleteOne({ _id: project._id, ownerId: project.ownerId });
+  }
+
   async addVariant(
     projectId: string,
     dto: AddProjectVariantDto,

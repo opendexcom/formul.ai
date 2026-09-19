@@ -5,6 +5,7 @@ import {
   Param,
   Patch,
   Post,
+  Delete,
   Query,
   Req,
   Request,
@@ -80,6 +81,13 @@ export class ProjectsController {
   archive(@Param('id') id: string, @Request() req) {
     const userId = req.user._id || req.user.id;
     return this.projectsService.archive(id, userId);
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Delete a study and its forms' })
+  remove(@Param('id') id: string, @Request() req) {
+    const userId = req.user._id || req.user.id;
+    return this.projectsService.remove(id, userId);
   }
 
   @Post(':id/variants')

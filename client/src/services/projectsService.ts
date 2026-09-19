@@ -186,6 +186,14 @@ class ProjectsService {
     }
   }
 
+  async deleteProject(id: string): Promise<void> {
+    try {
+      await this.api.delete(`/projects/${id}`);
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
   async getProjectResponses(
     id: string,
     params?: { page?: number; limit?: number; variant?: VariantKey },
