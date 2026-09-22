@@ -44,16 +44,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   const login = async (email: string, password: string): Promise<void> => {
-    setLoading(true);
-    try {
-      const response = await authService.login({ email, password });
-      setUser(response.user);
-      setUserId(authService.getCurrentUserId());
-    } catch (error) {
-      throw error;
-    } finally {
-      setLoading(false);
-    }
+    // Do not toggle `loading` here. PublicRoute/ProtectedRoute unmount children
+    // while loading is true, which remounts LandingPage and wipes the login error.
+    const response = await authService.login({ email, password });
+    setUser(response.user);
+    setUserId(authService.getCurrentUserId());
   };
 
   const register = async (
