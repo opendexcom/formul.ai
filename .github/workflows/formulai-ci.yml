@@ -12,12 +12,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.23.0
       - uses: actions/setup-node@v6
         with:
           node-version: '24'
           cache: pnpm
-      - run: corepack enable
-      - run: corepack prepare pnpm@latest --activate
       - run: pnpm install
       - run: pnpm --filter @opendexcom/plugin-interface build
       - run: pnpm audit --audit-level=high
