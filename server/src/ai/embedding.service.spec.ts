@@ -1,5 +1,12 @@
 import { EmbeddingService } from './embedding.service';
 
+jest.mock('@langchain/aws', () => ({
+  BedrockEmbeddings: jest.fn().mockImplementation(() => ({
+    embedQuery: jest.fn(),
+  })),
+  ChatBedrockConverse: jest.fn(),
+}));
+
 describe('EmbeddingService', () => {
   afterEach(() => {
     jest.restoreAllMocks();
@@ -23,6 +30,22 @@ describe('EmbeddingService', () => {
     const service = new EmbeddingService();
     expect(service.getProvider()).toBe('openai');
     expect(service.getDimension()).toBe(1536);
+  });
+
+  it('uses mistral-embed dimensions when configured', () => {
+    process.env.EMBEDDING_PROVIDER = 'mistral';
+    const service = new EmbeddingService();
+    expect(service.getProvider()).toBe('mistral');
+    expect(service.getDimension()).toBe(1024);
+    expect(service.getModelName()).toBe('mistral-embed');
+  });
+
+  it('uses Bedrock Titan embed dimensions when configured', () => {
+    process.env.EMBEDDING_PROVIDER = 'bedrock';
+    const service = new EmbeddingService();
+    expect(service.getProvider()).toBe('bedrock');
+    expect(service.getDimension()).toBe(1024);
+    expect(service.getModelName()).toBe('amazon.titan-embed-text-v2:0');
   });
 
   it('embeds locally without network calls', async () => {

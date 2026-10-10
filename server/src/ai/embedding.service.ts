@@ -1,7 +1,15 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { withEmbeddingSpan } from '../mlflow/mlflow-trace-context';
+import {
+  resolveEmbeddingDimension,
+  resolveEmbeddingModelName,
+  resolveEmbeddingProvider,
+  resolveLlmProviderConfig,
+} from './llm-provider.config';
+import { createEmbeddingModel } from './llm-provider.factory';
+import type { EmbeddingProviderName } from './llm-provider.types';
 
-export type EmbeddingProvider = 'local' | 'ollama' | 'openai';
+export type EmbeddingProvider = EmbeddingProviderName;
 
 type FeatureExtractor = (
   text: string,
@@ -9,19 +17,19 @@ type FeatureExtractor = (
 ) => Promise<{ data: Float32Array | number[] }>;
 
 const DEFAULT_LOCAL_MODEL = 'Xenova/all-MiniLM-L6-v2';
-const DEFAULT_LOCAL_DIMENSION = 384;
 
 @Injectable()
 export class EmbeddingService implements OnModuleInit {
   private readonly logger = new Logger(EmbeddingService.name);
-  private openAiModel: { embedQuery: (text: string) => Promise<number[]> } | null =
+  private remoteModel: { embedQuery: (text: string) => Promise<number[]> } | null =
     null;
   private localExtractor: FeatureExtractor | null = null;
   private localInitPromise: Promise<void> | null = null;
 
   constructor() {
-    if (this.getProvider() === 'openai') {
-      this.initializeOpenAi();
+    const provider = this.getProvider();
+    if (provider === 'openai' || provider === 'mistral' || provider === 'bedrock') {
+      this.initializeRemoteEmbeddings(provider);
     }
   }
 
@@ -39,38 +47,19 @@ export class EmbeddingService implements OnModuleInit {
   }
 
   getProvider(): EmbeddingProvider {
-    const configured = process.env.EMBEDDING_PROVIDER as
-      | EmbeddingProvider
-      | undefined;
-    if (
-      configured === 'local' ||
-      configured === 'ollama' ||
-      configured === 'openai'
-    ) {
-      return configured;
-    }
-    return 'local';
+    return resolveEmbeddingProvider();
   }
 
   getDimension(): number {
-    const configured = parseInt(process.env.LLM_EMBEDDING_DIMENSION || '', 10);
-    if (!Number.isNaN(configured) && configured > 0) {
-      return configured;
-    }
-    switch (this.getProvider()) {
-      case 'openai':
-        return 1536;
-      case 'ollama':
-        return 768;
-      default:
-        return DEFAULT_LOCAL_DIMENSION;
-    }
+    return resolveEmbeddingDimension();
   }
 
   isAvailable(): boolean {
     switch (this.getProvider()) {
       case 'openai':
-        return this.openAiModel !== null;
+      case 'mistral':
+      case 'bedrock':
+        return this.remoteModel !== null;
       case 'ollama':
         return Boolean(process.env.OLLAMA_BASE_URL || 'http://localhost:11434');
       default:
@@ -79,14 +68,7 @@ export class EmbeddingService implements OnModuleInit {
   }
 
   getModelName(): string {
-    switch (this.getProvider()) {
-      case 'openai':
-        return process.env.OPENAI_EMBEDDING_MODEL || 'text-embedding-3-small';
-      case 'ollama':
-        return process.env.OLLAMA_EMBEDDING_MODEL || 'nomic-embed-text';
-      default:
-        return process.env.LOCAL_EMBEDDING_MODEL || DEFAULT_LOCAL_MODEL;
-    }
+    return resolveEmbeddingModelName();
   }
 
   async embedQuery(text: string): Promise<number[]> {
@@ -103,10 +85,12 @@ export class EmbeddingService implements OnModuleInit {
   private async embedQueryInner(text: string): Promise<number[]> {
     switch (this.getProvider()) {
       case 'openai':
-        if (!this.openAiModel) {
-          throw new Error('OpenAI embeddings are not configured');
+      case 'mistral':
+      case 'bedrock':
+        if (!this.remoteModel) {
+          throw new Error(`${this.getProvider()} embeddings are not configured`);
         }
-        return this.openAiModel.embedQuery(text);
+        return this.remoteModel.embedQuery(text);
       case 'ollama':
         return this.embedWithOllama(text);
       default:
@@ -171,24 +155,25 @@ export class EmbeddingService implements OnModuleInit {
     return Array.from(data);
   }
 
-  private initializeOpenAi(): void {
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      this.logger.warn(
-        'OPENAI_API_KEY not set; OpenAI embeddings unavailable',
-      );
-      return;
-    }
+  private initializeRemoteEmbeddings(
+    provider: 'openai' | 'mistral' | 'bedrock',
+  ): void {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const { OpenAIEmbeddings } = require('@langchain/openai');
-      this.openAiModel = new OpenAIEmbeddings({
-        apiKey,
-        model: process.env.OPENAI_EMBEDDING_MODEL || 'text-embedding-3-small',
+      const llmConfig = resolveLlmProviderConfig({
+        ...process.env,
+        LLM_PROVIDER: provider,
       });
+      this.remoteModel = createEmbeddingModel(llmConfig);
+      if (!this.remoteModel && provider !== 'bedrock') {
+        const keyName =
+          provider === 'mistral' ? 'MISTRAL_API_KEY' : 'OPENAI_API_KEY';
+        this.logger.warn(
+          `${keyName} not set; ${provider} embeddings unavailable`,
+        );
+      }
     } catch (err) {
       this.logger.warn(
-        `Failed to initialize OpenAI embeddings: ${(err as Error).message}`,
+        `Failed to initialize ${provider} embeddings: ${(err as Error).message}`,
       );
     }
   }

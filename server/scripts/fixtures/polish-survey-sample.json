@@ -1,0 +1,60 @@
+{
+  "formTitle": "Satysfakcja z pracy zdalnej",
+  "formPurpose": "Zrozumieć, jak pracownicy oceniają pracę zdalną, komunikację zespołu i work-life balance.",
+  "questions": [
+    {
+      "id": "q1",
+      "title": "Jak oceniasz komunikację w zespole podczas pracy zdalnej?"
+    },
+    {
+      "id": "q2",
+      "title": "Co najbardziej przeszkadza Ci w obecnym modelu pracy?"
+    },
+    {
+      "id": "q3",
+      "title": "Jakie zmiany poprawiłyby Twoją satysfakcję?"
+    }
+  ],
+  "responses": [
+    {
+      "responseId": "r1",
+      "answers": {
+        "q1": "Komunikacja jest raczej dobra, ale brakuje regularnych spotkań 1:1. Czasem czuję, że decyzje zapadają bez mojego udziału.",
+        "q2": "Rozmycie granic między pracą a życiem prywatnym. Odpowiadam na wiadomości wieczorami.",
+        "q3": "Jasne godziny ciszy i jeden stały dzień w biurze na warsztaty."
+      }
+    },
+    {
+      "responseId": "r2",
+      "answers": {
+        "q1": "Bardzo słaba. Slack jest chaosem, a spotkania są zbyt częste i bez agendy.",
+        "q2": "Mikrozarządzanie i brak zaufania. Menedżer wymaga stałego statusu online.",
+        "q3": "Mniej synchronicznych spotkań, więcej asynchronicznych aktualizacji."
+      }
+    },
+    {
+      "responseId": "r3",
+      "answers": {
+        "q1": "Świetna współpraca z moim squadem. Szybko się dogadujemy na huddle'ach.",
+        "q2": "Brakuje mi nieformalnych rozmów przy kawie, trudniej budować relacje z nowymi osobami.",
+        "q3": "Wspólne lunche raz w tygodniu i onboarding buddy dla nowych."
+      }
+    },
+    {
+      "responseId": "r4",
+      "answers": {
+        "q1": "Neutralnie. Informacje dochodzą, ale z opóźnieniem między działami.",
+        "q2": "Niejasne priorytety i ciągłe zmiany zakresu sprintu.",
+        "q3": "Lepsze planowanie sprintów i jedna osoba decyzyjna ds. priorytetów."
+      }
+    },
+    {
+      "responseId": "r5",
+      "answers": {
+        "q1": "Doceniam transparentność na weekly, ale feedback od przełożonego jest rzadki.",
+        "q2": "Poczucie izolacji i brak uznania za dobrze wykonaną pracę.",
+        "q3": "Regularny feedback i publiczne wyróżnienia osiągnięć zespołu."
+      }
+    }
+  ]
+}

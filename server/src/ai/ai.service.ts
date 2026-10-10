@@ -25,6 +25,13 @@ import {
 } from '../mlflow/mlflow-trace-context';
 import { flushMlflowTraces } from '../mlflow/mlflow-langchain-tracing';
 import { GraphRunnerService } from '../graphs/graph-runner.service';
+import {
+  buildChatInvokeOptions,
+  resolveLlmProviderConfig,
+  resolveTaskForFlow,
+} from './llm-provider.config';
+import { createChatModel } from './llm-provider.factory';
+import type { LlmProviderConfig, LlmProviderName, LlmTask } from './llm-provider.types';
 
 export interface GenerationStep {
   step: string;
@@ -73,7 +80,9 @@ function extractUsageFromResponse(raw: any): LlmUsage | undefined {
 @Injectable()
 export class AiService {
   private chatModel: any | null = null;
-  private provider: 'openai' | 'ollama' = 'openai';
+  private analysisModel: any | null = null;
+  private provider: LlmProviderName = 'openai';
+  private providerConfig: LlmProviderConfig;
 
   constructor(
     private readonly guardianService: GuardianService,
@@ -84,16 +93,11 @@ export class AiService {
     @Inject(forwardRef(() => GraphRunnerService))
     private readonly graphRunner: GraphRunnerService,
   ) {
-    // Determine provider from environment
-    this.provider =
-      (process.env.LLM_PROVIDER as 'openai' | 'ollama') || 'openai';
+    this.providerConfig = resolveLlmProviderConfig();
+    this.provider = this.providerConfig.provider;
 
     try {
-      if (this.provider === 'ollama') {
-        this.initializeOllama();
-      } else {
-        this.initializeOpenAI();
-      }
+      this.initializeModels();
     } catch (e) {
       console.error(`Failed to initialize LangChain with ${this.provider}:`, e);
       throw new InternalServerErrorException(
@@ -102,35 +106,39 @@ export class AiService {
     }
   }
 
-  private initializeOpenAI() {
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
+  private initializeModels() {
+    this.chatModel = createChatModel('chat', this.providerConfig);
+    if (!this.chatModel && this.provider !== 'ollama' && this.provider !== 'bedrock') {
+      const keyName =
+        this.provider === 'mistral' ? 'MISTRAL_API_KEY' : 'OPENAI_API_KEY';
       console.warn(
-        'OPENAI_API_KEY not configured. AI service will not be available.',
+        `${keyName} not configured. AI service will not be available.`,
       );
-      return;
     }
-
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { ChatOpenAI } = require('@langchain/openai');
-    this.chatModel = new ChatOpenAI({
-      apiKey,
-      model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
-      temperature: parseFloat(process.env.LLM_TEMPERATURE || '0.7'),
-    });
+    if (
+      this.providerConfig.models.analysis === this.providerConfig.models.chat
+    ) {
+      this.analysisModel = this.chatModel;
+    } else {
+      this.analysisModel = createChatModel('analysis', this.providerConfig);
+    }
   }
 
-  private initializeOllama() {
-    const baseUrl = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
-    const model = process.env.OLLAMA_MODEL || 'llama2';
+  private getModelForTask(task: LlmTask = 'chat'): any {
+    if (task === 'analysis' && this.analysisModel) {
+      return this.analysisModel;
+    }
+    return this.chatModel;
+  }
 
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { ChatOllama } = require('@langchain/community/chat_models/ollama');
-    this.chatModel = new ChatOllama({
-      baseUrl,
-      model,
-      temperature: parseFloat(process.env.LLM_TEMPERATURE || '0.7'),
-    });
+  private resolveModelName(task: LlmTask = 'chat'): string {
+    return (
+      this.providerConfig?.models[task] ||
+      process.env.OPENAI_MODEL ||
+      process.env.MISTRAL_MODEL ||
+      process.env.OLLAMA_MODEL ||
+      'unknown'
+    );
   }
 
   private async getSharedSnippet(flowKey: string): Promise<string> {
@@ -161,8 +169,8 @@ export class AiService {
     const traceInputs = buildFlowPromptTraceInputs(prompt, systemPrompt);
     const requestPreview = buildFlowRequestPreview(prompt, systemPrompt);
     const cachePolicy = this.flowsConfig.getCachePolicy(flowKey);
-    const model =
-      process.env.OPENAI_MODEL || process.env.OLLAMA_MODEL || 'unknown';
+    const task = resolveTaskForFlow(flowKey);
+    const model = this.resolveModelName(task);
     const useJsonFormat = options.useJsonFormat ?? true;
     const scopeId = this.semanticCache.resolveScopeId(cachePolicy, options);
     const cacheCtx = {
@@ -255,10 +263,16 @@ export class AiService {
     }
 
     const structured = options.structuredOutput ?? false;
+    const chatModel = this.getModelForTask(task);
     const traceContext = buildInvokeFlowTraceContext(flowKey, loaded, options);
     const result = await runWithMlflowTraceContextAsync(traceContext, async () => {
       return structured
-        ? await this.invokeModelWithUsage(prompt, options.document, systemPrompt)
+        ? await this.invokeModelWithUsage(
+            prompt,
+            options.document,
+            systemPrompt,
+            chatModel,
+          )
         : await this.invokeModelRawWithUsage(
             prompt,
             useJsonFormat,
@@ -266,6 +280,7 @@ export class AiService {
             options.timeoutMs ?? 120000,
             options.maxTokens,
             systemPrompt,
+            chatModel,
           );
     });
 
@@ -330,8 +345,9 @@ export class AiService {
     prompt: string,
     document?: { base64: string; mimetype: string; filename?: string },
     systemPrompt?: string,
+    chatModel: any = this.chatModel,
   ): Promise<{ content: string; usage?: LlmUsage }> {
-    if (!this.chatModel) {
+    if (!chatModel) {
       throw new InternalServerErrorException('AI provider not initialized');
     }
 
@@ -387,7 +403,7 @@ export class AiService {
       additionalProperties: false,
     };
 
-    const structuredModel = this.chatModel.withStructuredOutput(schema, {
+    const structuredModel = chatModel.withStructuredOutput(schema, {
       includeRaw: true,
     });
     const input = document
@@ -460,15 +476,16 @@ export class AiService {
     timeoutMs: number = 120000,
     maxTokens?: number,
     systemPrompt?: string,
+    chatModel: any = this.chatModel,
   ): Promise<{ content: string; usage?: LlmUsage }> {
-    if (!this.chatModel) {
+    if (!chatModel) {
       throw new InternalServerErrorException('AI provider not initialized');
     }
 
-    const options = {
-      ...(useJsonFormat ? { response_format: { type: 'json_object' } } : {}),
-      ...(maxTokens ? { max_tokens: maxTokens } : {}),
-    };
+    const options = buildChatInvokeOptions(this.provider, {
+      useJsonFormat,
+      maxTokens,
+    });
     const input = document
       ? this.buildMessagesWithDocument(prompt, document, systemPrompt)
       : this.buildLlmMessages(prompt, systemPrompt);
@@ -482,7 +499,7 @@ export class AiService {
       response_metadata?: unknown;
       raw?: unknown;
     };
-    const model = this.chatModel as {
+    const model = chatModel as {
       invoke: (
         input: string | (SystemMessage | HumanMessage)[],
         options?: Record<string, unknown>,
@@ -535,7 +552,15 @@ export class AiService {
         throw new BadRequestException(`Request rejected: ${validation.reason}`);
       }
     }
-    const { content } = await this.invokeModelRawWithUsage(prompt);
+    const { content } = await this.invokeModelRawWithUsage(
+      prompt,
+      true,
+      undefined,
+      120000,
+      undefined,
+      undefined,
+      this.getModelForTask('analysis'),
+    );
     return content;
   }
 
@@ -555,7 +580,15 @@ export class AiService {
         throw new BadRequestException(`Request rejected: ${validation.reason}`);
       }
     }
-    return this.invokeModelRawWithUsage(prompt, useJsonFormat, undefined, 120000, maxTokens);
+    return this.invokeModelRawWithUsage(
+      prompt,
+      useJsonFormat,
+      undefined,
+      120000,
+      maxTokens,
+      undefined,
+      this.getModelForTask('analysis'),
+    );
   }
 
   /**
@@ -578,7 +611,8 @@ export class AiService {
       timeoutMs?: number; // Max ms per prompt before aborting (default: 120000)
     },
   ): Promise<string[]> {
-    if (!this.chatModel) {
+    const chatModel = this.getModelForTask('analysis');
+    if (!chatModel) {
       throw new InternalServerErrorException('AI provider not initialized');
     }
 
@@ -589,8 +623,8 @@ export class AiService {
 
       // If schema is provided, use withStructuredOutput for better validation
       const modelToUse = useStructuredOutput
-        ? this.chatModel.withStructuredOutput(options.schema)
-        : this.chatModel;
+        ? chatModel.withStructuredOutput(options.schema)
+        : chatModel;
 
       // Track results with their original indices
       const results: Array<{
@@ -726,7 +760,9 @@ export class AiService {
                   invokeWithAbortableTimeout((signal) =>
                     modelToUse.invoke([new HumanMessage(prompt)], {
                       temperature: options?.temperature ?? 0.3,
-                      max_tokens: options?.maxTokens ?? 4000,
+                      ...buildChatInvokeOptions(this.provider, {
+                        maxTokens: options?.maxTokens ?? 4000,
+                      }),
                       signal,
                     }),
                   ),
@@ -746,8 +782,10 @@ export class AiService {
                   invokeWithAbortableTimeout((signal) =>
                     modelToUse.invoke([new HumanMessage(prompt)], {
                       temperature: options?.temperature ?? 0.3,
-                      max_tokens: options?.maxTokens ?? 4000,
-                      response_format: { type: 'json_object' },
+                      ...buildChatInvokeOptions(this.provider, {
+                        useJsonFormat: true,
+                        maxTokens: options?.maxTokens ?? 4000,
+                      }),
                       signal,
                     }),
                   ),

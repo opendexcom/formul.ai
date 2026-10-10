@@ -16,6 +16,13 @@ services:
       REDIS_HOST: redis
       JWT_SECRET: ${JWT_SECRET:-secret}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      LLM_PROVIDER: ${LLM_PROVIDER:-openai}
+      MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
+      MISTRAL_BASE_URL: ${MISTRAL_BASE_URL:-https://api.eu.mistral.ai}
+      BEDROCK_REGION: ${BEDROCK_REGION:-eu-central-1}
+      AWS_REGION: ${AWS_REGION:-eu-central-1}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
       FRONTEND_URL: http://localhost
       MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI:-http://mlflow:5000}
       MLFLOW_PROMPT_ALIAS: ${MLFLOW_PROMPT_ALIAS:-production}
@@ -48,6 +55,13 @@ services:
       REDIS_HOST: redis
       JWT_SECRET: ${JWT_SECRET:-secret}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      LLM_PROVIDER: ${LLM_PROVIDER:-openai}
+      MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
+      MISTRAL_BASE_URL: ${MISTRAL_BASE_URL:-https://api.eu.mistral.ai}
+      BEDROCK_REGION: ${BEDROCK_REGION:-eu-central-1}
+      AWS_REGION: ${AWS_REGION:-eu-central-1}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
       MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI:-http://mlflow:5000}
       MLFLOW_PROMPT_ALIAS: ${MLFLOW_PROMPT_ALIAS:-production}
       MLFLOW_PROMPT_CACHE_TTL_SECONDS: ${MLFLOW_PROMPT_CACHE_TTL_SECONDS:-60}

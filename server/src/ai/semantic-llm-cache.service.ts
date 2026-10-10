@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import Redis from 'ioredis';
 import { createHash } from 'crypto';
 import { CacheContext, CachePolicy } from '../mlflow/mlflow.types';
+import { resolveEmbeddingDimension } from './llm-provider.config';
 
 export interface CacheLookupResult {
   content: string;
@@ -33,19 +34,7 @@ export class SemanticLlmCacheService implements OnModuleInit {
   }
 
   private getEmbeddingDimension(): number {
-    const configured = parseInt(process.env.LLM_EMBEDDING_DIMENSION || '', 10);
-    if (!Number.isNaN(configured) && configured > 0) {
-      return configured;
-    }
-    const provider = process.env.EMBEDDING_PROVIDER || 'local';
-    switch (provider) {
-      case 'openai':
-        return 1536;
-      case 'ollama':
-        return 768;
-      default:
-        return 384;
-    }
+    return resolveEmbeddingDimension();
   }
 
   private async ensureVectorIndex(): Promise<void> {

@@ -4,6 +4,9 @@ defaults:
   model_config:
     provider: ${LLM_PROVIDER}
     model: ${OPENAI_MODEL}
+    # Runtime model is resolved per task (chat / analysis / guardian)
+    # from LLM_MODEL_* and the active provider. OPENAI_MODEL remains the
+    # OpenAI fallback so existing MLflow traces stay compatible.
 
 flows:
   analytics:

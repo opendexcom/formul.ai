@@ -86,14 +86,17 @@ Access the frontend at http://localhost:3000.
 
 The application is configured via environment variables in `server/.env` and `client/.env`. See `server/.env.example` for the full list of server variables.
 
-### OpenAI Configuration (Required for AI features)
+### LLM Configuration (Required for AI features)
 
-To enable AI-powered summaries and insights, you must provide an OpenAI API key.
+Default provider is OpenAI. Switch with `LLM_PROVIDER=openai|mistral|bedrock` (see `server/AI_CONFIGURATION.md`).
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `OPENAI_API_KEY` | Your OpenAI API Key | (Required) |
-| `OPENAI_MODEL` | Model to use for generation | `gpt-4o-mini` |
+| `LLM_PROVIDER` | `openai`, `mistral`, or `bedrock` | `openai` |
+| `OPENAI_API_KEY` | OpenAI API key | (required when `openai`) |
+| `OPENAI_MODEL` | OpenAI model for all tasks unless overridden | `gpt-4o-mini` |
+| `MISTRAL_API_KEY` | Mistral La Plateforme key | (required when `mistral`) |
+| `MISTRAL_BASE_URL` | Must be the EU endpoint for GDPR | `https://api.eu.mistral.ai` |
 
 ### SMTP / Email Configuration
 

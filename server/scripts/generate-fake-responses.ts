@@ -26,7 +26,8 @@
 
 import mongoose, { Types } from 'mongoose';
 import * as dotenv from 'dotenv';
-import { ChatOpenAI } from '@langchain/openai';
+import { createChatModel } from '../src/ai/llm-provider.factory';
+import { resolveLlmProviderConfig } from '../src/ai/llm-provider.config';
 
 // Load environment variables
 dotenv.config();
@@ -135,17 +136,17 @@ const FormSchema = new mongoose.Schema({
   settings: { type: Object },
 }, { timestamps: true });
 
-// Initialize LLM (OpenAI only)
 function initializeLLM() {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    throw new Error('OPENAI_API_KEY is not configured. Set it in your .env file.');
+  const config = resolveLlmProviderConfig();
+  const llm = createChatModel('chat', { ...config, temperature: 0.8 });
+  if (!llm) {
+    const keyName =
+      config.provider === 'mistral' ? 'MISTRAL_API_KEY' : 'OPENAI_API_KEY';
+    throw new Error(
+      `${keyName} is not configured for LLM_PROVIDER=${config.provider}.`,
+    );
   }
-  return new ChatOpenAI({
-    apiKey,
-    model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
-    temperature: 0.8,
-  });
+  return llm;
 }
 
 // Generate a single response using LLM
@@ -570,7 +571,8 @@ async function main() {
   let llm: any;
   try {
     llm = initializeLLM();
-    console.log(`🤖 LLM initialized (OpenAI: ${process.env.OPENAI_MODEL || 'gpt-4o-mini'})\n`);
+    const cfg = resolveLlmProviderConfig();
+    console.log(`🤖 LLM initialized (${cfg.provider}: ${cfg.models.chat})\n`);
   } catch (error) {
     console.error('⚠️  LLM initialization failed, using fallback generator');
     console.error(`   Error: ${error instanceof Error ? error.message : 'Unknown error'}\n`);
