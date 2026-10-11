@@ -49,9 +49,11 @@ LLM_PROVIDER=mistral
 MISTRAL_API_KEY=...
 # Required for EU processing. api.mistral.ai does NOT guarantee EU residency.
 MISTRAL_BASE_URL=https://api.eu.mistral.ai
-# Optional per-task overrides. Defaults: Small for chat/guardian, Medium for analysis.
+# Defaults: Small for chat / analysis / guardian (cost).
+# Medium 3.5 is ~11x gpt-4o-mini on a typical 100-response analysis.
+# Use Large when quality matters more than price:
 # LLM_MODEL_CHAT=mistral-small-latest
-# LLM_MODEL_ANALYSIS=mistral-medium-latest
+# LLM_MODEL_ANALYSIS=mistral-large-latest
 # LLM_MODEL_GUARDIAN=mistral-small-latest
 # MISTRAL_MODEL=mistral-small-latest
 ```
@@ -94,10 +96,11 @@ LLM_PROVIDER=bedrock
 BEDROCK_REGION=eu-central-1
 # Defaults (EU geo inference profiles — data stays in the EU):
 #   chat      eu.amazon.nova-lite-v1:0
-#   analysis  eu.amazon.nova-pro-v1:0
+#   analysis  eu.amazon.nova-lite-v1:0   (cost default)
 #   guardian  eu.amazon.nova-micro-v1:0
+# Use Nova Pro (or Claude Sonnet) when quality matters more than price:
 # LLM_MODEL_CHAT=eu.amazon.nova-lite-v1:0
-# LLM_MODEL_ANALYSIS=eu.anthropic.claude-sonnet-4-5-20250929-v1:0
+# LLM_MODEL_ANALYSIS=eu.amazon.nova-pro-v1:0
 # LLM_MODEL_GUARDIAN=eu.amazon.nova-micro-v1:0
 # BEDROCK_MODEL=eu.amazon.nova-lite-v1:0
 ```
@@ -217,11 +220,11 @@ report (`https://platform.openai.com/docs/pricing`,
 `https://docs.mistral.ai/inference/pricing`,
 `https://aws.amazon.com/bedrock/pricing/`, retrieved 2026-10-10).
 
-Optional model lists:
+Default comparison set: `gpt-4o-mini`, Mistral Small vs Large, Nova Lite vs Pro.
 
 ```env
-COMPARE_MODELS_OPENAI=gpt-4o-mini,gpt-4o
-COMPARE_MODELS_MISTRAL=mistral-small-latest,mistral-medium-latest
+COMPARE_MODELS_OPENAI=gpt-4o-mini
+COMPARE_MODELS_MISTRAL=mistral-small-latest,mistral-large-latest
 COMPARE_MODELS_BEDROCK=eu.amazon.nova-lite-v1:0,eu.amazon.nova-pro-v1:0
 COMPARE_OUTPUT=/tmp/provider-compare.json
 ```

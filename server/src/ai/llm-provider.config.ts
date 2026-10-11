@@ -18,14 +18,19 @@ export const DEFAULT_PROVIDER_MODELS: Record<LlmProviderName, LlmTaskModels> = {
   },
   mistral: {
     chat: 'mistral-small-latest',
-    analysis: 'mistral-medium-latest',
+    // Small is the cost default. Medium 3.5 is ~11x gpt-4o-mini on a
+    // 100-response analysis. Set LLM_MODEL_ANALYSIS=mistral-large-latest
+    // when quality matters more than price.
+    analysis: 'mistral-small-latest',
     guardian: 'mistral-small-latest',
     embedding: 'mistral-embed',
   },
   bedrock: {
     // EU geo inference profiles keep prompts/completions inside the EU.
     chat: 'eu.amazon.nova-lite-v1:0',
-    analysis: 'eu.amazon.nova-pro-v1:0',
+    // Nova Lite is the cost default. Set LLM_MODEL_ANALYSIS to
+    // eu.amazon.nova-pro-v1:0 for higher-quality analysis.
+    analysis: 'eu.amazon.nova-lite-v1:0',
     guardian: 'eu.amazon.nova-micro-v1:0',
     // Titan V2 is in-region in eu-central-1 (no geo profile). 1024-d default.
     embedding: 'amazon.titan-embed-text-v2:0',

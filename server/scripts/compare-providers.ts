@@ -14,8 +14,8 @@
  *   Bedrock  AWS default credential chain + model access in eu-central-1
  *
  * Optional:
- *   COMPARE_MODELS_OPENAI=gpt-4o-mini,gpt-4o
- *   COMPARE_MODELS_MISTRAL=mistral-small-latest,mistral-medium-latest
+ *   COMPARE_MODELS_OPENAI=gpt-4o-mini
+ *   COMPARE_MODELS_MISTRAL=mistral-small-latest,mistral-large-latest
  *   COMPARE_MODELS_BEDROCK=eu.amazon.nova-lite-v1:0,eu.amazon.nova-pro-v1:0
  *   COMPARE_OUTPUT=/tmp/provider-compare.json
  *   BEDROCK_REGION=eu-central-1
@@ -62,15 +62,9 @@ type TaskResult = {
 const FIRST_CLASS: LlmProviderName[] = ['openai', 'mistral', 'bedrock'];
 
 const DEFAULT_COMPARE_MODELS: Record<LlmProviderName, string[]> = {
-  openai: [DEFAULT_PROVIDER_MODELS.openai.analysis, 'gpt-4o'],
-  mistral: [
-    DEFAULT_PROVIDER_MODELS.mistral.chat,
-    DEFAULT_PROVIDER_MODELS.mistral.analysis,
-  ],
-  bedrock: [
-    DEFAULT_PROVIDER_MODELS.bedrock.chat,
-    DEFAULT_PROVIDER_MODELS.bedrock.analysis,
-  ],
+  openai: ['gpt-4o-mini'],
+  mistral: ['mistral-small-latest', 'mistral-large-latest'],
+  bedrock: ['eu.amazon.nova-lite-v1:0', 'eu.amazon.nova-pro-v1:0'],
   ollama: [DEFAULT_PROVIDER_MODELS.ollama.analysis],
 };
 

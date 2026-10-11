@@ -23,6 +23,15 @@ describe('llm-pricing', () => {
     );
   });
 
+  it('matches dated OpenAI snapshot ids by longest prefix', () => {
+    expect(resolveTokenRate('gpt-4o-mini-2024-07-18')).toEqual(
+      resolveTokenRate('gpt-4o-mini'),
+    );
+    expect(resolveTokenRate('gpt-4o-2024-08-06')).toEqual(
+      resolveTokenRate('gpt-4o'),
+    );
+  });
+
   it('estimates split input/output cost', () => {
     const cost = estimateUsdCost('mistral-small-latest', 1_000_000, 1_000_000);
     expect(cost).toBeCloseTo(0.75);

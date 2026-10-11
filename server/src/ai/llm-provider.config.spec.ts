@@ -83,7 +83,7 @@ describe('llm-provider.config', () => {
     });
     expect(config.provider).toBe('mistral');
     expect(config.models.chat).toBe('mistral-small-latest');
-    expect(config.models.analysis).toBe('mistral-medium-latest');
+    expect(config.models.analysis).toBe('mistral-small-latest');
     expect(config.models.guardian).toBe('mistral-small-latest');
     expect(config.models.embedding).toBe('mistral-embed');
     expect(config.apiKey).toBe('mst-test');
@@ -98,7 +98,7 @@ describe('llm-provider.config', () => {
     expect(config.provider).toBe('bedrock');
     expect(config.region).toBe('eu-central-1');
     expect(config.models.chat).toBe('eu.amazon.nova-lite-v1:0');
-    expect(config.models.analysis).toBe('eu.amazon.nova-pro-v1:0');
+    expect(config.models.analysis).toBe('eu.amazon.nova-lite-v1:0');
     expect(config.models.guardian).toBe('eu.amazon.nova-micro-v1:0');
     expect(config.models.embedding).toBe('amazon.titan-embed-text-v2:0');
   });

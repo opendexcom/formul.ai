@@ -50,21 +50,29 @@ export const TOKEN_RATES_PER_MILLION: Record<string, TokenRate> = {
   'cohere.embed-multilingual-v3': { inputPerMillion: 0.1, outputPerMillion: 0 },
 };
 
+/** Longest prefix first so gpt-4o-mini-2024-07-18 does not match gpt-4o. */
 const PREFIX_RATES: Array<[string, TokenRate]> = [
   ['mistral-large', TOKEN_RATES_PER_MILLION['mistral-large-latest']],
   ['mistral-medium', TOKEN_RATES_PER_MILLION['mistral-medium-latest']],
   ['mistral-small', TOKEN_RATES_PER_MILLION['mistral-small-latest']],
   ['gpt-4o-mini', TOKEN_RATES_PER_MILLION['gpt-4o-mini']],
   ['gpt-4o', TOKEN_RATES_PER_MILLION['gpt-4o']],
+  ['gpt-3.5-turbo', TOKEN_RATES_PER_MILLION['gpt-3.5-turbo']],
+  ['gpt-4', TOKEN_RATES_PER_MILLION['gpt-4']],
   ['nova-micro', TOKEN_RATES_PER_MILLION['amazon.nova-micro-v1:0']],
   ['nova-lite', TOKEN_RATES_PER_MILLION['amazon.nova-lite-v1:0']],
   ['nova-pro', TOKEN_RATES_PER_MILLION['amazon.nova-pro-v1:0']],
-  ['claude-3-haiku', TOKEN_RATES_PER_MILLION['anthropic.claude-3-haiku-20240307-v1:0']],
   ['claude-3-5-sonnet', TOKEN_RATES_PER_MILLION['anthropic.claude-3-5-sonnet-20240620-v1:0']],
+  ['claude-3-haiku', TOKEN_RATES_PER_MILLION['anthropic.claude-3-haiku-20240307-v1:0']],
   ['claude-haiku', TOKEN_RATES_PER_MILLION['anthropic.claude-3-haiku-20240307-v1:0']],
   ['titan-embed', TOKEN_RATES_PER_MILLION['amazon.titan-embed-text-v2:0']],
   ['cohere.embed', TOKEN_RATES_PER_MILLION['cohere.embed-multilingual-v3']],
 ];
+
+function lastIdSegment(model: string): string {
+  const parts = model.split('.');
+  return parts[parts.length - 1] ?? model;
+}
 
 export function resolveTokenRate(model: string): TokenRate {
   if (TOKEN_RATES_PER_MILLION[model]) {
@@ -74,9 +82,13 @@ export function resolveTokenRate(model: string): TokenRate {
   if (TOKEN_RATES_PER_MILLION[stripped]) {
     return TOKEN_RATES_PER_MILLION[stripped];
   }
-  const match = PREFIX_RATES.find(
-    ([prefix]) => model.includes(prefix) || stripped.includes(prefix),
-  );
+  const match = PREFIX_RATES.find(([prefix]) => {
+    return (
+      model.startsWith(prefix) ||
+      stripped.startsWith(prefix) ||
+      lastIdSegment(stripped).startsWith(prefix)
+    );
+  });
   return match?.[1] ?? TOKEN_RATES_PER_MILLION['gpt-4o-mini'];
 }
 
