@@ -45,12 +45,9 @@ export function t(
   return interpolate(value, vars);
 }
 
-export function getFormLanguage(form?: {
-  language?: unknown;
-  settings?: { language?: unknown };
-} | null): FormLanguage {
+export function getFormLanguage(form?: { language?: unknown } | null): FormLanguage {
   if (!form) return DEFAULT_FORM_LANGUAGE;
-  return resolveFormLanguage(form.language ?? form.settings?.language);
+  return resolveFormLanguage(form.language);
 }
 
 export function getTranslationKeys(language: string = DEFAULT_FORM_LANGUAGE): string[] {

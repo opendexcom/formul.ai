@@ -1,4 +1,4 @@
-export const DEFAULT_FORM_LANGUAGE = 'en-US';
+export const DEFAULT_FORM_LANGUAGE: FormLanguage = 'en-US';
 
 export const FORM_LANGUAGES = [
   { code: 'bg', nativeName: 'Български' },

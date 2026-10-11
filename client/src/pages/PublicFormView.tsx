@@ -54,7 +54,7 @@ const PublicFormView: React.FC = () => {
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api'}/public/forms/${id}`);
 
       if (!response.ok) {
-        let errorLanguage = DEFAULT_FORM_LANGUAGE;
+        let errorLanguage: FormLanguage = DEFAULT_FORM_LANGUAGE;
         try {
           const body = await response.json();
           errorLanguage = resolveFormLanguage(body.language ?? body.message?.language);

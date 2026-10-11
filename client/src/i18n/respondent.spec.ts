@@ -32,7 +32,7 @@ describe('respondent i18n', () => {
 
   it('reads language from the form, falling back to en-US', () => {
     expect(getFormLanguage({ language: 'pl' })).toBe('pl');
-    expect(getFormLanguage({ settings: { language: 'de' } })).toBe('de');
+    expect(getFormLanguage({ language: 'de' })).toBe('de');
     expect(getFormLanguage({})).toBe('en-US');
     expect(getFormLanguage(null)).toBe('en-US');
   });
