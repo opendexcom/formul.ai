@@ -21,6 +21,17 @@ export interface LlmTaskModels {
   embedding: string;
 }
 
+export const OPENAI_REASONING_EFFORTS = [
+  'none',
+  'minimal',
+  'low',
+  'medium',
+  'high',
+] as const;
+export type OpenAiReasoningEffort = (typeof OPENAI_REASONING_EFFORTS)[number];
+
+export type LlmTaskReasoningEfforts = Record<LlmTask, OpenAiReasoningEffort>;
+
 export interface LlmProviderConfig {
   provider: LlmProviderName;
   models: LlmTaskModels;
@@ -28,6 +39,10 @@ export interface LlmProviderConfig {
   baseUrl?: string;
   region?: string;
   temperature: number;
+  /** Global default (`OPENAI_REASONING_EFFORT`, default `low`). */
+  reasoningEffort?: OpenAiReasoningEffort;
+  /** Per-task override from `LLM_REASONING_EFFORT_<TASK>`. */
+  reasoningEfforts?: LlmTaskReasoningEfforts;
 }
 
 export interface ChatInvokeOptions {

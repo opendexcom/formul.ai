@@ -1,9 +1,13 @@
+import { billableOutputTokens } from './llm-usage';
+
 /**
  * Public list prices used for cost estimates (USD per 1M tokens).
  *
  * Sources (retrieved 2026-10-10):
  * - OpenAI: https://platform.openai.com/docs/pricing
  *   gpt-4o $2.50 / $10.00, gpt-4o-mini $0.15 / $0.60 (input / output).
+ *   gpt-5 $1.25 / $10.00, gpt-5-mini $0.25 / $2.00, gpt-5-nano $0.05 / $0.40.
+ *   Reasoning tokens are billed as output.
  * - Mistral: https://docs.mistral.ai/inference/pricing
  *   mistral-large-latest (Large 4 sale) $0.68 / $2.09,
  *   mistral-medium-latest (Medium 3.5) $1.50 / $7.50,
@@ -25,6 +29,9 @@ export interface TokenRate {
 }
 
 export const TOKEN_RATES_PER_MILLION: Record<string, TokenRate> = {
+  'gpt-5': { inputPerMillion: 1.25, outputPerMillion: 10 },
+  'gpt-5-mini': { inputPerMillion: 0.25, outputPerMillion: 2 },
+  'gpt-5-nano': { inputPerMillion: 0.05, outputPerMillion: 0.4 },
   'gpt-4o': { inputPerMillion: 2.5, outputPerMillion: 10 },
   'gpt-4o-mini': { inputPerMillion: 0.15, outputPerMillion: 0.6 },
   'gpt-4': { inputPerMillion: 30, outputPerMillion: 60 },
@@ -55,6 +62,9 @@ const PREFIX_RATES: Array<[string, TokenRate]> = [
   ['mistral-large', TOKEN_RATES_PER_MILLION['mistral-large-latest']],
   ['mistral-medium', TOKEN_RATES_PER_MILLION['mistral-medium-latest']],
   ['mistral-small', TOKEN_RATES_PER_MILLION['mistral-small-latest']],
+  ['gpt-5-mini', TOKEN_RATES_PER_MILLION['gpt-5-mini']],
+  ['gpt-5-nano', TOKEN_RATES_PER_MILLION['gpt-5-nano']],
+  ['gpt-5', TOKEN_RATES_PER_MILLION['gpt-5']],
   ['gpt-4o-mini', TOKEN_RATES_PER_MILLION['gpt-4o-mini']],
   ['gpt-4o', TOKEN_RATES_PER_MILLION['gpt-4o']],
   ['gpt-3.5-turbo', TOKEN_RATES_PER_MILLION['gpt-3.5-turbo']],
@@ -101,11 +111,19 @@ export function estimateUsdCost(
   model: string,
   promptTokens: number,
   completionTokens: number,
+  reasoningTokens?: number,
+  totalTokens?: number,
 ): number {
   const rate = resolveTokenRate(model);
+  const output = billableOutputTokens(
+    promptTokens,
+    completionTokens,
+    totalTokens,
+    reasoningTokens,
+  );
   return (
     (promptTokens / 1_000_000) * rate.inputPerMillion +
-    (completionTokens / 1_000_000) * rate.outputPerMillion
+    (output / 1_000_000) * rate.outputPerMillion
   );
 }
 

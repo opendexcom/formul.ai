@@ -7,6 +7,8 @@ export interface LlmUsage {
   promptTokens?: number;
   completionTokens?: number;
   totalTokens?: number;
+  /** Reasoning tokens (gpt-5* / o*). Billed as output. */
+  reasoningTokens?: number;
   cached?: boolean;
   cacheMode?: 'exact' | 'semantic';
   similarity?: number;

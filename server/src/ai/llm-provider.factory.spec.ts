@@ -101,6 +101,46 @@ describe('llm-provider.factory', () => {
     expect(model.opts.temperature).toBe(0);
   });
 
+  it('omits temperature and passes per-task reasoning effort for gpt-5*', () => {
+    const { ChatOpenAI } = require('@langchain/openai');
+    ChatOpenAI.mockClear();
+    const model = createChatModel('analysis', {
+      ...openaiConfig,
+      models: {
+        ...openaiConfig.models,
+        analysis: 'gpt-5-mini',
+      },
+      reasoningEffort: 'low',
+      reasoningEfforts: {
+        chat: 'low',
+        analysis: 'high',
+        guardian: 'minimal',
+      },
+    }) as { opts: Record<string, unknown> };
+    expect(model.opts.model).toBe('gpt-5-mini');
+    expect(model.opts.temperature).toBeUndefined();
+    expect(model.opts.reasoning).toEqual({ effort: 'high' });
+  });
+
+  it('keeps temperature on non-reasoning OpenAI models', () => {
+    const model = createChatModel('chat', openaiConfig) as {
+      opts: Record<string, unknown>;
+    };
+    expect(model.opts.model).toBe('gpt-4o-mini');
+    expect(model.opts.temperature).toBe(0.7);
+    expect(model.opts.reasoning).toBeUndefined();
+  });
+
+  it('omits guardian temperature when guardian is an explicit gpt-5 model', () => {
+    const model = createChatModel('guardian', {
+      ...openaiConfig,
+      models: { ...openaiConfig.models, guardian: 'gpt-5-mini' },
+      reasoningEffort: 'low',
+    }) as { opts: Record<string, unknown> };
+    expect(model.opts.temperature).toBeUndefined();
+    expect(model.opts.reasoning).toEqual({ effort: 'low' });
+  });
+
   it('creates Mistral embeddings with mistral-embed', () => {
     const { MistralAIEmbeddings } = require('@langchain/mistralai');
     const model = createEmbeddingModel(mistralConfig) as { opts: Record<string, unknown> };

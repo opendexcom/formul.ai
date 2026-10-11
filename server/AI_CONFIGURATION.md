@@ -35,10 +35,20 @@ LLM_PROVIDER=openai
 OPENAI_API_KEY=sk-...
 OPENAI_MODEL=gpt-4o-mini
 LLM_TEMPERATURE=0.7
+# gpt-5* / o* only. Default low (enough for most form-gen / analysis).
+# OPENAI_REASONING_EFFORT=low
+# Per-task overrides (CHAT / ANALYSIS / GUARDIAN):
+# LLM_REASONING_EFFORT_ANALYSIS=medium
 ```
 
-If only `OPENAI_MODEL` is set, chat / analysis / guardian all use that model
-(this is today's production behaviour).
+`OPENAI_MODEL` applies to chat and analysis. Guardian stays on
+`gpt-4o-mini` unless you set `LLM_MODEL_GUARDIAN` — so a production
+`OPENAI_MODEL=gpt-5-mini` does not turn guardian into a reasoning model.
+
+For `gpt-5*` / `o*` models, temperature is omitted (those models reject or
+ignore values other than 1). `OPENAI_REASONING_EFFORT` (default `low`) is
+sent only for those models. Override one task with
+`LLM_REASONING_EFFORT_<TASK>` (`CHAT`, `ANALYSIS`, `GUARDIAN`).
 
 ---
 

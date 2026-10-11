@@ -3,6 +3,7 @@ import {
   BEDROCK_DEFAULT_REGION,
   resolveLlmProviderConfig,
 } from './llm-provider.config';
+import { isOpenAiReasoningModel } from './llm-usage';
 
 export type ChatModelLike = {
   invoke: (...args: unknown[]) => Promise<unknown>;
@@ -62,11 +63,20 @@ export function createChatModel(
   }
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const { ChatOpenAI } = require('@langchain/openai');
-  return new ChatOpenAI({
+  const fields: Record<string, unknown> = {
     apiKey: config.apiKey,
     model,
-    temperature,
-  });
+  };
+  if (isOpenAiReasoningModel(model)) {
+    // gpt-5* / o* reject temperature != 1; @langchain/openai still sends it.
+    // Omit the field. Effort is per-task, default `low`.
+    const effort =
+      config.reasoningEfforts?.[task] ?? config.reasoningEffort ?? 'low';
+    fields.reasoning = { effort };
+  } else {
+    fields.temperature = temperature;
+  }
+  return new ChatOpenAI(fields);
 }
 
 export function createEmbeddingModel(

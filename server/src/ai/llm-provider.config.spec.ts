@@ -38,6 +38,10 @@ describe('llm-provider.config', () => {
     delete process.env.BEDROCK_EMBEDDING_MODEL;
     delete process.env.AWS_REGION;
     delete process.env.AWS_DEFAULT_REGION;
+    delete process.env.OPENAI_REASONING_EFFORT;
+    delete process.env.LLM_REASONING_EFFORT_CHAT;
+    delete process.env.LLM_REASONING_EFFORT_ANALYSIS;
+    delete process.env.LLM_REASONING_EFFORT_GUARDIAN;
   });
 
   afterAll(() => {
@@ -55,17 +59,59 @@ describe('llm-provider.config', () => {
     expect(resolveLlmProviderName({ LLM_PROVIDER: 'anthropic' })).toBe('openai');
   });
 
-  it('keeps a single OpenAI model when only OPENAI_MODEL is set', () => {
+  it('applies OPENAI_MODEL to chat and analysis but not guardian', () => {
     const config = resolveLlmProviderConfig({
       LLM_PROVIDER: 'openai',
       OPENAI_API_KEY: 'sk-test',
-      OPENAI_MODEL: 'gpt-4o',
+      OPENAI_MODEL: 'gpt-5-mini',
     });
-    expect(config.models.chat).toBe('gpt-4o');
-    expect(config.models.analysis).toBe('gpt-4o');
-    expect(config.models.guardian).toBe('gpt-4o');
+    expect(config.models.chat).toBe('gpt-5-mini');
+    expect(config.models.analysis).toBe('gpt-5-mini');
+    expect(config.models.guardian).toBe('gpt-4o-mini');
     expect(config.models.embedding).toBe('text-embedding-3-small');
     expect(config.apiKey).toBe('sk-test');
+  });
+
+  it('defaults reasoning effort to low and honors per-task overrides', () => {
+    const defaults = resolveLlmProviderConfig({ LLM_PROVIDER: 'openai' });
+    expect(defaults.reasoningEffort).toBe('low');
+    expect(defaults.reasoningEfforts).toEqual({
+      chat: 'low',
+      analysis: 'low',
+      guardian: 'low',
+    });
+
+    const overridden = resolveLlmProviderConfig({
+      LLM_PROVIDER: 'openai',
+      OPENAI_REASONING_EFFORT: 'medium',
+      LLM_REASONING_EFFORT_ANALYSIS: 'high',
+      LLM_REASONING_EFFORT_GUARDIAN: 'minimal',
+    });
+    expect(overridden.reasoningEffort).toBe('medium');
+    expect(overridden.reasoningEfforts).toEqual({
+      chat: 'medium',
+      analysis: 'high',
+      guardian: 'minimal',
+    });
+  });
+
+  it('omits invoke temperature for gpt-5 / o* reasoning models', () => {
+    expect(
+      buildChatInvokeOptions('openai', {
+        model: 'gpt-5-mini',
+        temperature: 0.3,
+        maxTokens: 10,
+      }),
+    ).toEqual({
+      max_tokens: 10,
+      maxTokens: 10,
+    });
+    expect(
+      buildChatInvokeOptions('openai', {
+        model: 'gpt-4o-mini',
+        temperature: 0.3,
+      }),
+    ).toEqual({ temperature: 0.3 });
   });
 
   it('does not apply OPENAI_MODEL to embeddings', () => {

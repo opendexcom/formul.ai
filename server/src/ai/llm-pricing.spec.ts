@@ -32,6 +32,24 @@ describe('llm-pricing', () => {
     );
   });
 
+  it('uses published GPT-5 family rates and does not collapse mini to gpt-5', () => {
+    expect(resolveTokenRate('gpt-5-mini')).toEqual({
+      inputPerMillion: 0.25,
+      outputPerMillion: 2,
+    });
+    expect(resolveTokenRate('gpt-5-nano')).toEqual({
+      inputPerMillion: 0.05,
+      outputPerMillion: 0.4,
+    });
+    expect(resolveTokenRate('gpt-5')).toEqual({
+      inputPerMillion: 1.25,
+      outputPerMillion: 10,
+    });
+    expect(resolveTokenRate('gpt-5-mini-2025-08-07')).toEqual(
+      resolveTokenRate('gpt-5-mini'),
+    );
+  });
+
   it('estimates split input/output cost', () => {
     const cost = estimateUsdCost('mistral-small-latest', 1_000_000, 1_000_000);
     expect(cost).toBeCloseTo(0.75);

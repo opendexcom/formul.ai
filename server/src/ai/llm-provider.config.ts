@@ -1,12 +1,15 @@
 import {
   LLM_PROVIDERS,
+  OPENAI_REASONING_EFFORTS,
   type ChatInvokeOptions,
   type EmbeddingProviderName,
   type LlmProviderConfig,
   type LlmProviderName,
   type LlmTask,
   type LlmTaskModels,
+  type OpenAiReasoningEffort,
 } from './llm-provider.types';
+import { isOpenAiReasoningModel } from './llm-usage';
 
 /** Defaults preserve current OpenAI production behavior (single gpt-4o-mini). */
 export const DEFAULT_PROVIDER_MODELS: Record<LlmProviderName, LlmTaskModels> = {
@@ -113,6 +116,14 @@ function resolveTaskModel(
       DEFAULT_PROVIDER_MODELS[provider].embedding
     );
   }
+  // Guardian stays on the cheap non-reasoning default unless explicitly
+  // overridden. OPENAI_MODEL=gpt-5-mini must not take over guardian.
+  if (task === 'guardian') {
+    return (
+      readEnv(env, perTaskKey.guardian) ||
+      DEFAULT_PROVIDER_MODELS[provider].guardian
+    );
+  }
   return (
     readEnv(env, perTaskKey[task]) ||
     providerWideModel(provider, env) ||
@@ -134,6 +145,35 @@ function embeddingModelOverride(
     default:
       return readEnv(env, 'OPENAI_EMBEDDING_MODEL');
   }
+}
+
+function parseReasoningEffort(
+  value: string | undefined,
+): OpenAiReasoningEffort | undefined {
+  if (!value) return undefined;
+  return (OPENAI_REASONING_EFFORTS as readonly string[]).includes(value)
+    ? (value as OpenAiReasoningEffort)
+    : undefined;
+}
+
+/**
+ * Reasoning effort for gpt-5* / o* only.
+ * Per-task `LLM_REASONING_EFFORT_<TASK>` overrides `OPENAI_REASONING_EFFORT`.
+ * Default is `low` (enough for most form-generation / analysis tasks).
+ */
+export function resolveOpenAiReasoningEffort(
+  env: NodeJS.ProcessEnv = process.env,
+  task?: LlmTask,
+): OpenAiReasoningEffort {
+  if (task) {
+    const perTask = parseReasoningEffort(
+      readEnv(env, `LLM_REASONING_EFFORT_${task.toUpperCase()}`),
+    );
+    if (perTask) {
+      return perTask;
+    }
+  }
+  return parseReasoningEffort(readEnv(env, 'OPENAI_REASONING_EFFORT')) ?? 'low';
 }
 
 export function resolveBedrockRegion(
@@ -194,6 +234,12 @@ export function resolveLlmProviderConfig(
     models,
     apiKey: readEnv(env, 'OPENAI_API_KEY'),
     temperature: safeTemperature,
+    reasoningEffort: resolveOpenAiReasoningEffort(env),
+    reasoningEfforts: {
+      chat: resolveOpenAiReasoningEffort(env, 'chat'),
+      analysis: resolveOpenAiReasoningEffort(env, 'analysis'),
+      guardian: resolveOpenAiReasoningEffort(env, 'guardian'),
+    },
   };
 }
 
@@ -266,9 +312,15 @@ export function resolveTaskForFlow(flowKey: string): LlmTask {
 
 export function buildChatInvokeOptions(
   provider: LlmProviderName,
-  options: ChatInvokeOptions = {},
+  options: ChatInvokeOptions & { model?: string; temperature?: number } = {},
 ): Record<string, unknown> {
   const invoke: Record<string, unknown> = {};
+  if (
+    options.temperature != null &&
+    !isOpenAiReasoningModel(options.model)
+  ) {
+    invoke.temperature = options.temperature;
+  }
   if (options.useJsonFormat) {
     if (provider === 'mistral') {
       invoke.responseFormat = { type: 'json_object' };

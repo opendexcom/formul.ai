@@ -204,6 +204,7 @@ export function createEmptyLlmUsage(model = 'aggregated'): LlmUsage {
     promptTokens: 0,
     completionTokens: 0,
     totalTokens: 0,
+    reasoningTokens: 0,
   };
 }
 
@@ -216,6 +217,8 @@ export function accumulateLlmUsage(
     (acc.promptTokens ?? 0) + (usage.promptTokens ?? 0);
   acc.completionTokens =
     (acc.completionTokens ?? 0) + (usage.completionTokens ?? 0);
+  acc.reasoningTokens =
+    (acc.reasoningTokens ?? 0) + (usage.reasoningTokens ?? 0);
   const stepTotal =
     usage.totalTokens ??
     (usage.promptTokens ?? 0) + (usage.completionTokens ?? 0);

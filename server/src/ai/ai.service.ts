@@ -32,6 +32,7 @@ import {
 } from './llm-provider.config';
 import { createChatModel } from './llm-provider.factory';
 import type { LlmProviderConfig, LlmProviderName, LlmTask } from './llm-provider.types';
+import { extractLlmUsage } from './llm-usage';
 
 export interface GenerationStep {
   step: string;
@@ -42,39 +43,7 @@ export interface GenerationStep {
 }
 
 function extractUsageFromResponse(raw: any): LlmUsage | undefined {
-  const usage =
-    raw?.usage ??
-    raw?.usage_metadata ??
-    raw?.response_metadata?.usage ??
-    raw?.response_metadata?.tokenUsage;
-  if (!usage) return undefined;
-
-  const promptTokens =
-    usage.prompt_tokens ??
-    usage.promptTokens ??
-    usage.input_tokens ??
-    usage.inputTokens;
-  const completionTokens =
-    usage.completion_tokens ??
-    usage.completionTokens ??
-    usage.output_tokens ??
-    usage.outputTokens;
-  const totalTokens = usage.total_tokens ?? usage.totalTokens;
-  if (promptTokens == null && completionTokens == null && totalTokens == null) {
-    return undefined;
-  }
-
-  return {
-    model:
-      raw?.model ??
-      raw?.response_metadata?.model_name ??
-      raw?.response_metadata?.model ??
-      usage?.model ??
-      'unknown',
-    promptTokens,
-    completionTokens,
-    totalTokens: totalTokens ?? (promptTokens ?? 0) + (completionTokens ?? 0),
-  };
+  return extractLlmUsage(raw);
 }
 
 @Injectable()
@@ -759,9 +728,10 @@ export class AiService {
                 () =>
                   invokeWithAbortableTimeout((signal) =>
                     modelToUse.invoke([new HumanMessage(prompt)], {
-                      temperature: options?.temperature ?? 0.3,
                       ...buildChatInvokeOptions(this.provider, {
                         maxTokens: options?.maxTokens ?? 4000,
+                        model: this.providerConfig.models.analysis,
+                        temperature: options?.temperature ?? 0.3,
                       }),
                       signal,
                     }),
@@ -781,10 +751,11 @@ export class AiService {
                 () =>
                   invokeWithAbortableTimeout((signal) =>
                     modelToUse.invoke([new HumanMessage(prompt)], {
-                      temperature: options?.temperature ?? 0.3,
                       ...buildChatInvokeOptions(this.provider, {
                         useJsonFormat: true,
                         maxTokens: options?.maxTokens ?? 4000,
+                        model: this.providerConfig.models.analysis,
+                        temperature: options?.temperature ?? 0.3,
                       }),
                       signal,
                     }),
