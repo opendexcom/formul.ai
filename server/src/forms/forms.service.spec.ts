@@ -106,7 +106,7 @@ describe('FormsService', () => {
       expect(result).toBe(form);
     });
 
-    it('allows public access when not owner', async () => {
+    it('denies non-owner even when the form is public', async () => {
       const ownerId = new Types.ObjectId();
       const form: any = {
         _id: new Types.ObjectId(),
@@ -119,14 +119,15 @@ describe('FormsService', () => {
         }),
       });
 
-      const result = await service.findOne(
-        String(form._id),
-        new Types.ObjectId().toString(),
-      );
-      expect(result).toBe(form);
+      await expect(
+        service.findOne(
+          String(form._id),
+          new Types.ObjectId().toString(),
+        ),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
 
-    it('forbids access when not owner and not public', async () => {
+    it('denies access when not owner and not public', async () => {
       const ownerId = new Types.ObjectId();
       const form: any = {
         _id: new Types.ObjectId(),
@@ -144,7 +145,44 @@ describe('FormsService', () => {
           String(form._id),
           new Types.ObjectId().toString(),
         ),
-      ).rejects.toBeInstanceOf(ForbiddenException);
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  describe('assertFormAccess', () => {
+    it('returns the form for the owner', async () => {
+      const ownerId = new Types.ObjectId();
+      const form: any = {
+        _id: new Types.ObjectId(),
+        createdBy: ownerId,
+        isPublic: true,
+      };
+      (mockFormModel.findById as jest.Mock).mockResolvedValueOnce(form);
+
+      await expect(
+        service.assertFormAccess(String(ownerId), String(form._id)),
+      ).resolves.toBe(form);
+    });
+
+    it('returns 404 for a non-owner even when the form is public', async () => {
+      const form: any = {
+        _id: new Types.ObjectId(),
+        createdBy: new Types.ObjectId(),
+        isPublic: true,
+      };
+      (mockFormModel.findById as jest.Mock).mockResolvedValueOnce(form);
+
+      await expect(
+        service.assertFormAccess(new Types.ObjectId().toString(), String(form._id)),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('returns 404 when the form does not exist', async () => {
+      (mockFormModel.findById as jest.Mock).mockResolvedValueOnce(null);
+
+      await expect(
+        service.assertFormAccess(new Types.ObjectId().toString(), new Types.ObjectId().toString()),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 
@@ -211,7 +249,7 @@ describe('FormsService', () => {
 
       await expect(
         service.update(String(form._id), { title: 'New' } as any, new Types.ObjectId().toString()),
-      ).rejects.toBeInstanceOf(ForbiddenException);
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
 
     it('updates and saves form for owner', async () => {
@@ -258,7 +296,7 @@ describe('FormsService', () => {
 
       await expect(
         service.remove(String(form._id), new Types.ObjectId().toString()),
-      ).rejects.toBeInstanceOf(ForbiddenException);
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
 
     it('deletes form for owner', async () => {
@@ -318,7 +356,7 @@ describe('FormsService', () => {
       ).rejects.toBeInstanceOf(NotFoundException);
     });
 
-    it('throws ForbiddenException when user is not owner', async () => {
+    it('throws NotFoundException when user is not owner', async () => {
       const form: any = {
         _id: new Types.ObjectId(),
         createdBy: new Types.ObjectId(),
@@ -327,7 +365,7 @@ describe('FormsService', () => {
 
       await expect(
         service.toggleActiveStatus(String(form._id), new Types.ObjectId().toString()),
-      ).rejects.toBeInstanceOf(ForbiddenException);
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
 
     it('toggles isActive and saves for owner', async () => {

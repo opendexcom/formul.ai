@@ -2,6 +2,7 @@ import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { JwtModule } from '@nestjs/jwt';
 import { FormsService } from './forms.service';
+import { FormAccessGuard } from './form-access.guard';
 import { ResponseService } from './response.service';
 import { EmailService } from './email.service';
 import { AnalyticsService } from './analytics.service';
@@ -53,6 +54,7 @@ import { TopicVectorStore } from '../analytics/stores/topic-vector.store';
   controllers: [FormsController, PublicFormsController],
   providers: [
     FormsService,
+    FormAccessGuard,
     ResponseService,
     EmailService,
     AnalyticsService,
