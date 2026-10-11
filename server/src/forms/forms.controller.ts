@@ -25,6 +25,7 @@ import { EmailService, SendInvitationDto } from './email.service';
 import { AnalyticsService } from './analytics.service';
 import { CreateFormDto, UpdateFormDto } from './dto/form.dto';
 import { buildTopicFilterQuery } from './topic-filter.util';
+import { assertTaskBelongsToForm } from './analytics-task-access';
 import { randomUUID } from 'crypto';
 import { OrchestrationProducer } from '../analytics/queues/orchestration.producer';
 import { ProgressService } from '../analytics/queues/progress.service';
@@ -372,7 +373,10 @@ export class FormsController {
     // Verify user owns the form
     await this.formsService.findOne(id, userId);
 
-    const task = this.analyticsService.getTaskStatus(taskId);
+    const task = assertTaskBelongsToForm(
+      this.analyticsService.getTaskStatus(taskId),
+      id,
+    );
     if (!task) {
       return { found: false, message: 'Task not found or expired' };
     }

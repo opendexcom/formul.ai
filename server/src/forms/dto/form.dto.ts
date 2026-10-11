@@ -176,4 +176,9 @@ export class UpdateFormDto {
       fontFamily?: string;
     };
   };
+
+  @ApiPropertyOptional({ description: 'Owning project ID' })
+  @IsOptional()
+  @IsString()
+  projectId?: string;
 }

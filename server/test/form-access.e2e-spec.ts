@@ -1,4 +1,4 @@
-process.env.JWT_SECRET ??= 'your-secret-key';
+process.env.JWT_SECRET ??= 'formulai-test-jwt-secret';
 process.env.JWT_EXPIRES_IN ??= '7d';
 process.env.MONGODB_URI ??= 'mongodb://127.0.0.1:27017/formulai';
 process.env.REDIS_HOST ??= '127.0.0.1';
@@ -99,7 +99,7 @@ describe('Form access IDOR (e2e)', () => {
   }
 
   beforeAll(async () => {
-    process.env.JWT_SECRET ??= 'your-secret-key';
+    process.env.JWT_SECRET ??= 'formulai-test-jwt-secret';
     process.env.JWT_EXPIRES_IN ??= '7d';
     process.env.MONGODB_URI ??= 'mongodb://127.0.0.1:27017/formulai';
     process.env.REDIS_HOST ??= '127.0.0.1';

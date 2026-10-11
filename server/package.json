@@ -144,6 +144,9 @@
       "!analytics/generators/summary.generator.ts"
     ],
     "coverageDirectory": "../coverage",
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "setupFiles": [
+      "<rootDir>/jest-env.setup.ts"
+    ]
   }
 }

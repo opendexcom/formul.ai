@@ -22,6 +22,7 @@ describe('FormsService', () => {
 
     mockProjectModel = {
       create: jest.fn().mockResolvedValue({}),
+      findById: jest.fn(),
     };
 
     mockResponseService = {
@@ -51,6 +52,39 @@ describe('FormsService', () => {
       expect(instance.data.createdBy).toBeInstanceOf(Types.ObjectId);
       expect(instance.data.settings.allowMultipleResponses).toBe(true);
       expect(result).toBe(instance);
+    });
+
+    it('allows attaching a form to a project the caller owns', async () => {
+      const userId = new Types.ObjectId().toString();
+      const projectId = new Types.ObjectId();
+      mockProjectModel.findById.mockResolvedValueOnce({
+        _id: projectId,
+        ownerId: { toString: () => userId },
+      });
+
+      await service.create(
+        { title: 'Owned project form', projectId: String(projectId) } as any,
+        userId,
+      );
+
+      expect(mockProjectModel.findById).toHaveBeenCalledWith(String(projectId));
+    });
+
+    it('rejects create when projectId belongs to another user', async () => {
+      const userId = new Types.ObjectId().toString();
+      const projectId = new Types.ObjectId();
+      mockProjectModel.findById.mockResolvedValueOnce({
+        _id: projectId,
+        ownerId: { toString: () => new Types.ObjectId().toString() },
+      });
+
+      await expect(
+        service.create(
+          { title: 'Stolen project', projectId: String(projectId) } as any,
+          userId,
+        ),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(mockFormModel).not.toHaveBeenCalled();
     });
   });
 
@@ -274,6 +308,28 @@ describe('FormsService', () => {
       expect(form.updatedAt).toBeInstanceOf(Date);
       expect(form.save).toHaveBeenCalled();
       expect(result).toBe(form);
+    });
+
+    it('rejects update when projectId belongs to another user', async () => {
+      const ownerId = new Types.ObjectId();
+      const form: any = {
+        _id: new Types.ObjectId(),
+        createdBy: { toString: () => String(ownerId) },
+        title: 'Old',
+      };
+      (mockFormModel.findById as jest.Mock).mockResolvedValueOnce(form);
+      mockProjectModel.findById.mockResolvedValueOnce({
+        ownerId: { toString: () => new Types.ObjectId().toString() },
+      });
+
+      await expect(
+        service.update(
+          String(form._id),
+          { projectId: new Types.ObjectId().toString() } as any,
+          String(ownerId),
+        ),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(form.save).toBeUndefined();
     });
   });
 

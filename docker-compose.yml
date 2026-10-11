@@ -14,7 +14,7 @@ services:
       NODE_ENV: production
       MONGODB_URI: mongodb://mongodb:27017/formulai
       REDIS_HOST: redis
-      JWT_SECRET: ${JWT_SECRET:-secret}
+      JWT_SECRET: ${JWT_SECRET:-formulai-dev-jwt-secret-change-me}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       FRONTEND_URL: http://localhost
       MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI:-http://mlflow:5000}
@@ -46,7 +46,7 @@ services:
       NODE_ENV: production
       MONGODB_URI: mongodb://mongodb:27017/formulai
       REDIS_HOST: redis
-      JWT_SECRET: ${JWT_SECRET:-secret}
+      JWT_SECRET: ${JWT_SECRET:-formulai-dev-jwt-secret-change-me}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI:-http://mlflow:5000}
       MLFLOW_PROMPT_ALIAS: ${MLFLOW_PROMPT_ALIAS:-production}
