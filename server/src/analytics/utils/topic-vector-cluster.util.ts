@@ -142,6 +142,54 @@ export function clusterByCosineSimilarity(
   return uf.groups();
 }
 
+/** Spherical k-means on L2-normalized embeddings. Used to score embedding quality at a known k. */
+export function clusterByKMeans(
+  items: EmbeddedItem[],
+  k: number,
+  iterations = 40,
+): Map<string, string[]> {
+  if (items.length === 0 || k <= 0) return new Map();
+  const dim = items[0].embedding.length;
+  const step = Math.max(1, Math.floor(items.length / k));
+  const centroids = Array.from({ length: k }, (_, i) => [
+    ...items[Math.min(i * step, items.length - 1)].embedding,
+  ]);
+  let labels = new Array(items.length).fill(0);
+
+  for (let iter = 0; iter < iterations; iter++) {
+    labels = items.map((item) => {
+      let best = 0;
+      let bestSim = -Infinity;
+      for (let c = 0; c < k; c++) {
+        const sim = cosineSimilarity(item.embedding, centroids[c]);
+        if (sim > bestSim) {
+          bestSim = sim;
+          best = c;
+        }
+      }
+      return best;
+    });
+    for (let c = 0; c < k; c++) {
+      const members = items.filter((_, i) => labels[i] === c);
+      if (members.length === 0) continue;
+      const next = new Array(dim).fill(0);
+      for (const member of members) {
+        for (let d = 0; d < dim; d++) next[d] += member.embedding[d];
+      }
+      const norm = Math.sqrt(next.reduce((sum, x) => sum + x * x, 0)) || 1;
+      centroids[c] = next.map((x) => x / norm);
+    }
+  }
+
+  const groups = new Map<string, string[]>();
+  labels.forEach((label, i) => {
+    const root = `k${label}`;
+    if (!groups.has(root)) groups.set(root, []);
+    groups.get(root)!.push(items[i].key);
+  });
+  return groups;
+}
+
 export function clusterPurity(
   predictedGroups: Map<string, string[]>,
   labelsByKey: Map<string, string>,

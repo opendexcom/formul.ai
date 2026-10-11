@@ -53,9 +53,22 @@ Do **not** run this flush/re-embed on production as part of applying the code ch
 
 If you stay on MiniLM, set `LOCAL_EMBEDDING_MODEL=Xenova/all-MiniLM-L6-v2` and leave `LLM_EMBEDDING_DIMENSION=384`.
 
+## Clustering threshold
+
+E5 cosine scores sit in a tighter, higher band than MiniLM (typical pairwise similarities ~0.78–0.92 vs MiniLM’s broader 0.29–0.85). The app default `ANALYTICS_TOPIC_SIMILARITY_THRESHOLD=0.82` was tuned for MiniLM and **over-merges** E5 topic vectors (union-find collapses most items). If topic clusters look too coarse after the switch, raise the threshold toward `0.88`–`0.90` and re-run analytics. Embedding-space quality (k-means / same-vs-diff gap) is still better with E5 on Polish text.
+
 ## Performance (CPU)
 
-`multilingual-e5-small` is larger and slower than MiniLM-L6-v2 (more parameters, multilingual tokenizer). First start downloads ONNX weights into `TRANSFORMERS_CACHE` (or `.cache/transformers` locally). See the measured sizes and latency in the pull request that switched the default; re-check on your hardware with:
+`multilingual-e5-small` is larger and slower than MiniLM-L6-v2 (more parameters, multilingual tokenizer). First start downloads ONNX weights into `TRANSFORMERS_CACHE` (or `.cache/transformers` locally).
+
+Measured on this change’s Cloud Agent CPU (warm, 48 Polish texts, `dtype: fp32`):
+
+| Model | ONNX cache | ms / 100 texts | k-means ARI (k=4) |
+| --- | --- | --- | --- |
+| `Xenova/all-MiniLM-L6-v2` | ~87 MB | ~750 | 0.057 |
+| `Xenova/multilingual-e5-small` | ~465 MB | ~3850 | 0.636 |
+
+Re-check on your hardware with:
 
 ```bash
 cd server

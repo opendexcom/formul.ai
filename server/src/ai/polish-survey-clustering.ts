@@ -7,10 +7,12 @@ import { POLISH_SURVEY_ANSWERS } from './fixtures/polish-survey-responses.fixtur
 import {
   adjustedRandIndex,
   clusterByCosineSimilarity,
+  clusterByKMeans,
   clusterPurity,
+  cosineSimilarity,
 } from '../analytics/utils/topic-vector-cluster.util';
 
-export const POLISH_CLUSTER_THRESHOLDS = [0.5, 0.6, 0.7, 0.82];
+export const POLISH_CLUSTER_THRESHOLDS = [0.5, 0.6, 0.7, 0.82, 0.9];
 
 export interface ThresholdMetrics {
   threshold: number;
@@ -19,27 +21,65 @@ export interface ThresholdMetrics {
   ari: number;
 }
 
+export interface PairwiseStats {
+  min: number;
+  mean: number;
+  sameTopicMean: number;
+  diffTopicMean: number;
+  gap: number;
+}
+
 export interface ModelClusterReport {
   model: string;
   dimension: number;
   embedMs: number;
   texts: number;
   msPer100: number;
-  defaultThreshold: ThresholdMetrics;
-  bestAri: ThresholdMetrics;
+  pairwise: PairwiseStats;
+  graphDefault: ThresholdMetrics;
+  graphBestAri: ThresholdMetrics;
+  kmeans: ThresholdMetrics;
 }
 
-function metricsAtThreshold(
-  items: Array<{ key: string; embedding: number[] }>,
+function metricsForGroups(
+  groups: Map<string, string[]>,
   labelsByKey: Map<string, string>,
   threshold: number,
 ): ThresholdMetrics {
-  const groups = clusterByCosineSimilarity(items, { threshold });
   return {
     threshold,
     clusterCount: groups.size,
     purity: clusterPurity(groups, labelsByKey),
     ari: adjustedRandIndex(groups, labelsByKey),
+  };
+}
+
+function pairwiseStats(
+  items: Array<{ key: string; embedding: number[] }>,
+  labelsByKey: Map<string, string>,
+): PairwiseStats {
+  const sims: number[] = [];
+  const same: number[] = [];
+  const diff: number[] = [];
+  for (let i = 0; i < items.length; i++) {
+    for (let j = i + 1; j < items.length; j++) {
+      const sim = cosineSimilarity(items[i].embedding, items[j].embedding);
+      sims.push(sim);
+      if (labelsByKey.get(items[i].key) === labelsByKey.get(items[j].key)) {
+        same.push(sim);
+      } else {
+        diff.push(sim);
+      }
+    }
+  }
+  const avg = (xs: number[]) =>
+    xs.length === 0 ? 0 : xs.reduce((a, b) => a + b, 0) / xs.length;
+  return {
+    min: Math.min(...sims),
+    mean: avg(sims),
+    sameTopicMean: avg(same),
+    diffTopicMean: avg(diff),
+    gap: avg(same) - avg(diff),
   };
 }
 
@@ -65,13 +105,23 @@ export async function embedAndCluster(
 
   const dimension = embeddings[0]?.length ?? 0;
   const items = keys.map((key, i) => ({ key, embedding: embeddings[i] }));
+  const topicCount = new Set(labelsByKey.values()).size;
   const byThreshold = POLISH_CLUSTER_THRESHOLDS.map((threshold) =>
-    metricsAtThreshold(items, labelsByKey, threshold),
+    metricsForGroups(
+      clusterByCosineSimilarity(items, { threshold }),
+      labelsByKey,
+      threshold,
+    ),
   );
-  const defaultThreshold =
+  const graphDefault =
     byThreshold.find((row) => row.threshold === 0.82) ?? byThreshold[0];
-  const bestAri = byThreshold.reduce((best, row) =>
+  const graphBestAri = byThreshold.reduce((best, row) =>
     row.ari > best.ari ? row : best,
+  );
+  const kmeans = metricsForGroups(
+    clusterByKMeans(items, topicCount),
+    labelsByKey,
+    topicCount,
   );
 
   if (previousModel === undefined) {
@@ -86,19 +136,25 @@ export async function embedAndCluster(
     embedMs,
     texts: texts.length,
     msPer100: (embedMs / texts.length) * 100,
-    defaultThreshold,
-    bestAri,
+    pairwise: pairwiseStats(items, labelsByKey),
+    graphDefault,
+    graphBestAri,
+    kmeans,
   };
 }
 
 export function formatClusterReport(report: ModelClusterReport): string {
-  const d = report.defaultThreshold;
-  const b = report.bestAri;
+  const d = report.graphDefault;
+  const b = report.graphBestAri;
+  const k = report.kmeans;
+  const p = report.pairwise;
   return [
     `model=${report.model}`,
     `dim=${report.dimension}`,
-    `default@${d.threshold}:clusters=${d.clusterCount},purity=${d.purity.toFixed(4)},ari=${d.ari.toFixed(4)}`,
-    `bestARI@${b.threshold}:clusters=${b.clusterCount},purity=${b.purity.toFixed(4)},ari=${b.ari.toFixed(4)}`,
+    `kmeans@k=${k.threshold}:clusters=${k.clusterCount},purity=${k.purity.toFixed(4)},ari=${k.ari.toFixed(4)}`,
+    `graph@${d.threshold}:clusters=${d.clusterCount},purity=${d.purity.toFixed(4)},ari=${d.ari.toFixed(4)}`,
+    `graphBest@${b.threshold}:clusters=${b.clusterCount},purity=${b.purity.toFixed(4)},ari=${b.ari.toFixed(4)}`,
+    `gap=${p.gap.toFixed(4)}(same=${p.sameTopicMean.toFixed(3)},diff=${p.diffTopicMean.toFixed(3)})`,
     `embed_ms=${report.embedMs}`,
     `ms_per_100=${report.msPer100.toFixed(0)}`,
   ].join(' ');
@@ -145,14 +201,19 @@ export function assertE5ClustersBetter(
       `Expected 384-d vectors, got MiniLM=${minilm.dimension} e5=${e5.dimension}`,
     );
   }
-  if (e5.bestAri.ari <= minilm.bestAri.ari) {
+  if (e5.kmeans.ari <= minilm.kmeans.ari) {
     throw new Error(
-      `E5 ARI ${e5.bestAri.ari.toFixed(4)} was not better than MiniLM ${minilm.bestAri.ari.toFixed(4)}`,
+      `E5 k-means ARI ${e5.kmeans.ari.toFixed(4)} was not better than MiniLM ${minilm.kmeans.ari.toFixed(4)}`,
     );
   }
-  if (e5.bestAri.purity <= minilm.bestAri.purity) {
+  if (e5.kmeans.purity <= minilm.kmeans.purity) {
     throw new Error(
-      `E5 purity ${e5.bestAri.purity.toFixed(4)} was not better than MiniLM ${minilm.bestAri.purity.toFixed(4)}`,
+      `E5 k-means purity ${e5.kmeans.purity.toFixed(4)} was not better than MiniLM ${minilm.kmeans.purity.toFixed(4)}`,
+    );
+  }
+  if (e5.pairwise.gap <= minilm.pairwise.gap) {
+    throw new Error(
+      `E5 same-vs-diff topic gap ${e5.pairwise.gap.toFixed(4)} was not better than MiniLM ${minilm.pairwise.gap.toFixed(4)}`,
     );
   }
 }

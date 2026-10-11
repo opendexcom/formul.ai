@@ -3,6 +3,7 @@ import {
   adjustedRandIndex,
   buildClustersFromGroups,
   clusterByCosineSimilarity,
+  clusterByKMeans,
   clusterPurity,
   pickCanonicalLabelFromCluster,
   normalizeTopicKey,
@@ -80,6 +81,10 @@ describe('topic-vector-cluster.util', () => {
       ]);
       expect(clusterPurity(groups, labels)).toBe(1);
       expect(adjustedRandIndex(groups, labels)).toBeCloseTo(1);
+
+      const kmeans = clusterByKMeans(items, 2);
+      expect(clusterPurity(kmeans, labels)).toBe(1);
+      expect(adjustedRandIndex(kmeans, labels)).toBeCloseTo(1);
     });
   });
 });
