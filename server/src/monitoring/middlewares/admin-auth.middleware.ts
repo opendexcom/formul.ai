@@ -6,6 +6,29 @@ import { Model } from 'mongoose';
 import { User, UserDocument } from '../../schemas/user.schema';
 import { getJwtSecret } from '../../auth/jwt-secret';
 
+let adminAuthMiddlewareInstance: AdminAuthMiddleware | undefined;
+
+export function bindAdminAuthMiddleware(instance: AdminAuthMiddleware): void {
+  adminAuthMiddlewareInstance = instance;
+}
+
+/**
+ * Express-compatible wrapper for BullBoardModule.forRoot({ middleware }).
+ * Must run in the same apply() chain as the board router (prefix mount);
+ * Nest middleware registered from MonitoringModule.configure() is too late.
+ */
+export function adminQueuesAuthMiddleware(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): void | Promise<void> {
+  if (!adminAuthMiddlewareInstance) {
+    res.status(401).json({ statusCode: 401, message: 'Unauthorized' });
+    return;
+  }
+  return adminAuthMiddlewareInstance.use(req, res, next);
+}
+
 @Injectable()
 export class AdminAuthMiddleware implements NestMiddleware {
   constructor(
