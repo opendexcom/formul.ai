@@ -1,3 +1,8 @@
+process.env.JWT_SECRET ??= 'formulai-test-jwt-secret';
+process.env.JWT_EXPIRES_IN ??= '7d';
+process.env.MONGODB_URI ??= 'mongodb://127.0.0.1:27017/formulai';
+process.env.REDIS_HOST ??= '127.0.0.1';
+
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { getModelToken } from '@nestjs/mongoose';
