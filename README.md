@@ -105,7 +105,7 @@ Configure email delivery settings. For local development, **Mailhog** is pre-con
 | `SMTP_PORT` | SMTP Server Port | `1025` |
 | `SMTP_USER` | SMTP Username | `user` |
 | `SMTP_PASS` | SMTP Password | `pass` |
-| `FROM_EMAIL` | Sender address | `FormulAI <noreply@formulai.com>` |
+| `FROM_EMAIL` | Sender address | `FormulAI <noreply@example.com>` |
 
 > **Note:** When running via `docker compose up`, the backend automatically connects to the `mailhog` service. If running the backend locally, use `localhost`.
 
