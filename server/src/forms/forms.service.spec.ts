@@ -221,10 +221,20 @@ describe('FormsService', () => {
   });
 
   describe('findPublicForm', () => {
-    it('throws NotFoundException when form missing', async () => {
+    const mockPublicFormQuery = (value: unknown) => {
+      const exec = jest.fn().mockResolvedValue(value);
+      const lean = jest.fn().mockReturnValue({ exec });
+      const select = jest.fn().mockReturnValue({ lean, exec });
       (mockFormModel.findById as jest.Mock).mockReturnValueOnce({
-        exec: jest.fn().mockResolvedValue(null),
+        select,
+        lean,
+        exec,
       });
+      return { select, lean, exec };
+    };
+
+    it('throws NotFoundException when form missing', async () => {
+      mockPublicFormQuery(null);
 
       await expect(
         service.findPublicForm(new Types.ObjectId().toString()),
@@ -238,28 +248,49 @@ describe('FormsService', () => {
         isPublic: false,
         isActive: true,
       };
-      (mockFormModel.findById as jest.Mock).mockReturnValueOnce({
-        exec: jest.fn().mockResolvedValue(form),
-      });
+      mockPublicFormQuery(form);
 
       await expect(
         service.findPublicForm(String(form._id)),
       ).rejects.toBeInstanceOf(ForbiddenException);
     });
 
-    it('returns form when public and active', async () => {
+    it('returns a whitelisted DTO when public and active', async () => {
+      const formId = new Types.ObjectId();
       const form: any = {
-        _id: new Types.ObjectId(),
+        _id: formId,
         title: 'Test',
+        description: 'Public form',
         isPublic: true,
         isActive: true,
+        createdBy: new Types.ObjectId(),
+        invitations: [{ email: 'hidden@example.com' }],
+        analytics: { representativeQuotes: ['secret quote'] },
+        questions: [{ id: 'q1', title: 'Q', type: 'text', required: false, order: 0 }],
+        settings: { showProgressBar: true },
       };
-      (mockFormModel.findById as jest.Mock).mockReturnValueOnce({
-        exec: jest.fn().mockResolvedValue(form),
-      });
+      const { select, lean } = mockPublicFormQuery(form);
 
       const result = await service.findPublicForm(String(form._id));
-      expect(result).toBe(form);
+
+      expect(select).toHaveBeenCalled();
+      expect(lean).toHaveBeenCalled();
+      expect(result).toEqual({
+        id: String(formId),
+        title: 'Test',
+        description: 'Public form',
+        questions: [
+          { id: 'q1', title: 'Q', type: 'text', required: false, order: 0 },
+        ],
+        settings: {
+          allowMultipleResponses: true,
+          requireLogin: false,
+          showProgressBar: true,
+        },
+      });
+      expect(result).not.toHaveProperty('analytics');
+      expect(result).not.toHaveProperty('createdBy');
+      expect(result).not.toHaveProperty('invitations');
     });
   });
 
@@ -479,7 +510,11 @@ describe('FormsService', () => {
         isActive: true,
       };
       (mockFormModel.findById as jest.Mock).mockReturnValueOnce({
-        exec: jest.fn().mockResolvedValue(form),
+        select: jest.fn().mockReturnValue({
+          lean: jest.fn().mockReturnValue({
+            exec: jest.fn().mockResolvedValue(form),
+          }),
+        }),
       });
 
       await expect(
@@ -495,7 +530,11 @@ describe('FormsService', () => {
         isActive: true,
       };
       (mockFormModel.findById as jest.Mock).mockReturnValueOnce({
-        exec: jest.fn().mockResolvedValue(form),
+        select: jest.fn().mockReturnValue({
+          lean: jest.fn().mockReturnValue({
+            exec: jest.fn().mockResolvedValue(form),
+          }),
+        }),
       });
 
       const saved = { _id: 'resp1', submittedAt: new Date() } as any;
@@ -522,7 +561,11 @@ describe('FormsService', () => {
         isActive: true,
       };
       (mockFormModel.findById as jest.Mock).mockReturnValueOnce({
-        exec: jest.fn().mockResolvedValue(form),
+        select: jest.fn().mockReturnValue({
+          lean: jest.fn().mockReturnValue({
+            exec: jest.fn().mockResolvedValue(form),
+          }),
+        }),
       });
 
       const saved = { _id: 'resp1', submittedAt: new Date() } as any;
