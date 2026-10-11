@@ -19,11 +19,13 @@ import type { Request as ExpressRequest, Response as ExpressResponse } from 'exp
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { JwtService } from '@nestjs/jwt';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { FormAccessGuard } from './form-access.guard';
 import { FormsService } from './forms.service';
 import { EmailService, SendInvitationDto } from './email.service';
 import { AnalyticsService } from './analytics.service';
 import { CreateFormDto, UpdateFormDto } from './dto/form.dto';
 import { buildTopicFilterQuery } from './topic-filter.util';
+import { assertTaskBelongsToForm } from './analytics-task-access';
 import { randomUUID } from 'crypto';
 import { OrchestrationProducer } from '../analytics/queues/orchestration.producer';
 import { ProgressService } from '../analytics/queues/progress.service';
@@ -31,7 +33,7 @@ import { logFormRequest } from '../logging/actor-log';
 
 @ApiTags('Forms')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, FormAccessGuard)
 @Controller('forms')
 export class FormsController {
   constructor(
@@ -372,7 +374,10 @@ export class FormsController {
     // Verify user owns the form
     await this.formsService.findOne(id, userId);
 
-    const task = this.analyticsService.getTaskStatus(taskId);
+    const task = assertTaskBelongsToForm(
+      this.analyticsService.getTaskStatus(taskId),
+      id,
+    );
     if (!task) {
       return { found: false, message: 'Task not found or expired' };
     }
@@ -470,40 +475,16 @@ export class FormsController {
 export class PublicFormsController {
   constructor(private readonly formsService: FormsService) { }
 
-  @Get('test')
-  @ApiOperation({ summary: 'Test endpoint to verify public access' })
-  async testPublicAccess() {
-    return { message: 'Public access working', timestamp: new Date() };
-  }
-
-  @Get('debug/:id')
-  @ApiOperation({ summary: 'Debug endpoint to check form status (no auth)' })
-  async debugForm(@Param('id') id: string) {
-    try {
-      const form = await this.formsService.findOne(id);
-      return {
-        id: id,
-        title: form.title,
-        isPublic: form.isPublic,
-        isActive: form.isActive,
-        hasQuestions: form.questions.length > 0,
-        questionCount: form.questions.length
-      };
-    } catch (error) {
-      return {
-        error: error.message,
-        id: id
-      };
-    }
-  }
-
   @Get(':id')
-  @ApiOperation({ summary: 'Get a public form by ID (no authentication required)' })
+  @ApiOperation({
+    summary: 'Get a public form by ID (no authentication required)',
+    description:
+      'Returns a respondent-safe whitelist (id, title, description, questions, settings, optional language). Internal fields such as analytics, owner, and invitations are never included.',
+  })
   @ApiResponse({ status: 200, description: 'Public form retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Form not found or not public' })
   @ApiResponse({ status: 403, description: 'Form is not public' })
   async getPublicForm(@Param('id') id: string) {
-    console.log('Public form request for ID:', id);
     return this.formsService.findPublicForm(id);
   }
 

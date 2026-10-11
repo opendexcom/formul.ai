@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ResponseDocument } from '../../schemas/response.schema';
 import { Form } from '../../schemas/form.schema';
 import { SamplingStrategy, DataQuality, TopicFrequency } from '../core/analytics.types';
+import { logResponseTopicCount } from '../utils/topic-count-log';
 
 /**
  * Statistics Calculator
@@ -49,7 +50,10 @@ export class StatisticsCalculator {
       }
       
       if (idx === 0) {
-        console.log('[calculateTopicFrequencies] First response - canonicalTopics:', canonicalTopics);
+        logResponseTopicCount('[calculateTopicFrequencies] First response', {
+          responseId: String(r._id),
+          topicCount: canonicalTopics.length,
+        });
       }
       
       // Track unique topics per response (don't count duplicates within same response)

@@ -188,6 +188,11 @@ export class UpdateFormDto {
     };
   };
 
+  @ApiPropertyOptional({ description: 'Owning project ID' })
+  @IsOptional()
+  @IsString()
+  projectId?: string;
+
   @ApiPropertyOptional({
     enum: FORM_LANGUAGE_CODES,
     default: 'en-US',

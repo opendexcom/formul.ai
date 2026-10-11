@@ -6,12 +6,10 @@ import PublicFormView from './PublicFormView';
 import { QuestionType } from '../services/formsService';
 
 const polishForm = {
-  _id: 'form-pl',
+  id: 'form-pl',
   title: 'Ankieta satysfakcji',
   description: 'Creator-written description stays as-is',
   language: 'pl',
-  isActive: true,
-  isPublic: true,
   questions: [
     {
       id: 'q1',
@@ -29,9 +27,44 @@ const polishForm = {
   },
 };
 
-function renderPublicForm() {
+const publicFormPayload = {
+  id: 'public-form-1',
+  title: 'Whitelisted public form',
+  description: 'Only respondent-safe fields',
+  language: 'en-US',
+  questions: [
+    {
+      id: 'q1',
+      title: 'How was the event?',
+      description: 'One sentence is enough',
+      type: 'textarea',
+      required: true,
+      order: 1,
+    },
+    {
+      id: 'q2',
+      title: 'Overall rating',
+      type: 'rating',
+      required: false,
+      order: 2,
+      validation: { min: { value: 1 }, max: { value: 5 } },
+    },
+  ],
+  settings: {
+    allowMultipleResponses: true,
+    requireLogin: false,
+    showProgressBar: true,
+    customTheme: {
+      primaryColor: '#2563EB',
+      backgroundColor: '#F9FAFB',
+      fontFamily: 'Inter',
+    },
+  },
+};
+
+function renderPublicForm(path: string) {
   return render(
-    <MemoryRouter initialEntries={['/form/form-pl']}>
+    <MemoryRouter initialEntries={[path]}>
       <Routes>
         <Route path="/form/:formId" element={<PublicFormView />} />
       </Routes>
@@ -62,7 +95,7 @@ describe('PublicFormView Polish respondent strings', () => {
         json: async () => ({ success: true, responseId: 'r1' }),
       });
 
-    renderPublicForm();
+    renderPublicForm('/form/form-pl');
 
     expect(await screen.findByRole('button', { name: 'Wyślij' })).toBeInTheDocument();
     expect(document.documentElement.lang).toBe('pl');
@@ -86,5 +119,40 @@ describe('PublicFormView Polish respondent strings', () => {
     expect(submitCall[0]).toContain('/public/forms/form-pl/responses');
     expect(submitCall[1].method).toBe('POST');
     expect(JSON.parse(submitCall[1].body).responses.q1).toBe('Bardzo dobrze');
+  });
+});
+
+describe('PublicFormView reduced public payload', () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => publicFormPayload,
+      }),
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('renders title, description, questions, and theme from the allowlisted payload', async () => {
+    renderPublicForm('/form/public-form-1');
+
+    await waitFor(() => {
+      expect(screen.getByText('Whitelisted public form')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Only respondent-safe fields')).toBeInTheDocument();
+    expect(screen.getByText('How was the event?')).toBeInTheDocument();
+    expect(screen.getByText('One sentence is enough')).toBeInTheDocument();
+    expect(screen.getByText('Overall rating')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Submit' })).toBeInTheDocument();
+    expect(document.documentElement.lang).toBe('en-US');
+
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringMatching(/\/public\/forms\/public-form-1$/),
+    );
   });
 });

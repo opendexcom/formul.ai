@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Response, ResponseDocument } from '../schemas/response.schema';
@@ -307,7 +307,7 @@ export class AnalyticsService {
   async reprocessSingleResponse(formId: string, responseId: string): Promise<any> {
     const form = await this.formModel.findById(formId).exec();
     if (!form) {
-      throw new Error('Form not found');
+      throw new NotFoundException('Form not found');
     }
 
     const response = await this.responseModel.findOne({
@@ -316,7 +316,7 @@ export class AnalyticsService {
     }).exec();
 
     if (!response) {
-      throw new Error('Response not found');
+      throw new NotFoundException('Response not found');
     }
 
     if (!response.metadata.hasTextContent) {

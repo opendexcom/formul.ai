@@ -4,9 +4,11 @@ import { Model, Types } from 'mongoose';
 import { Form, FormDocument } from '../schemas/form.schema';
 import { Project, ProjectDocument } from '../schemas/project.schema';
 import { CreateFormDto, UpdateFormDto } from './dto/form.dto';
+import { PUBLIC_FORM_SELECT, toPublicFormDto, type PublicFormDto } from './dto/public-form.dto';
 import { ResponseService } from './response.service';
 import { buildResponseSubmissionLogMeta } from './response-submission-log';
 import { resolveFormLanguage } from './form-languages';
+import { getFormOwnerId, isValidFormId } from './form-access.util';
 
 @Injectable()
 export class FormsService {
@@ -18,6 +20,9 @@ export class FormsService {
 
   async create(createFormDto: CreateFormDto, userId: string): Promise<Form> {
     const ownerId = new Types.ObjectId(userId);
+    if (createFormDto.projectId) {
+      await this.assertProjectAccess(userId, createFormDto.projectId);
+    }
     const projectId = createFormDto.projectId
       ? new Types.ObjectId(createFormDto.projectId)
       : new Types.ObjectId();
@@ -74,26 +79,50 @@ export class FormsService {
     return forms;
   }
 
+  /**
+   * Owner-only lookup for authenticated management routes.
+   * Public / `isPublic` is NOT a grant here — respondents must use findPublicForm.
+   * Returns 404 for both missing forms and non-owners so existence is not leaked.
+   */
+  async assertFormAccess(userId: string, formId: string): Promise<FormDocument> {
+    if (!userId || !formId || !isValidFormId(formId)) {
+      throw new NotFoundException('Form not found');
+    }
+
+    const form = await this.formModel.findById(formId);
+    if (!form || getFormOwnerId(form.createdBy) !== String(userId)) {
+      throw new NotFoundException('Form not found');
+    }
+
+    return form;
+  }
+
+  /**
+   * Owner-only project lookup. Same 404-on-denial model as assertFormAccess.
+   */
+  async assertProjectAccess(userId: string, projectId: string): Promise<ProjectDocument> {
+    if (!userId || !projectId || !Types.ObjectId.isValid(projectId)) {
+      throw new NotFoundException('Project not found');
+    }
+
+    const project = await this.projectModel.findById(projectId);
+    if (!project || project.ownerId.toString() !== String(userId)) {
+      throw new NotFoundException('Project not found');
+    }
+
+    return project;
+  }
+
   async findOne(id: string, userId?: string): Promise<Form> {
     const form = await this.formModel.findById(id).populate('createdBy', 'firstName lastName email').exec();
-    
+
     if (!form) {
       throw new NotFoundException('Form not found');
     }
 
-    // If userId is provided, check if user owns the form or if form is public
-    if (userId) {
-      // Handle both populated and non-populated createdBy field
-      const formOwnerId = typeof form.createdBy === 'object' && form.createdBy._id 
-        ? form.createdBy._id.toString() 
-        : form.createdBy.toString();
-      const requestUserId = userId.toString();
-      
-      console.log('FindOne access check - Form ID:', id, 'Form Owner:', formOwnerId, 'Request User:', requestUserId, 'Is Public:', form.isPublic);
-      
-      if (formOwnerId !== requestUserId && !form.isPublic) {
-        throw new ForbiddenException(`Access denied. Form owner: ${formOwnerId}, Request user: ${requestUserId}`);
-      }
+    // Authenticated management: owner only. isPublic never bypasses this check.
+    if (userId && getFormOwnerId(form.createdBy) !== String(userId)) {
+      throw new NotFoundException('Form not found');
     }
 
     return form;
@@ -102,24 +131,15 @@ export class FormsService {
   async update(id: string, updateFormDto: UpdateFormDto, userId: string): Promise<Form> {
     console.log('UPDATE FORM - Form ID:', id, 'User ID:', userId);
     console.log('UPDATE FORM - Update data:', JSON.stringify(updateFormDto, null, 2));
-    
-    const form = await this.formModel.findById(id);
-    
-    if (!form) {
-      throw new NotFoundException('Form not found');
-    }
 
-    const formOwnerId = form.createdBy.toString();
-    const requestUserId = userId.toString();
-
-    console.log('UPDATE FORM - Form owner:', formOwnerId, 'Request user:', requestUserId);
-
-    if (formOwnerId !== requestUserId) {
-      throw new ForbiddenException(`Access denied. Form owner: ${formOwnerId}, Request user: ${requestUserId}`);
-    }
+    const form = await this.assertFormAccess(userId, id);
 
     // Explicitly exclude system fields that should NEVER be updated
     const { _id, createdBy, createdAt, updatedAt, __v, ...safeUpdateData } = updateFormDto as any;
+
+    if (safeUpdateData.projectId) {
+      await this.assertProjectAccess(userId, String(safeUpdateData.projectId));
+    }
     
     console.log('UPDATE FORM - Safe update data:', JSON.stringify(safeUpdateData, null, 2));
     
@@ -195,19 +215,7 @@ export class FormsService {
   }
 
   async remove(id: string, userId: string): Promise<void> {
-    const form = await this.formModel.findById(id);
-    
-    if (!form) {
-      throw new NotFoundException('Form not found');
-    }
-
-    const formOwnerId = form.createdBy.toString();
-    const requestUserId = userId.toString();
-
-    if (formOwnerId !== requestUserId) {
-      throw new ForbiddenException('Access denied');
-    }
-
+    await this.assertFormAccess(userId, id);
     await this.formModel.findByIdAndDelete(id);
   }
 
@@ -241,18 +249,7 @@ export class FormsService {
   }
 
   async toggleActiveStatus(id: string, userId: string): Promise<Form> {
-    const form = await this.formModel.findById(id);
-    
-    if (!form) {
-      throw new NotFoundException('Form not found');
-    }
-
-    const formOwnerId = form.createdBy.toString();
-    const requestUserId = userId.toString();
-
-    if (formOwnerId !== requestUserId) {
-      throw new ForbiddenException('Access denied');
-    }
+    const form = await this.assertFormAccess(userId, id);
 
     form.isActive = !form.isActive;
     form.updatedAt = new Date();
@@ -269,36 +266,38 @@ export class FormsService {
   }
 
   // Public form methods (no authentication required)
-  async findPublicForm(id: string): Promise<Form> {
-    console.log('Finding public form with ID:', id);
-    
-    const form = await this.formModel.findById(id).exec();
-    console.log('Form found:', form ? `Title: ${form.title}, isPublic: ${form.isPublic}, isActive: ${form.isActive}` : 'null');
-    
+  async findPublicForm(id: string): Promise<PublicFormDto> {
+    const form = await this.formModel
+      .findById(id)
+      .select(PUBLIC_FORM_SELECT)
+      .lean()
+      .exec();
+
     if (!form) {
-      console.log('Form not found in database');
+      console.log('Public form lookup', { formId: id, outcome: 'not_found' });
       throw new NotFoundException('Form not found');
     }
 
+    const language = resolveFormLanguage(form.language);
+
     if (!form.isPublic) {
-      console.log('Form is not public');
+      console.log('Public form lookup', { formId: id, outcome: 'not_public' });
       throw new ForbiddenException({
         message: 'This form is not public',
-        language: resolveFormLanguage(form.language),
+        language,
       });
     }
 
     if (!form.isActive) {
-      console.log('Form is not active');
+      console.log('Public form lookup', { formId: id, outcome: 'not_active' });
       throw new ForbiddenException({
         message: 'This form is not currently accepting responses',
-        language: resolveFormLanguage(form.language),
+        language,
       });
     }
 
-    form.language = resolveFormLanguage(form.language);
-    console.log('Returning public form successfully');
-    return form;
+    console.log('Public form lookup', { formId: id, outcome: 'ok' });
+    return toPublicFormDto({ ...form, language });
   }
 
   async submitResponse(formId: string, responseData: any, ipAddress?: string, userAgent?: string): Promise<any> {
