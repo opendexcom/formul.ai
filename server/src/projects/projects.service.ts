@@ -43,6 +43,7 @@ export class ProjectsService {
       questions: [],
       isActive: false,
       isPublic: false,
+      language: 'en-US',
       settings: {
         allowMultipleResponses: true,
         requireLogin: false,
@@ -327,6 +328,7 @@ export class ProjectsService {
       questions: clonedQuestions,
       isActive: false,
       isPublic: false,
+      language: sourceForm.language ?? 'en-US',
       settings: sourceForm.settings ?? {
         allowMultipleResponses: true,
         requireLogin: false,

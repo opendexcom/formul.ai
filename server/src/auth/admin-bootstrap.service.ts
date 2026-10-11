@@ -48,14 +48,14 @@ export class AdminBootstrapService implements OnApplicationBootstrap {
       existing.isEmailVerified = true;
       existing.emailVerificationToken = undefined;
       await existing.save();
-      this.logger.log(`Granted admin role to existing user ${email}`);
+      this.logger.log(`Granted admin role to existing user ${existing._id}`);
       return;
     }
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    await this.userModel.create({
+    const created = await this.userModel.create({
       email,
       password: hashedPassword,
       firstName,
@@ -64,6 +64,6 @@ export class AdminBootstrapService implements OnApplicationBootstrap {
       isEmailVerified: true,
     });
 
-    this.logger.log(`Created bootstrap admin user ${email}`);
+    this.logger.log(`Created bootstrap admin user ${created._id}`);
   }
 }

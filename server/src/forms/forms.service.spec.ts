@@ -51,6 +51,7 @@ describe('FormsService', () => {
       expect(instance.data.title).toBe('My form');
       expect(instance.data.createdBy).toBeInstanceOf(Types.ObjectId);
       expect(instance.data.settings.allowMultipleResponses).toBe(true);
+      expect(instance.data.language).toBe('en-US');
       expect(result).toBe(instance);
     });
 
@@ -279,6 +280,7 @@ describe('FormsService', () => {
         id: String(formId),
         title: 'Test',
         description: 'Public form',
+        language: 'en-US',
         questions: [
           { id: 'q1', title: 'Q', type: 'text', required: false, order: 0 },
         ],
@@ -291,6 +293,24 @@ describe('FormsService', () => {
       expect(result).not.toHaveProperty('analytics');
       expect(result).not.toHaveProperty('createdBy');
       expect(result).not.toHaveProperty('invitations');
+    });
+
+    it('returns the creator-chosen language on the public form payload', async () => {
+      const formId = new Types.ObjectId();
+      const form: any = {
+        _id: formId,
+        title: 'Test',
+        description: 'Public form',
+        isPublic: true,
+        isActive: true,
+        language: 'pl',
+        questions: [],
+        settings: {},
+      };
+      mockPublicFormQuery(form);
+
+      const result = await service.findPublicForm(String(formId));
+      expect(result.language).toBe('pl');
     });
 
     it('logs only formId and outcome, not the form title', async () => {

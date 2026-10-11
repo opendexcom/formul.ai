@@ -1,6 +1,7 @@
 import { apiClient } from './apiClient';
 import { getErrorMessage } from '../utils/errorHandling';
 import { AnalyticsData, ResponseWithMetadata } from '../types/analytics';
+import type { FormLanguage } from '../i18n/languages';
 
 export interface FormData {
   _id?: string;
@@ -11,6 +12,7 @@ export interface FormData {
   questions: Question[];
   isActive: boolean;
   isPublic: boolean;
+  language?: FormLanguage;
   createdAt?: string;
   updatedAt?: string;
   settings: FormSettings;
@@ -68,6 +70,7 @@ export interface CreateFormRequest {
   description?: string;
   questions?: Question[];
   settings?: Partial<FormSettings>;
+  language?: FormLanguage;
 }
 
 export interface FormStats {

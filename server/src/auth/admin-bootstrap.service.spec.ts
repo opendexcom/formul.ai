@@ -46,7 +46,7 @@ describe('AdminBootstrapService', () => {
     process.env.ADMIN_FIRST_NAME = 'Ada';
     process.env.ADMIN_LAST_NAME = 'Min';
     mockUserModel.findOne.mockResolvedValue(null);
-    mockUserModel.create.mockResolvedValue({});
+    mockUserModel.create.mockResolvedValue({ _id: 'new-admin-id' });
 
     await service.bootstrapAdminFromEnv();
 
@@ -69,6 +69,7 @@ describe('AdminBootstrapService', () => {
     process.env.ADMIN_EMAIL = 'user@example.com';
     process.env.ADMIN_PASSWORD = 'SecureP@ss1';
     const existing = {
+      _id: 'existing-user-id',
       email: 'user@example.com',
       roles: ['user'],
       isEmailVerified: false,

@@ -12,6 +12,33 @@ export interface SendInvitationDto {
   formUrl: string;
 }
 
+/** SMTP `error.message` / `response` can include recipient addresses — never log those. */
+export function smtpLogFields(error: unknown): {
+  errorName: string;
+  errorCode?: string | number;
+  errorResponseCode?: string | number;
+} {
+  const err = (error ?? {}) as {
+    name?: unknown;
+    code?: unknown;
+    responseCode?: unknown;
+  };
+  const fields: {
+    errorName: string;
+    errorCode?: string | number;
+    errorResponseCode?: string | number;
+  } = {
+    errorName: typeof err.name === 'string' && err.name.length > 0 ? err.name : 'Error',
+  };
+  if (typeof err.code === 'string' || typeof err.code === 'number') {
+    fields.errorCode = err.code;
+  }
+  if (typeof err.responseCode === 'string' || typeof err.responseCode === 'number') {
+    fields.errorResponseCode = err.responseCode;
+  }
+  return fields;
+}
+
 @Injectable()
 export class EmailService {
   constructor() {
@@ -48,10 +75,16 @@ export class EmailService {
             : null,
         });
 
-        console.log(`Email would be sent to ${email}: ${info.messageId}`);
+        console.log('Form invitation sent', {
+          formId: invitationData.formId,
+          messageId: info.messageId,
+        });
 
       } catch (error: any) {
-        console.error('Failed to send email to %s:', email, error);
+        console.error('Failed to send form invitation', {
+          formId: invitationData.formId,
+          ...smtpLogFields(error),
+        });
         results.push({
           email: email.trim(),
           success: false,

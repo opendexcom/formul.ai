@@ -29,6 +29,7 @@ import { assertTaskBelongsToForm } from './analytics-task-access';
 import { randomUUID } from 'crypto';
 import { OrchestrationProducer } from '../analytics/queues/orchestration.producer';
 import { ProgressService } from '../analytics/queues/progress.service';
+import { logFormRequest } from '../logging/actor-log';
 
 @ApiTags('Forms')
 @ApiBearerAuth()
@@ -50,7 +51,7 @@ export class FormsController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   create(@Body() createFormDto: CreateFormDto, @Request() req) {
     const userId = req.user._id || req.user.id;
-    console.log('CREATE FORM REQUEST - Method: POST, User:', req.user.email, 'Data:', createFormDto);
+    logFormRequest('CREATE FORM REQUEST', req.user);
     return this.formsService.create(createFormDto, userId);
   }
 
@@ -60,7 +61,7 @@ export class FormsController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   findAll(@Request() req) {
     const userId = req.user._id || req.user.id;
-    console.log('GET ALL FORMS REQUEST - Method: GET, User:', req.user.email, 'UserId:', userId);
+    logFormRequest('GET ALL FORMS REQUEST', req.user);
     return this.formsService.findAllByUser(userId);
   }
 
@@ -71,7 +72,7 @@ export class FormsController {
   @ApiResponse({ status: 403, description: 'Access denied' })
   findOne(@Param('id') id: string, @Request() req) {
     const userId = req.user._id || req.user.id;
-    console.log('GET FORM REQUEST - Form ID:', id, 'User:', req.user.email, 'UserId:', userId);
+    logFormRequest('GET FORM REQUEST', req.user, { formId: id });
     return this.formsService.findOne(id, userId);
   }
 
@@ -83,7 +84,7 @@ export class FormsController {
   update(@Param('id') id: string, @Body() updateFormDto: UpdateFormDto, @Request() req) {
     // Extract user ID - try both _id and id properties
     const userId = req.user._id || req.user.id;
-    console.log('Update form request - User:', req.user, 'UserId:', userId);
+    logFormRequest('UPDATE FORM REQUEST', req.user, { formId: id });
     return this.formsService.update(id, updateFormDto, userId);
   }
 

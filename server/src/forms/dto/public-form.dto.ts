@@ -2,6 +2,8 @@
  * Explicit allowlist for unauthenticated GET /api/public/forms/:id.
  * Query projection plus this mapper keep new schema fields from leaking by default.
  */
+import { resolveFormLanguage } from '../form-languages';
+
 
 export const PUBLIC_FORM_SELECT = {
   title: 1,
@@ -20,13 +22,11 @@ export const PUBLIC_FORM_REQUIRED_KEYS = [
   'description',
   'questions',
   'settings',
-] as const;
-
-/** language is included only when present on the stored document. */
-export const PUBLIC_FORM_ALLOWED_KEYS = [
-  ...PUBLIC_FORM_REQUIRED_KEYS,
   'language',
 ] as const;
+
+/** language is always emitted (creator-chosen; defaults to en-US). */
+export const PUBLIC_FORM_ALLOWED_KEYS = [...PUBLIC_FORM_REQUIRED_KEYS] as const;
 
 export const PUBLIC_QUESTION_ALLOWED_KEYS = [
   'id',
@@ -88,7 +88,7 @@ export interface PublicFormDto {
   description: string;
   questions: PublicFormQuestionDto[];
   settings: PublicFormSettingsDto;
-  language?: string;
+  language: string;
 }
 
 type LeanPublicForm = {
@@ -173,17 +173,12 @@ export function toPublicFormDto(form: LeanPublicForm): PublicFormDto {
     ? form.questions.map(toPublicQuestionDto)
     : [];
 
-  const dto: PublicFormDto = {
+  return {
     id: String(form._id ?? ''),
     title: typeof form.title === 'string' ? form.title : '',
     description: typeof form.description === 'string' ? form.description : '',
     questions,
     settings: toPublicSettingsDto(form.settings),
+    language: resolveFormLanguage(form.language),
   };
-
-  if (typeof form.language === 'string' && form.language.length > 0) {
-    dto.language = form.language;
-  }
-
-  return dto;
 }

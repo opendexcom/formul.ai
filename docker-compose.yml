@@ -4,12 +4,20 @@
 
 name: formulai-oss
 
+# Match production (daemon.json + EE prod compose): keep less personal data, not more.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   backend:
     build:
       context: .
       dockerfile: server/Dockerfile
     restart: unless-stopped
+    logging: *default-logging
     environment:
       NODE_ENV: production
       MONGODB_URI: mongodb://mongodb:27017/formulai
@@ -42,6 +50,7 @@ services:
       context: .
       dockerfile: server/Dockerfile
     restart: unless-stopped
+    logging: *default-logging
     environment:
       NODE_ENV: production
       MONGODB_URI: mongodb://mongodb:27017/formulai
@@ -75,6 +84,7 @@ services:
       args:
         VITE_API_BASE_URL: /api
     restart: unless-stopped
+    logging: *default-logging
     volumes:
       - ./gateway/nginx.conf:/etc/nginx/nginx.conf:ro
     ports:

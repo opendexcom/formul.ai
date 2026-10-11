@@ -215,6 +215,7 @@ describe('Public forms (e2e) – no analytics / owner / invitations leak', () =>
       id: seededFormId,
       title: 'Public GDPR form',
       description: 'Respondent-facing survey',
+      language: 'en-US',
     });
     expect(res.body.questions).toHaveLength(1);
     expect(Object.keys(res.body.questions[0]).every((key) =>
@@ -224,6 +225,34 @@ describe('Public forms (e2e) – no analytics / owner / invitations leak', () =>
       PUBLIC_SETTINGS_ALLOWED_KEYS.includes(key as any),
     )).toBe(true);
     expect(res.body.questions[0]).not.toHaveProperty('reverseCoded');
+  });
+
+  it('GET /api/public/forms/:id returns the creator-chosen language', async () => {
+    const polishFormId = new Types.ObjectId();
+    await formModel.collection.insertOne({
+      _id: polishFormId,
+      title: 'Ankieta',
+      description: 'PL',
+      createdBy: new Types.ObjectId(),
+      isPublic: true,
+      isActive: true,
+      language: 'pl',
+      questions: [],
+      settings: {},
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    try {
+      const res = await request(app.getHttpServer())
+        .get(`/api/public/forms/${String(polishFormId)}`)
+        .expect(200);
+
+      expect(res.body.language).toBe('pl');
+      expect(res.body).not.toHaveProperty('isPublic');
+    } finally {
+      await formModel.collection.deleteOne({ _id: polishFormId });
+    }
   });
 
   it('POST /api/public/forms/:id/responses does not return the form document', async () => {

@@ -59,7 +59,7 @@ describe('toPublicFormDto', () => {
       },
       webhookUrl: 'https://internal.example.com/hook',
     },
-    language: 'en',
+    language: 'pl',
   };
 
   it('maps only the public allowlist and drops internal / PII fields', () => {
@@ -70,7 +70,7 @@ describe('toPublicFormDto', () => {
       id: String(leanForm._id),
       title: 'Customer feedback',
       description: 'Tell us what you think',
-      language: 'en',
+      language: 'pl',
       questions: [
         {
           id: 'q1',
@@ -108,12 +108,17 @@ describe('toPublicFormDto', () => {
     expect(serialized).not.toContain('webhookUrl');
   });
 
-  it('omits language when it is not on the document and keeps required keys exact', () => {
+  it('defaults language to en-US when it is not on the document', () => {
     const { language: _language, ...withoutLanguage } = leanForm;
     const dto = toPublicFormDto(withoutLanguage);
 
     expect(Object.keys(dto).sort()).toEqual([...PUBLIC_FORM_REQUIRED_KEYS].sort());
-    expect(dto).not.toHaveProperty('language');
+    expect(dto.language).toBe('en-US');
+  });
+
+  it('keeps the creator-chosen language and rejects unknown codes', () => {
+    expect(toPublicFormDto({ ...leanForm, language: 'de' }).language).toBe('de');
+    expect(toPublicFormDto({ ...leanForm, language: 'fr-FR' }).language).toBe('en-US');
   });
 
   it('locks question and settings keys to their allowlists', () => {

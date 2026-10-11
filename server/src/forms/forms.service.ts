@@ -7,6 +7,7 @@ import { CreateFormDto, UpdateFormDto } from './dto/form.dto';
 import { PUBLIC_FORM_SELECT, toPublicFormDto, type PublicFormDto } from './dto/public-form.dto';
 import { ResponseService } from './response.service';
 import { buildResponseSubmissionLogMeta } from './response-submission-log';
+import { resolveFormLanguage } from './form-languages';
 import { getFormOwnerId, isValidFormId } from './form-access.util';
 
 @Injectable()
@@ -30,6 +31,7 @@ export class FormsService {
       createdBy: ownerId,
       projectId,
       variantKey: createFormDto.variantKey ?? 'main',
+      language: createFormDto.language ?? 'en-US',
       settings: {
         allowMultipleResponses: true,
         requireLogin: false,
@@ -276,18 +278,26 @@ export class FormsService {
       throw new NotFoundException('Form not found');
     }
 
+    const language = resolveFormLanguage(form.language);
+
     if (!form.isPublic) {
       console.log('Public form lookup', { formId: id, outcome: 'not_public' });
-      throw new ForbiddenException('This form is not public');
+      throw new ForbiddenException({
+        message: 'This form is not public',
+        language,
+      });
     }
 
     if (!form.isActive) {
       console.log('Public form lookup', { formId: id, outcome: 'not_active' });
-      throw new ForbiddenException('This form is not currently accepting responses');
+      throw new ForbiddenException({
+        message: 'This form is not currently accepting responses',
+        language,
+      });
     }
 
     console.log('Public form lookup', { formId: id, outcome: 'ok' });
-    return toPublicFormDto(form);
+    return toPublicFormDto({ ...form, language });
   }
 
   async submitResponse(formId: string, responseData: any, ipAddress?: string, userAgent?: string): Promise<any> {
