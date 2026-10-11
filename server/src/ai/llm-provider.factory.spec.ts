@@ -45,6 +45,7 @@ const openaiConfig: LlmProviderConfig = {
     chat: 'gpt-4o-mini',
     analysis: 'gpt-4o',
     guardian: 'gpt-4o-mini',
+    classification: 'gpt-4o-mini',
     embedding: 'text-embedding-3-small',
   },
   apiKey: 'sk-test',
@@ -57,6 +58,7 @@ const mistralConfig: LlmProviderConfig = {
     chat: 'mistral-small-latest',
     analysis: 'mistral-medium-latest',
     guardian: 'mistral-small-latest',
+    classification: 'mistral-small-latest',
     embedding: 'mistral-embed',
   },
   apiKey: 'mst-test',
@@ -115,6 +117,7 @@ describe('llm-provider.factory', () => {
         chat: 'low',
         analysis: 'high',
         guardian: 'minimal',
+        classification: 'low',
       },
     }) as { opts: Record<string, unknown> };
     expect(model.opts.model).toBe('gpt-5-mini');
@@ -158,6 +161,7 @@ describe('llm-provider.factory', () => {
         chat: 'eu.amazon.nova-lite-v1:0',
         analysis: 'eu.amazon.nova-pro-v1:0',
         guardian: 'eu.amazon.nova-micro-v1:0',
+        classification: 'eu.amazon.nova-micro-v1:0',
         embedding: 'amazon.titan-embed-text-v2:0',
       },
       region: 'eu-central-1',
@@ -176,6 +180,7 @@ describe('llm-provider.factory', () => {
         chat: 'eu.amazon.nova-lite-v1:0',
         analysis: 'eu.amazon.nova-pro-v1:0',
         guardian: 'eu.amazon.nova-micro-v1:0',
+        classification: 'eu.amazon.nova-micro-v1:0',
         embedding: 'amazon.titan-embed-text-v2:0',
       },
       region: 'eu-central-1',
@@ -193,6 +198,7 @@ describe('llm-provider.factory', () => {
         chat: 'llama2',
         analysis: 'llama2',
         guardian: 'llama2',
+        classification: 'llama2',
         embedding: 'nomic-embed-text',
       },
       baseUrl: 'http://localhost:11434',
@@ -200,5 +206,53 @@ describe('llm-provider.factory', () => {
     }) as { opts: Record<string, unknown> };
     expect(model.opts.model).toBe('llama2');
     expect(model.opts.baseUrl).toBe('http://localhost:11434');
+  });
+
+  it('creates OpenRouter chat models against the OpenAI-compatible base URL', () => {
+    const { ChatOpenAI } = require('@langchain/openai');
+    ChatOpenAI.mockClear();
+    const model = createChatModel('chat', {
+      provider: 'openrouter',
+      models: {
+        chat: 'openai/gpt-4o-mini',
+        analysis: 'openai/gpt-4o-mini',
+        guardian: 'typesafe/jev-1.13',
+        classification: 'typesafe/jev-1.13',
+        embedding: 'openai/text-embedding-3-small',
+      },
+      apiKey: 'or-test',
+      baseUrl: 'https://openrouter.ai/api/v1',
+      temperature: 0.2,
+      httpReferer: 'https://formulai.cloud',
+      appTitle: 'FormulAI',
+    }) as { opts: Record<string, unknown> };
+    expect(model.opts.model).toBe('openai/gpt-4o-mini');
+    expect(model.opts.configuration).toEqual({
+      baseURL: 'https://openrouter.ai/api/v1',
+      defaultHeaders: {
+        'HTTP-Referer': 'https://formulai.cloud',
+        'X-Title': 'FormulAI',
+      },
+    });
+    expect(model.opts.modelKwargs).toEqual({
+      provider: { data_collection: 'deny' },
+    });
+  });
+
+  it('returns null for jev decision models (not chat completions)', () => {
+    expect(
+      createChatModel('guardian', {
+        provider: 'openrouter',
+        models: {
+          chat: 'openai/gpt-4o-mini',
+          analysis: 'openai/gpt-4o-mini',
+          guardian: 'typesafe/jev-1.13',
+          classification: 'typesafe/jev-1.13',
+          embedding: 'openai/text-embedding-3-small',
+        },
+        apiKey: 'or-test',
+        temperature: 0,
+      }),
+    ).toBeNull();
   });
 });

@@ -12,16 +12,29 @@ First-class providers:
 | `mistral` | Mistral La Plateforme **EU** (`https://api.eu.mistral.ai`) | GDPR / RODO path |
 | `bedrock` | Amazon Bedrock in an **EU** region (`eu-central-1` default) | GDPR / RODO path with model choice (Nova, Claude, Llama, Mistral) |
 
-`ollama` remains available for local development only.
+`ollama` remains available for local development only. `openrouter` is an
+OpenAI-compatible chat provider (`https://openrouter.ai/api/v1`) and the
+home of **jev** (`typesafe/jev-1.13`) via the Decisions API.
 
-Per-task overrides (apply to the **current** provider):
+Per-task overrides. `LLM_PROVIDER_<TASK>` and `LLM_MODEL_<TASK>` select
+provider + model independently (`CHAT`, `ANALYSIS`, `GUARDIAN`, `CLASSIFICATION`):
 
 ```env
-LLM_MODEL_CHAT=          # form generation / chat
-LLM_MODEL_ANALYSIS=      # analytics, document-to-form
-LLM_MODEL_GUARDIAN=      # prompt-injection guardian
-LLM_MODEL_EMBEDDING=     # only used when EMBEDDING_PROVIDER matches the LLM provider
+LLM_MODEL_CHAT=              # form generation / chat
+LLM_MODEL_ANALYSIS=          # analytics long-form, document-to-form
+LLM_MODEL_GUARDIAN=          # prompt-injection guardian
+LLM_MODEL_CLASSIFICATION=    # sentiment, quality, topic-sentiment, cluster labels
+LLM_PROVIDER_GUARDIAN=       # e.g. openrouter
+LLM_PROVIDER_CLASSIFICATION= # e.g. openrouter
+LLM_MODEL_EMBEDDING=         # only used when EMBEDDING_PROVIDER matches the LLM provider
 ```
+
+When `OPENROUTER_API_KEY` is set, **guardian** and **classification** default
+to `openrouter` / `typesafe/jev-1.13`. Combined analysis then splits:
+long-form topics + quotes stay on the analysis model; sentiment, per-topic
+sentiment, quality flags, and cluster labels go to jev. JSON written by
+`saveChunkResults` is unchanged. Without the key, defaults are unchanged
+(single `analytics.combined_analysis` call; guardian stays `gpt-4o-mini`).
 
 `EMBEDDING_PROVIDER` is independent (`local` by default, already GDPR-safe).
 Switching the chat provider does **not** automatically send embeddings off-box.
@@ -41,9 +54,10 @@ LLM_TEMPERATURE=0.7
 # LLM_REASONING_EFFORT_ANALYSIS=medium
 ```
 
-`OPENAI_MODEL` applies to chat and analysis. Guardian stays on
-`gpt-4o-mini` unless you set `LLM_MODEL_GUARDIAN` — so a production
-`OPENAI_MODEL=gpt-5-mini` does not turn guardian into a reasoning model.
+`OPENAI_MODEL` applies to chat and analysis (and classification when jev
+is not enabled). Guardian stays on `gpt-4o-mini` unless you set
+`LLM_MODEL_GUARDIAN` — so a production `OPENAI_MODEL=gpt-5-mini` does not
+turn guardian into a reasoning model.
 
 For `gpt-5*` / `o*` models, temperature is omitted (those models reject or
 ignore values other than 1). `OPENAI_REASONING_EFFORT` (default `low`) is
@@ -203,7 +217,46 @@ Also sign a **DPA** with AWS and list Bedrock as a subprocessor before launch.
 
 ---
 
-## 4. Ollama (local / dev)
+## 4. OpenRouter / jev (classification + guardian)
+
+Jev (`typesafe/jev-1.13`) is **not** a chat-completions model. FormulAI
+calls `POST https://openrouter.ai/api/alpha/decisions` (choice / noul /
+score). Context ~32k prompt tokens; completion tokens are $0. List price
+from the OpenRouter Endpoints API (2026-10-11): **$0.042 / 1M input, $0
+output**. TypeSafe is US-hosted, does not train on inputs; ZDR is
+enterprise-only. Requests send `provider.data_collection=deny` and retry
+once without deny if routing has no matching endpoint.
+
+```env
+OPENROUTER_API_KEY=...
+# Optional. When set, guardian + classification default to typesafe/jev-1.13.
+# OPENROUTER_HTTP_REFERER=https://formulai.cloud
+# OPENROUTER_APP_TITLE=FormulAI
+# LLM_PROVIDER_GUARDIAN=openrouter
+# LLM_MODEL_GUARDIAN=typesafe/jev-1.13
+# LLM_PROVIDER_CLASSIFICATION=openrouter
+# LLM_MODEL_CLASSIFICATION=typesafe/jev-1.13
+```
+
+Jev cannot invent open-vocabulary topic names or quotes. Those stay on
+`analytics.combined_longform` / `analytics.topic_clustering_batch`.
+
+Estimated USD per 100 responses (10 chunks × ~10 answers; see
+`estimateAnalysisCostPer100`):
+
+| Analysis model | Combined (current) | Split (long-form + jev) |
+| --- | --- | --- |
+| `gpt-4o-mini` | $0.01725 | $0.01673 |
+| `gpt-5-mini` | $0.04875 | $0.03953 |
+| `mistral-small-latest` | $0.01725 | $0.01673 |
+| `eu.amazon.nova-lite-v1:0` | $0.00690 | $0.00881 |
+
+Savings grow when the analysis model has expensive output tokens. Jev
+adds a small input-only fee (~$0.0035 / 100 responses).
+
+---
+
+## 5. Ollama (local / dev)
 
 ```env
 LLM_PROVIDER=ollama
@@ -224,18 +277,17 @@ OPENAI_API_KEY=... MISTRAL_API_KEY=... \
 ```
 
 Runs the same Polish sample survey through combined analysis + executive
-summary on every configured provider / model. Missing credentials skip that
-provider; results are never invented. Pricing citations are printed in the
-report (`https://platform.openai.com/docs/pricing`,
-`https://docs.mistral.ai/inference/pricing`,
-`https://aws.amazon.com/bedrock/pricing/`, retrieved 2026-10-10).
-
-Default comparison set: `gpt-4o-mini`, Mistral Small vs Large, Nova Lite vs Pro.
+summary on every configured first-class provider / model. When
+`OPENROUTER_API_KEY` is set, also runs jev classification tasks (sentiment,
+quality, cluster label). Missing credentials skip that provider; results
+are never invented. The report prints a 100-response combined-vs-split
+cost estimate.
 
 ```env
 COMPARE_MODELS_OPENAI=gpt-4o-mini
 COMPARE_MODELS_MISTRAL=mistral-small-latest,mistral-large-latest
 COMPARE_MODELS_BEDROCK=eu.amazon.nova-lite-v1:0,eu.amazon.nova-pro-v1:0
+COMPARE_MODELS_OPENROUTER=typesafe/jev-1.13
 COMPARE_OUTPUT=/tmp/provider-compare.json
 ```
 

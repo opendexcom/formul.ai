@@ -28,6 +28,7 @@ import { GraphRunnerService } from '../graphs/graph-runner.service';
 import {
   buildChatInvokeOptions,
   resolveLlmProviderConfig,
+  resolveLlmTaskConfig,
   resolveTaskForFlow,
 } from './llm-provider.config';
 import { createChatModel } from './llm-provider.factory';
@@ -76,20 +77,27 @@ export class AiService {
   }
 
   private initializeModels() {
-    this.chatModel = createChatModel('chat', this.providerConfig);
+    const chatConfig = resolveLlmTaskConfig('chat');
+    const analysisConfig = resolveLlmTaskConfig('analysis');
+    this.chatModel = createChatModel('chat', chatConfig);
     if (!this.chatModel && this.provider !== 'ollama' && this.provider !== 'bedrock') {
       const keyName =
-        this.provider === 'mistral' ? 'MISTRAL_API_KEY' : 'OPENAI_API_KEY';
+        this.provider === 'mistral'
+          ? 'MISTRAL_API_KEY'
+          : this.provider === 'openrouter'
+            ? 'OPENROUTER_API_KEY'
+            : 'OPENAI_API_KEY';
       console.warn(
         `${keyName} not configured. AI service will not be available.`,
       );
     }
     if (
-      this.providerConfig.models.analysis === this.providerConfig.models.chat
+      analysisConfig.provider === chatConfig.provider &&
+      analysisConfig.models.analysis === chatConfig.models.chat
     ) {
       this.analysisModel = this.chatModel;
     } else {
-      this.analysisModel = createChatModel('analysis', this.providerConfig);
+      this.analysisModel = createChatModel('analysis', analysisConfig);
     }
   }
 
@@ -101,7 +109,9 @@ export class AiService {
   }
 
   private resolveModelName(task: LlmTask = 'chat'): string {
+    const taskConfig = resolveLlmTaskConfig(task);
     return (
+      taskConfig.models[task] ||
       this.providerConfig?.models[task] ||
       process.env.OPENAI_MODEL ||
       process.env.MISTRAL_MODEL ||

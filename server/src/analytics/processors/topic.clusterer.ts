@@ -4,6 +4,7 @@ import { Model, Types } from 'mongoose';
 import { Response, ResponseDocument } from '../../schemas/response.schema';
 import { Form, FormDocument } from '../../schemas/form.schema';
 import { AiService } from '../../ai/ai.service';
+import { ClassificationService } from '../../ai/classification.service';
 import { TopicVectorStore } from '../stores/topic-vector.store';
 import {
   buildDeterministicTopicMapping,
@@ -50,6 +51,7 @@ export class TopicClusterer {
     private analyticsUsageTracker: AnalyticsUsageTrackerService,
     @InjectModel(Response.name) private responseModel: Model<ResponseDocument>,
     @InjectModel(Form.name) private formModel: Model<FormDocument>,
+    private classificationService: ClassificationService,
   ) {}
 
   async clusterAndStoreCanonicalTopics(
@@ -309,6 +311,17 @@ export class TopicClusterer {
     userId?: string,
   ): Promise<string | null> {
     try {
+      if (this.classificationService?.isJevEnabled()) {
+        const labelled = await this.classificationService.labelCluster(
+          clusterTopics,
+          { sessionId: taskId },
+        );
+        if (labelled.usage) {
+          this.analyticsUsageTracker.recordUsage(taskId, labelled.usage);
+        }
+        if (labelled.label) return labelled.label;
+      }
+
       const flowResult = await this.aiService.invokeFlow(
         'analytics.topic_clustering',
         { clusterTopics: JSON.stringify(clusterTopics, null, 2) },

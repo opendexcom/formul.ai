@@ -1,6 +1,8 @@
 import type { LlmProviderConfig, LlmTask } from './llm-provider.types';
 import {
   BEDROCK_DEFAULT_REGION,
+  OPENROUTER_DEFAULT_BASE_URL,
+  isJevDecisionModel,
   resolveLlmProviderConfig,
 } from './llm-provider.config';
 import { isOpenAiReasoningModel } from './llm-usage';
@@ -19,7 +21,35 @@ export function createChatModel(
   config: LlmProviderConfig = resolveLlmProviderConfig(),
 ): ChatModelLike | null {
   const model = config.models[task];
-  const temperature = task === 'guardian' ? 0 : config.temperature;
+  const temperature = task === 'guardian' || task === 'classification' ? 0 : config.temperature;
+
+  // Jev is the OpenRouter Decisions API, not Chat Completions.
+  if (isJevDecisionModel(model)) {
+    return null;
+  }
+
+  if (config.provider === 'openrouter') {
+    if (!config.apiKey) {
+      return null;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { ChatOpenAI } = require('@langchain/openai');
+    return new ChatOpenAI({
+      apiKey: config.apiKey,
+      model,
+      temperature,
+      configuration: {
+        baseURL: config.baseUrl || OPENROUTER_DEFAULT_BASE_URL,
+        defaultHeaders: {
+          'HTTP-Referer': config.httpReferer || 'https://formulai.cloud',
+          'X-Title': config.appTitle || 'FormulAI',
+        },
+      },
+      modelKwargs: {
+        provider: { data_collection: 'deny' },
+      },
+    });
+  }
 
   if (config.provider === 'mistral') {
     if (!config.apiKey) {

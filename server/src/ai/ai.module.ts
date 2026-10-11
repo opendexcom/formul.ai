@@ -3,6 +3,7 @@ import { AiService } from './ai.service';
 import { AiController } from './ai.controller';
 import { AuthModule } from '../auth/auth.module';
 import { GuardianService } from './guardian.service';
+import { ClassificationService } from './classification.service';
 import { SemanticLlmCacheService } from './semantic-llm-cache.service';
 import { EmbeddingService } from './embedding.service';
 import { MlflowModule } from '../mlflow/mlflow.module';
@@ -11,8 +12,8 @@ import { GraphsModule } from '../graphs/graphs.module';
 @Module({
   imports: [MlflowModule, forwardRef(() => AuthModule), forwardRef(() => GraphsModule)],
   controllers: [AiController],
-  providers: [AiService, GuardianService, SemanticLlmCacheService, EmbeddingService],
-  exports: [AiService, GuardianService, SemanticLlmCacheService, EmbeddingService],
+  providers: [AiService, GuardianService, ClassificationService, SemanticLlmCacheService, EmbeddingService],
+  exports: [AiService, GuardianService, ClassificationService, SemanticLlmCacheService, EmbeddingService],
 })
 export class AiModule { }
 
@@ -21,7 +22,7 @@ export class AiModule { }
  */
 @Module({
   imports: [MlflowModule, forwardRef(() => GraphsModule)],
-  providers: [AiService, GuardianService, SemanticLlmCacheService, EmbeddingService],
-  exports: [AiService, GuardianService, SemanticLlmCacheService, EmbeddingService],
+  providers: [AiService, GuardianService, ClassificationService, SemanticLlmCacheService, EmbeddingService],
+  exports: [AiService, GuardianService, ClassificationService, SemanticLlmCacheService, EmbeddingService],
 })
 export class AiCoreModule { }

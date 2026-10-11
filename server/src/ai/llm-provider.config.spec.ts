@@ -8,7 +8,11 @@ import {
   resolveEmbeddingProvider,
   resolveLlmProviderConfig,
   resolveLlmProviderName,
+  resolveLlmTaskConfig,
   resolveTaskForFlow,
+  resolveTaskProvider,
+  shouldSplitCombinedAnalysis,
+  usesJevDecisions,
 } from './llm-provider.config';
 
 describe('llm-provider.config', () => {
@@ -25,7 +29,14 @@ describe('llm-provider.config', () => {
     delete process.env.LLM_MODEL_CHAT;
     delete process.env.LLM_MODEL_ANALYSIS;
     delete process.env.LLM_MODEL_GUARDIAN;
+    delete process.env.LLM_MODEL_CLASSIFICATION;
     delete process.env.LLM_MODEL_EMBEDDING;
+    delete process.env.LLM_PROVIDER_CHAT;
+    delete process.env.LLM_PROVIDER_ANALYSIS;
+    delete process.env.LLM_PROVIDER_GUARDIAN;
+    delete process.env.LLM_PROVIDER_CLASSIFICATION;
+    delete process.env.OPENROUTER_API_KEY;
+    delete process.env.OPENROUTER_MODEL;
     delete process.env.EMBEDDING_PROVIDER;
     delete process.env.LLM_EMBEDDING_DIMENSION;
     delete process.env.OPENAI_EMBEDDING_MODEL;
@@ -68,6 +79,7 @@ describe('llm-provider.config', () => {
     expect(config.models.chat).toBe('gpt-5-mini');
     expect(config.models.analysis).toBe('gpt-5-mini');
     expect(config.models.guardian).toBe('gpt-4o-mini');
+    expect(config.models.classification).toBe('gpt-5-mini');
     expect(config.models.embedding).toBe('text-embedding-3-small');
     expect(config.apiKey).toBe('sk-test');
   });
@@ -79,6 +91,7 @@ describe('llm-provider.config', () => {
       chat: 'low',
       analysis: 'low',
       guardian: 'low',
+      classification: 'low',
     });
 
     const overridden = resolveLlmProviderConfig({
@@ -92,6 +105,7 @@ describe('llm-provider.config', () => {
       chat: 'medium',
       analysis: 'high',
       guardian: 'minimal',
+      classification: 'medium',
     });
   });
 
@@ -178,6 +192,7 @@ describe('llm-provider.config', () => {
 
   it('maps flow keys to task slots', () => {
     expect(resolveTaskForFlow('analytics.combined_analysis')).toBe('analysis');
+    expect(resolveTaskForFlow('analytics.combined_longform')).toBe('analysis');
     expect(resolveTaskForFlow('analytics.summary')).toBe('analysis');
     expect(resolveTaskForFlow('document_form.map')).toBe('analysis');
     expect(resolveTaskForFlow('form_generation.strategy')).toBe('chat');
@@ -228,6 +243,75 @@ describe('llm-provider.config', () => {
     ).toBe(1024);
     expect(resolveEmbeddingModelName({ EMBEDDING_PROVIDER: 'bedrock' })).toBe(
       'amazon.titan-embed-text-v2:0',
+    );
+  });
+
+  it('does not route guardian or classification to jev without OPENROUTER_API_KEY', () => {
+    const env = { LLM_PROVIDER: 'openai' };
+    expect(resolveTaskProvider('guardian', env)).toBe('openai');
+    expect(resolveTaskProvider('classification', env)).toBe('openai');
+    expect(usesJevDecisions('guardian', env)).toBe(false);
+    expect(usesJevDecisions('classification', env)).toBe(false);
+    expect(shouldSplitCombinedAnalysis(env)).toBe(false);
+    const config = resolveLlmProviderConfig(env);
+    expect(config.models.guardian).toBe('gpt-4o-mini');
+    expect(config.models.classification).toBe('gpt-4o-mini');
+  });
+
+  it('defaults guardian and classification to jev when OPENROUTER_API_KEY is set', () => {
+    const env = {
+      LLM_PROVIDER: 'openai',
+      OPENAI_API_KEY: 'sk-test',
+      OPENROUTER_API_KEY: 'or-test',
+    };
+    expect(resolveTaskProvider('chat', env)).toBe('openai');
+    expect(resolveTaskProvider('analysis', env)).toBe('openai');
+    expect(resolveTaskProvider('guardian', env)).toBe('openrouter');
+    expect(resolveTaskProvider('classification', env)).toBe('openrouter');
+    expect(usesJevDecisions('guardian', env)).toBe(true);
+    expect(usesJevDecisions('classification', env)).toBe(true);
+    expect(shouldSplitCombinedAnalysis(env)).toBe(true);
+
+    const guardian = resolveLlmTaskConfig('guardian', env);
+    expect(guardian.provider).toBe('openrouter');
+    expect(guardian.models.guardian).toBe('typesafe/jev-1.13');
+    expect(guardian.apiKey).toBe('or-test');
+    expect(guardian.baseUrl).toBe('https://openrouter.ai/api/v1');
+
+    const classification = resolveLlmTaskConfig('classification', env);
+    expect(classification.models.classification).toBe('typesafe/jev-1.13');
+  });
+
+  it('honors LLM_PROVIDER_<TASK> and LLM_MODEL_<TASK> over the jev default', () => {
+    const env = {
+      LLM_PROVIDER: 'openai',
+      OPENROUTER_API_KEY: 'or-test',
+      LLM_PROVIDER_GUARDIAN: 'openai',
+      LLM_MODEL_GUARDIAN: 'gpt-4o-mini',
+      LLM_PROVIDER_CLASSIFICATION: 'mistral',
+      LLM_MODEL_CLASSIFICATION: 'mistral-small-latest',
+      MISTRAL_API_KEY: 'mst-test',
+    };
+    expect(resolveTaskProvider('guardian', env)).toBe('openai');
+    expect(resolveLlmTaskConfig('guardian', env).models.guardian).toBe(
+      'gpt-4o-mini',
+    );
+    expect(resolveTaskProvider('classification', env)).toBe('mistral');
+    expect(resolveLlmTaskConfig('classification', env).models.classification).toBe(
+      'mistral-small-latest',
+    );
+    expect(shouldSplitCombinedAnalysis(env)).toBe(false);
+  });
+
+  it('keeps a non-jev LLM_MODEL_GUARDIAN on the global provider', () => {
+    const env = {
+      LLM_PROVIDER: 'openai',
+      OPENROUTER_API_KEY: 'or-test',
+      LLM_MODEL_GUARDIAN: 'gpt-4o-mini',
+    };
+    expect(resolveTaskProvider('guardian', env)).toBe('openai');
+    expect(resolveLlmTaskConfig('guardian', env).models.guardian).toBe(
+      'gpt-4o-mini',
     );
   });
 });

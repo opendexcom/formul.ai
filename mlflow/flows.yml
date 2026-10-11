@@ -14,6 +14,10 @@ flows:
       prompt: formulai-analytics-combined-analysis
       allowed_variables: [responseCount, responsesData, ratingContext, questionContext]
       cache: { enabled: true, mode: exact, scope: form, ttl_seconds: 604800 }
+    combined_longform:
+      prompt: formulai-analytics-combined-longform
+      allowed_variables: [responseCount, responsesData, ratingContext, questionContext]
+      cache: { enabled: true, mode: exact, scope: form, ttl_seconds: 604800 }
     topic_extraction:
       prompt: formulai-analytics-topic-extraction
       allowed_variables: [responseCount, responsesData]

@@ -12,6 +12,7 @@ import { MlflowPromptService } from '../mlflow/mlflow-prompt.service';
 
 const ANALYTICS_FLOW_KEYS = [
   'analytics.combined_analysis',
+  'analytics.combined_longform',
   'analytics.topic_extraction',
   'analytics.sentiment',
   'analytics.quote_extraction',

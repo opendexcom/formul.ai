@@ -55,6 +55,8 @@ export const TOKEN_RATES_PER_MILLION: Record<string, TokenRate> = {
   },
   'amazon.titan-embed-text-v2:0': { inputPerMillion: 0.02, outputPerMillion: 0 },
   'cohere.embed-multilingual-v3': { inputPerMillion: 0.1, outputPerMillion: 0 },
+  // OpenRouter Endpoints API 2026-10-11: prompt $0.042 / 1M, completion $0.
+  'typesafe/jev-1.13': { inputPerMillion: 0.042, outputPerMillion: 0 },
 };
 
 /** Longest prefix first so gpt-4o-mini-2024-07-18 does not match gpt-4o. */
@@ -77,6 +79,8 @@ const PREFIX_RATES: Array<[string, TokenRate]> = [
   ['claude-haiku', TOKEN_RATES_PER_MILLION['anthropic.claude-3-haiku-20240307-v1:0']],
   ['titan-embed', TOKEN_RATES_PER_MILLION['amazon.titan-embed-text-v2:0']],
   ['cohere.embed', TOKEN_RATES_PER_MILLION['cohere.embed-multilingual-v3']],
+  ['typesafe/jev', TOKEN_RATES_PER_MILLION['typesafe/jev-1.13']],
+  ['jev-1', TOKEN_RATES_PER_MILLION['typesafe/jev-1.13']],
 ];
 
 function lastIdSegment(model: string): string {
@@ -128,8 +132,77 @@ export function estimateUsdCost(
 }
 
 export const PRICING_CITATION = {
-  retrievedAt: '2026-10-10',
+  retrievedAt: '2026-10-11',
   openai: 'https://platform.openai.com/docs/pricing',
   mistral: 'https://docs.mistral.ai/inference/pricing',
   bedrock: 'https://aws.amazon.com/bedrock/pricing/',
+  openrouter: 'https://openrouter.ai/api/v1/endpoints',
+  jev: 'https://openrouter.ai/docs/guides/community/jev',
 };
+
+/**
+ * Token-volume assumptions for a 100-response analysis run.
+ * Adaptive chunking uses ~10 responses / chunk (ANALYTICS_CHUNK_SIZE_MED).
+ * Combined-analysis JSON includes topics + sentiment + quotes + quality.
+ * Split long-form drops sentiment/quality/reasoning from the analysis model;
+ * jev classification is input-only ($0 completion).
+ */
+export const ANALYSIS_COST_ASSUMPTIONS_PER_100 = {
+  responses: 100,
+  chunks: 10,
+  combined: { promptTokensPerChunk: 3500, completionTokensPerChunk: 2000 },
+  longform: { promptTokensPerChunk: 3200, completionTokensPerChunk: 1400 },
+  classificationPerResponse: { promptTokens: 800, completionTokens: 0 },
+  clusterLabels: { calls: 20, promptTokensPerCall: 200, completionTokensPerCall: 0 },
+} as const;
+
+export interface AnalysisCostEstimate {
+  analysisModel: string;
+  classificationModel: string;
+  currentUsd: number;
+  splitUsd: number;
+  splitAnalysisUsd: number;
+  splitClassificationUsd: number;
+  savingsUsd: number;
+  savingsPct: number;
+}
+
+export function estimateAnalysisCostPer100(options: {
+  analysisModel: string;
+  classificationModel?: string;
+}): AnalysisCostEstimate {
+  const a = ANALYSIS_COST_ASSUMPTIONS_PER_100;
+  const classificationModel = options.classificationModel ?? 'typesafe/jev-1.13';
+  const currentUsd = estimateUsdCost(
+    options.analysisModel,
+    a.combined.promptTokensPerChunk * a.chunks,
+    a.combined.completionTokensPerChunk * a.chunks,
+  );
+  const splitAnalysisUsd = estimateUsdCost(
+    options.analysisModel,
+    a.longform.promptTokensPerChunk * a.chunks,
+    a.longform.completionTokensPerChunk * a.chunks,
+  );
+  const classPrompt =
+    a.classificationPerResponse.promptTokens * a.responses +
+    a.clusterLabels.calls * a.clusterLabels.promptTokensPerCall;
+  const classCompletion =
+    a.classificationPerResponse.completionTokens * a.responses +
+    a.clusterLabels.calls * a.clusterLabels.completionTokensPerCall;
+  const splitClassificationUsd = estimateUsdCost(
+    classificationModel,
+    classPrompt,
+    classCompletion,
+  );
+  const splitUsd = splitAnalysisUsd + splitClassificationUsd;
+  return {
+    analysisModel: options.analysisModel,
+    classificationModel,
+    currentUsd,
+    splitUsd,
+    splitAnalysisUsd,
+    splitClassificationUsd,
+    savingsUsd: currentUsd - splitUsd,
+    savingsPct: currentUsd === 0 ? 0 : ((currentUsd - splitUsd) / currentUsd) * 100,
+  };
+}

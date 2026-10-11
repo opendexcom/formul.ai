@@ -1,4 +1,5 @@
 import {
+  estimateAnalysisCostPer100,
   estimateUsdCost,
   resolveTokenRate,
   tokenCostPer1kInput,
@@ -68,5 +69,31 @@ describe('llm-pricing', () => {
     expect(resolveTokenRate('eu.anthropic.claude-3-haiku-20240307-v1:0').inputPerMillion).toBe(
       0.25,
     );
+  });
+
+  it('uses OpenRouter jev input-only pricing ($0.042 / $0 per 1M)', () => {
+    expect(resolveTokenRate('typesafe/jev-1.13')).toEqual({
+      inputPerMillion: 0.042,
+      outputPerMillion: 0,
+    });
+    expect(estimateUsdCost('typesafe/jev-1.13', 1_000_000, 1_000_000)).toBeCloseTo(
+      0.042,
+    );
+  });
+
+  it('estimates 100-response combined vs jev-split cost', () => {
+    const gpt4oMini = estimateAnalysisCostPer100({
+      analysisModel: 'gpt-4o-mini',
+    });
+    expect(gpt4oMini.classificationModel).toBe('typesafe/jev-1.13');
+    expect(gpt4oMini.currentUsd).toBeGreaterThan(gpt4oMini.splitUsd);
+    expect(gpt4oMini.splitClassificationUsd).toBeGreaterThan(0);
+    expect(gpt4oMini.splitClassificationUsd).toBeLessThan(0.01);
+
+    const gpt5Mini = estimateAnalysisCostPer100({
+      analysisModel: 'gpt-5-mini',
+    });
+    expect(gpt5Mini.currentUsd).toBeGreaterThan(gpt4oMini.currentUsd);
+    expect(gpt5Mini.splitUsd).toBeLessThan(gpt5Mini.currentUsd);
   });
 });

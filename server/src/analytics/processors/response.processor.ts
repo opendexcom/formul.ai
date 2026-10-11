@@ -4,6 +4,7 @@ import { Model, Types } from 'mongoose';
 import { Response, ResponseDocument } from '../../schemas/response.schema';
 import { Form, FormDocument } from '../../schemas/form.schema';
 import { AiService } from '../../ai/ai.service';
+import { ClassificationService } from '../../ai/classification.service';
 import { BatchProcessor } from '../utils/batch.processor';
 import { PromptBuilder } from '../utils/prompt.builder';
 import { TopicVectorStore } from '../stores/topic-vector.store';
@@ -40,6 +41,7 @@ export class ResponseProcessor {
 
   constructor(
     private aiService: AiService,
+    private classificationService: ClassificationService,
     private batchProcessor: BatchProcessor,
     private promptBuilder: PromptBuilder,
     private topicVectorStore: TopicVectorStore,
@@ -362,7 +364,11 @@ export class ResponseProcessor {
   }
 
   /**
-   * Process chunk: single combined LLM call (topics + sentiment + quotes)
+   * Process chunk. Without OpenRouter/jev this is one combined_analysis call
+   * (topics + sentiment + quotes + quality). When classification is jev,
+   * long-form (topics + quotes) stays on the analysis model and sentiment /
+   * topic sentiment / quality go to jev. saveChunkResults still receives
+   * { topics, sentiment, quotes }.
    */
   private async processChunkInParallel(
     chunk: ResponseDocument[],
@@ -375,58 +381,178 @@ export class ResponseProcessor {
   ): Promise<any> {
     const formId = String((form as FormDocument)._id ?? (form as any).id ?? '');
     const flowOpts = { skipValidation: true, formId, sessionId: taskId, userId };
+    const variables = this.promptBuilder.getCombinedAnalysisVariables(
+      chunk,
+      form as Form,
+      researchContext,
+      knownCanonicalTopics,
+    );
 
     try {
+      if (this.classificationService.shouldSplitCombinedAnalysis()) {
+        return await this.processChunkSplit(
+          chunk,
+          variables,
+          flowOpts,
+          chunkIndex,
+          taskId,
+        );
+      }
+
       const combinedFlow = await this.aiService.invokeFlow(
         'analytics.combined_analysis',
-        this.promptBuilder.getCombinedAnalysisVariables(
-          chunk,
-          form as Form,
-          researchContext,
-          knownCanonicalTopics,
-        ),
+        variables,
         flowOpts,
       );
       this.analyticsUsageTracker.recordUsage(taskId, combinedFlow.usage);
 
-      const parsed = JSON.parse(combinedFlow.content);
-      const resultsArray = Array.isArray(parsed)
-        ? parsed
-        : parsed.results || [];
-
-      const topicsArray = resultsArray.map((r: any) => ({
-        responseId: r.responseId,
-        topics: r.topics || [],
-      }));
-      const sentimentArray = resultsArray.map((r: any) => ({
-        responseId: r.responseId,
-        overallSentiment: r.overallSentiment,
-      }));
-      const quotesArray = resultsArray.map((r: any) => ({
-        responseId: r.responseId,
-        quotes: r.quotes || [],
-        responseQuality: r.responseQuality,
-      }));
-
-      console.log(
-        `[ResponseProcessor][${taskId}] Combined analysis - Topics:`,
-        topicsArray.length,
-        'Sentiment:',
-        sentimentArray.length,
-        'Quotes:',
-        quotesArray.length,
-      );
-
-      return {
+      return this.mapCombinedResults(
+        JSON.parse(combinedFlow.content),
         chunkIndex,
-        topics: topicsArray,
-        sentiment: sentimentArray,
-        quotes: quotesArray,
-      };
+        taskId,
+      );
     } catch (error) {
       console.error(`[Analytics][${taskId}] Error in chunk ${chunkIndex}:`, error);
       throw error;
     }
+  }
+
+  private async processChunkSplit(
+    chunk: ResponseDocument[],
+    variables: Record<string, unknown>,
+    flowOpts: { skipValidation: boolean; formId: string; sessionId: string; userId?: string },
+    chunkIndex: number,
+    taskId: string,
+  ): Promise<any> {
+    const longformFlow = await this.aiService.invokeFlow(
+      'analytics.combined_longform',
+      variables,
+      flowOpts,
+    );
+    this.analyticsUsageTracker.recordUsage(taskId, longformFlow.usage);
+
+    const parsed = JSON.parse(longformFlow.content);
+    const resultsArray = Array.isArray(parsed) ? parsed : parsed.results || [];
+
+    let classified: Awaited<
+      ReturnType<ClassificationService['classifyResponses']>
+    > | null = null;
+    try {
+      classified = await this.classificationService.classifyResponses(
+        resultsArray.map((r: any) => ({
+          responseId: r.responseId,
+          answersText: this.answersTextForResponse(chunk, r.responseId),
+          topics: (r.topics || []).map((t: any) => ({
+            topic: typeof t?.topic === 'string' ? t.topic : '',
+          })),
+        })),
+        { sessionId: taskId },
+      );
+      for (const usage of classified.usage) {
+        this.analyticsUsageTracker.recordUsage(taskId, usage);
+      }
+    } catch (error) {
+      console.error(
+        `[ResponseProcessor][${taskId}] Jev classification failed; saving long-form topics/quotes without overlay:`,
+        error,
+      );
+    }
+
+    const byId = new Map(
+      (classified?.results || []).map((row) => [row.responseId, row]),
+    );
+
+    const topicsArray = resultsArray.map((r: any) => {
+      const overlay = byId.get(r.responseId);
+      const topics = (r.topics || []).map((t: any, index: number) => {
+        const classifiedTopic = overlay?.topicSentiments[index];
+        return {
+          ...t,
+          sentiment: classifiedTopic?.sentiment ?? t.sentiment,
+          score: classifiedTopic?.score ?? t.score,
+        };
+      });
+      return { responseId: r.responseId, topics };
+    });
+    const sentimentArray = resultsArray.map((r: any) => ({
+      responseId: r.responseId,
+      overallSentiment: byId.get(r.responseId)?.overallSentiment,
+    }));
+    const quotesArray = resultsArray.map((r: any) => ({
+      responseId: r.responseId,
+      quotes: r.quotes || [],
+      responseQuality: byId.get(r.responseId)?.responseQuality,
+    }));
+
+    console.log(
+      `[ResponseProcessor][${taskId}] Split analysis - Topics:`,
+      topicsArray.length,
+      'Sentiment:',
+      sentimentArray.length,
+      'Quotes:',
+      quotesArray.length,
+    );
+
+    return {
+      chunkIndex,
+      topics: topicsArray,
+      sentiment: sentimentArray,
+      quotes: quotesArray,
+    };
+  }
+
+  private answersTextForResponse(
+    chunk: ResponseDocument[],
+    responseId: string,
+  ): string {
+    const response = chunk.find(
+      (item) => (item._id as Types.ObjectId).toString() === responseId,
+    );
+    if (!response) return '';
+    return (response.answers || [])
+      .map((answer) => String(answer.value ?? ''))
+      .filter((value) => value.trim().length > 0)
+      .join('\n');
+  }
+
+  private mapCombinedResults(
+    parsed: any,
+    chunkIndex: number,
+    taskId: string,
+  ) {
+    const resultsArray = Array.isArray(parsed)
+      ? parsed
+      : parsed.results || [];
+
+    const topicsArray = resultsArray.map((r: any) => ({
+      responseId: r.responseId,
+      topics: r.topics || [],
+    }));
+    const sentimentArray = resultsArray.map((r: any) => ({
+      responseId: r.responseId,
+      overallSentiment: r.overallSentiment,
+    }));
+    const quotesArray = resultsArray.map((r: any) => ({
+      responseId: r.responseId,
+      quotes: r.quotes || [],
+      responseQuality: r.responseQuality,
+    }));
+
+    console.log(
+      `[ResponseProcessor][${taskId}] Combined analysis - Topics:`,
+      topicsArray.length,
+      'Sentiment:',
+      sentimentArray.length,
+      'Quotes:',
+      quotesArray.length,
+    );
+
+    return {
+      chunkIndex,
+      topics: topicsArray,
+      sentiment: sentimentArray,
+      quotes: quotesArray,
+    };
   }
 
   /**

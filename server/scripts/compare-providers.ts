@@ -9,14 +9,16 @@
  *   pnpm compare:providers
  *
  * Required per provider you want to include:
- *   OpenAI   OPENAI_API_KEY
- *   Mistral  MISTRAL_API_KEY   (hits https://api.eu.mistral.ai by default)
- *   Bedrock  AWS default credential chain + model access in eu-central-1
+ *   OpenAI     OPENAI_API_KEY
+ *   Mistral    MISTRAL_API_KEY   (hits https://api.eu.mistral.ai by default)
+ *   Bedrock    AWS default credential chain + model access in eu-central-1
+ *   OpenRouter OPENROUTER_API_KEY  (jev classification tasks only)
  *
  * Optional:
  *   COMPARE_MODELS_OPENAI=gpt-4o-mini
  *   COMPARE_MODELS_MISTRAL=mistral-small-latest,mistral-large-latest
  *   COMPARE_MODELS_BEDROCK=eu.amazon.nova-lite-v1:0,eu.amazon.nova-pro-v1:0
+ *   COMPARE_MODELS_OPENROUTER=typesafe/jev-1.13
  *   COMPARE_OUTPUT=/tmp/provider-compare.json
  *   BEDROCK_REGION=eu-central-1
  *   MISTRAL_BASE_URL=https://api.eu.mistral.ai
@@ -31,10 +33,13 @@ import {
 } from '../src/ai/llm-provider.config';
 import { createChatModel } from '../src/ai/llm-provider.factory';
 import {
+  estimateAnalysisCostPer100,
   estimateUsdCost,
   PRICING_CITATION,
   resolveTokenRate,
 } from '../src/ai/llm-pricing';
+import { JEV_DEFAULT_MODEL } from '../src/ai/llm-provider.config';
+import { invokeJevDecisions, jevChoice } from '../src/ai/jev-decisions.client';
 import type { LlmProviderConfig, LlmProviderName } from '../src/ai/llm-provider.types';
 
 type SamplePayload = {
@@ -44,7 +49,12 @@ type SamplePayload = {
   responses: Array<{ responseId: string; answers: Record<string, string> }>;
 };
 
-type TaskName = 'combined_analysis' | 'summary';
+type TaskName =
+  | 'combined_analysis'
+  | 'summary'
+  | 'classification_sentiment'
+  | 'classification_quality'
+  | 'classification_cluster_label';
 
 type TaskResult = {
   provider: LlmProviderName;
@@ -66,6 +76,7 @@ const DEFAULT_COMPARE_MODELS: Record<LlmProviderName, string[]> = {
   mistral: ['mistral-small-latest', 'mistral-large-latest'],
   bedrock: ['eu.amazon.nova-lite-v1:0', 'eu.amazon.nova-pro-v1:0'],
   ollama: [DEFAULT_PROVIDER_MODELS.ollama.analysis],
+  openrouter: [JEV_DEFAULT_MODEL],
 };
 
 const FIXTURE = path.join(__dirname, 'fixtures/polish-survey-sample.json');
@@ -166,6 +177,11 @@ function providerReady(provider: LlmProviderName): { ok: boolean; reason?: strin
       ? { ok: true }
       : { ok: false, reason: 'MISTRAL_API_KEY is not set' };
   }
+  if (provider === 'openrouter') {
+    return process.env.OPENROUTER_API_KEY
+      ? { ok: true }
+      : { ok: false, reason: 'OPENROUTER_API_KEY is not set' };
+  }
   if (provider === 'bedrock') {
     const hasStaticKeys = Boolean(
       process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY,
@@ -246,7 +262,8 @@ function printReport(results: TaskResult[], skipped: Array<{ provider: string; r
   console.log(`Pricing sources (retrieved ${PRICING_CITATION.retrievedAt}):`);
   console.log(`  OpenAI:  ${PRICING_CITATION.openai}`);
   console.log(`  Mistral: ${PRICING_CITATION.mistral}`);
-  console.log(`  Bedrock: ${PRICING_CITATION.bedrock}\n`);
+  console.log(`  Bedrock: ${PRICING_CITATION.bedrock}`);
+  console.log(`  OpenRouter / jev: ${PRICING_CITATION.jev}\n`);
 
   if (skipped.length) {
     console.log('Skipped providers (not faked):');
@@ -256,7 +273,13 @@ function printReport(results: TaskResult[], skipped: Array<{ provider: string; r
     console.log('');
   }
 
-  for (const task of ['combined_analysis', 'summary'] as TaskName[]) {
+  for (const task of [
+    'combined_analysis',
+    'summary',
+    'classification_sentiment',
+    'classification_quality',
+    'classification_cluster_label',
+  ] as TaskName[]) {
     const rows = results.filter((r) => r.task === task);
     console.log(`--- ${task} ---`);
     for (const row of rows) {
@@ -288,9 +311,40 @@ function printReport(results: TaskResult[], skipped: Array<{ provider: string; r
     current.usd += row.estimatedUsd;
     totals.set(key, current);
   }
-  console.log('--- totals for this sample (combined + summary) ---');
+  console.log('--- totals for this sample ---');
   for (const [key, total] of totals) {
     console.log(`${key}: ${total.tokens} tokens, $${total.usd.toFixed(6)}`);
+  }
+
+  console.log('\n--- estimated USD / 100 responses (combined vs jev split) ---');
+  const analysisModels = [
+    ...new Set(
+      results
+        .filter((r) => r.task === 'combined_analysis')
+        .map((r) => r.model),
+    ),
+  ];
+  const classModel =
+    results.find((r) => r.task.startsWith('classification_'))?.model ||
+    JEV_DEFAULT_MODEL;
+  const modelsToEstimate =
+    analysisModels.length > 0
+      ? analysisModels
+      : ['gpt-4o-mini', 'gpt-5-mini', 'mistral-small-latest', 'eu.amazon.nova-lite-v1:0'];
+  for (const model of modelsToEstimate) {
+    const estimate = estimateAnalysisCostPer100({
+      analysisModel: model,
+      classificationModel: classModel,
+    });
+    console.log(
+      [
+        model,
+        `current=$${estimate.currentUsd.toFixed(5)}`,
+        `split=$${estimate.splitUsd.toFixed(5)}`,
+        `(analysis $${estimate.splitAnalysisUsd.toFixed(5)} + ${estimate.classificationModel} $${estimate.splitClassificationUsd.toFixed(5)})`,
+        `save=$${estimate.savingsUsd.toFixed(5)} (${estimate.savingsPct.toFixed(1)}%)`,
+      ].join(' | '),
+    );
   }
 }
 
@@ -313,11 +367,101 @@ bedrock:Converse, bedrock:ConverseStream on the chosen model / inference-profile
   # or AWS_PROFILE=... / instance or task role
   BEDROCK_REGION=eu-central-1
 
+OpenRouter (jev classification — Decisions API, not chat completions):
+  OPENROUTER_API_KEY=...
+  COMPARE_MODELS_OPENROUTER=typesafe/jev-1.13
+
 Example:
-  OPENAI_API_KEY=sk-... MISTRAL_API_KEY=... \\
+  OPENAI_API_KEY=sk-... MISTRAL_API_KEY=... OPENROUTER_API_KEY=... \\
     AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=... AWS_REGION=eu-central-1 \\
     pnpm --dir oss-core/server compare:providers
 `);
+}
+
+async function runJevTask(
+  modelName: string,
+  task: TaskName,
+  state: unknown,
+  questions: Record<string, { type: 'choice' | 'score' | 'noul'; instructions: string; criteria: unknown }>,
+): Promise<TaskResult> {
+  const started = Date.now();
+  const result = await invokeJevDecisions({
+    apiKey: process.env.OPENROUTER_API_KEY!,
+    model: modelName,
+    state,
+    questions: questions as any,
+  });
+  const elapsedMs = Date.now() - started;
+  return {
+    provider: 'openrouter',
+    model: modelName,
+    task,
+    content: JSON.stringify(result.answers, null, 2),
+    promptTokens: result.usage.promptTokens ?? 0,
+    completionTokens: result.usage.completionTokens ?? 0,
+    totalTokens: result.usage.totalTokens ?? 0,
+    estimatedUsd: estimateUsdCost(
+      modelName,
+      result.usage.promptTokens ?? 0,
+      result.usage.completionTokens ?? 0,
+    ),
+    elapsedMs,
+  };
+}
+
+async function runJevClassificationTasks(
+  sample: SamplePayload,
+  modelName: string,
+): Promise<TaskResult[]> {
+  const first = sample.responses[0];
+  const answers = sample.questions
+    .map((q) => `${q.title}: ${first.answers[q.id] ?? ''}`)
+    .join('\n');
+  const topics = ['Remote Work', 'Recognition', 'Workload'];
+
+  const sentiment = await runJevTask(modelName, 'classification_sentiment', {
+    responseId: first.responseId,
+    answers,
+  }, {
+    sentiment: {
+      type: 'choice',
+      instructions: 'Overall sentiment of this survey response.',
+      criteria: {
+        positive: 'Pleased or approving.',
+        neutral: 'Factual or flat.',
+        negative: 'Unhappy or critical.',
+        ambivalent: 'Both positive and negative.',
+      },
+    },
+  });
+  sentiment.content = JSON.stringify(
+    { sentiment: jevChoice(JSON.parse(sentiment.content), 'sentiment'), raw: JSON.parse(sentiment.content) },
+    null,
+    2,
+  );
+
+  const quality = await runJevTask(modelName, 'classification_quality', {
+    responseId: first.responseId,
+    answers,
+  }, {
+    depth: {
+      type: 'score',
+      instructions: 'How much substance and detail does the response have?',
+      criteria: ['very low', 'low', 'moderate', 'high', 'very high'],
+    },
+  });
+
+  const cluster = await runJevTask(modelName, 'classification_cluster_label', {
+    clusterMembers: topics,
+  }, {
+    canonical: {
+      type: 'choice',
+      instructions: 'Pick the clearest canonical label from these clustered topic phrases.',
+      criteria: Object.fromEntries(topics.map((t, i) => [`opt_${i}`, t])),
+    },
+  });
+
+  return [sentiment, quality, cluster];
 }
 
 async function main(): Promise<void> {
@@ -332,7 +476,15 @@ async function main(): Promise<void> {
     }
   }
 
-  if (ready.length === 0) {
+  const openrouterStatus = providerReady('openrouter');
+  if (!openrouterStatus.ok) {
+    skipped.push({
+      provider: 'openrouter',
+      reason: openrouterStatus.reason || 'not configured',
+    });
+  }
+
+  if (ready.length === 0 && !openrouterStatus.ok) {
     printSetupHelp();
     process.exit(1);
   }
@@ -342,6 +494,10 @@ async function main(): Promise<void> {
     mistral: parseModelList('COMPARE_MODELS_MISTRAL', DEFAULT_COMPARE_MODELS.mistral),
     bedrock: parseModelList('COMPARE_MODELS_BEDROCK', DEFAULT_COMPARE_MODELS.bedrock),
     ollama: [],
+    openrouter: parseModelList(
+      'COMPARE_MODELS_OPENROUTER',
+      DEFAULT_COMPARE_MODELS.openrouter,
+    ),
   };
 
   const sample = JSON.parse(fs.readFileSync(FIXTURE, 'utf8')) as SamplePayload;
@@ -369,6 +525,13 @@ async function main(): Promise<void> {
           false,
         ),
       );
+    }
+  }
+
+  if (openrouterStatus.ok) {
+    for (const model of modelsByProvider.openrouter) {
+      console.log(`Running jev classification tasks on openrouter/${model}...`);
+      results.push(...(await runJevClassificationTasks(sample, model)));
     }
   }
 

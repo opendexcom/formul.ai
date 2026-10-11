@@ -1,5 +1,6 @@
 import {
   LLM_PROVIDERS,
+  LLM_TASKS,
   OPENAI_REASONING_EFFORTS,
   type ChatInvokeOptions,
   type EmbeddingProviderName,
@@ -17,6 +18,7 @@ export const DEFAULT_PROVIDER_MODELS: Record<LlmProviderName, LlmTaskModels> = {
     chat: 'gpt-4o-mini',
     analysis: 'gpt-4o-mini',
     guardian: 'gpt-4o-mini',
+    classification: 'gpt-4o-mini',
     embedding: 'text-embedding-3-small',
   },
   mistral: {
@@ -26,6 +28,7 @@ export const DEFAULT_PROVIDER_MODELS: Record<LlmProviderName, LlmTaskModels> = {
     // when quality matters more than price.
     analysis: 'mistral-small-latest',
     guardian: 'mistral-small-latest',
+    classification: 'mistral-small-latest',
     embedding: 'mistral-embed',
   },
   bedrock: {
@@ -35,14 +38,22 @@ export const DEFAULT_PROVIDER_MODELS: Record<LlmProviderName, LlmTaskModels> = {
     // eu.amazon.nova-pro-v1:0 for higher-quality analysis.
     analysis: 'eu.amazon.nova-lite-v1:0',
     guardian: 'eu.amazon.nova-micro-v1:0',
-    // Titan V2 is in-region in eu-central-1 (no geo profile). 1024-d default.
+    classification: 'eu.amazon.nova-micro-v1:0',
     embedding: 'amazon.titan-embed-text-v2:0',
   },
   ollama: {
     chat: 'llama2',
     analysis: 'llama2',
     guardian: 'llama2',
+    classification: 'llama2',
     embedding: 'nomic-embed-text',
+  },
+  openrouter: {
+    chat: 'openai/gpt-4o-mini',
+    analysis: 'openai/gpt-4o-mini',
+    guardian: 'typesafe/jev-1.13',
+    classification: 'typesafe/jev-1.13',
+    embedding: 'openai/text-embedding-3-small',
   },
 };
 
@@ -60,6 +71,12 @@ export const MISTRAL_DEFAULT_BASE_URL = 'https://api.eu.mistral.ai';
 
 export const BEDROCK_DEFAULT_REGION = 'eu-central-1';
 
+export const OPENROUTER_DEFAULT_BASE_URL = 'https://openrouter.ai/api/v1';
+export const OPENROUTER_DECISIONS_URL = 'https://openrouter.ai/api/alpha/decisions';
+export const JEV_DEFAULT_MODEL = 'typesafe/jev-1.13';
+
+const JEV_DEFAULT_TASKS: readonly LlmTask[] = ['guardian', 'classification'];
+
 function readEnv(
   env: NodeJS.ProcessEnv,
   key: string,
@@ -70,6 +87,12 @@ function readEnv(
 
 export function isLlmProviderName(value: string | undefined): value is LlmProviderName {
   return !!value && (LLM_PROVIDERS as readonly string[]).includes(value);
+}
+
+export function isJevDecisionModel(model: string | undefined): boolean {
+  if (!model) return false;
+  const id = model.toLowerCase();
+  return id.includes('jev') || id.startsWith('typesafe/jev');
 }
 
 export function resolveLlmProviderName(
@@ -93,9 +116,47 @@ function providerWideModel(
       return readEnv(env, 'BEDROCK_MODEL');
     case 'ollama':
       return readEnv(env, 'OLLAMA_MODEL');
+    case 'openrouter':
+      return readEnv(env, 'OPENROUTER_MODEL');
     default:
       return readEnv(env, 'OPENAI_MODEL');
   }
+}
+
+function perTaskModelKey(task: keyof LlmTaskModels): string {
+  return `LLM_MODEL_${task.toUpperCase()}`;
+}
+
+function perTaskProviderKey(task: LlmTask): string {
+  return `LLM_PROVIDER_${task.toUpperCase()}`;
+}
+
+/**
+ * Per-task provider.
+ * `LLM_PROVIDER_<TASK>` wins. When `OPENROUTER_API_KEY` is set, guardian and
+ * classification default to OpenRouter (jev) unless the operator set a
+ * non-jev `LLM_MODEL_<TASK>` (keep that model on the global provider).
+ * Without the key, defaults are unchanged.
+ */
+export function resolveTaskProvider(
+  task: LlmTask,
+  env: NodeJS.ProcessEnv = process.env,
+): LlmProviderName {
+  const explicit = readEnv(env, perTaskProviderKey(task));
+  if (isLlmProviderName(explicit)) {
+    return explicit;
+  }
+
+  const modelOverride = readEnv(env, perTaskModelKey(task));
+  if (
+    JEV_DEFAULT_TASKS.includes(task) &&
+    readEnv(env, 'OPENROUTER_API_KEY') &&
+    (!modelOverride || isJevDecisionModel(modelOverride))
+  ) {
+    return 'openrouter';
+  }
+
+  return resolveLlmProviderName(env);
 }
 
 function resolveTaskModel(
@@ -103,29 +164,43 @@ function resolveTaskModel(
   task: keyof LlmTaskModels,
   env: NodeJS.ProcessEnv,
 ): string {
-  const perTaskKey: Record<keyof LlmTaskModels, string> = {
-    chat: 'LLM_MODEL_CHAT',
-    analysis: 'LLM_MODEL_ANALYSIS',
-    guardian: 'LLM_MODEL_GUARDIAN',
-    embedding: 'LLM_MODEL_EMBEDDING',
-  };
   if (task === 'embedding') {
     return (
-      readEnv(env, perTaskKey.embedding) ||
+      readEnv(env, perTaskModelKey('embedding')) ||
       embeddingModelOverride(provider, env) ||
       DEFAULT_PROVIDER_MODELS[provider].embedding
     );
   }
+
+  const perTask = readEnv(env, perTaskModelKey(task));
+  if (perTask) {
+    return perTask;
+  }
+
+  if (provider === 'openrouter' && (task === 'guardian' || task === 'classification')) {
+    return (
+      readEnv(env, 'OPENROUTER_MODEL') ||
+      DEFAULT_PROVIDER_MODELS.openrouter[task]
+    );
+  }
+
   // Guardian stays on the cheap non-reasoning default unless explicitly
   // overridden. OPENAI_MODEL=gpt-5-mini must not take over guardian.
   if (task === 'guardian') {
+    return DEFAULT_PROVIDER_MODELS[provider].guardian;
+  }
+
+  // Classification without OpenRouter stays on the analysis model so the
+  // combined-analysis path does not change.
+  if (task === 'classification') {
     return (
-      readEnv(env, perTaskKey.guardian) ||
-      DEFAULT_PROVIDER_MODELS[provider].guardian
+      readEnv(env, perTaskModelKey('analysis')) ||
+      providerWideModel(provider, env) ||
+      DEFAULT_PROVIDER_MODELS[provider].classification
     );
   }
+
   return (
-    readEnv(env, perTaskKey[task]) ||
     providerWideModel(provider, env) ||
     DEFAULT_PROVIDER_MODELS[provider][task]
   );
@@ -142,6 +217,8 @@ function embeddingModelOverride(
       return readEnv(env, 'BEDROCK_EMBEDDING_MODEL');
     case 'ollama':
       return readEnv(env, 'OLLAMA_EMBEDDING_MODEL');
+    case 'openrouter':
+      return readEnv(env, 'OPENROUTER_EMBEDDING_MODEL');
     default:
       return readEnv(env, 'OPENAI_EMBEDDING_MODEL');
   }
@@ -187,6 +264,81 @@ export function resolveBedrockRegion(
   );
 }
 
+function credentialsForProvider(
+  provider: LlmProviderName,
+  env: NodeJS.ProcessEnv,
+  temperature: number,
+): Pick<
+  LlmProviderConfig,
+  'apiKey' | 'baseUrl' | 'region' | 'httpReferer' | 'appTitle' | 'reasoningEffort' | 'reasoningEfforts'
+> {
+  if (provider === 'mistral') {
+    return {
+      apiKey: readEnv(env, 'MISTRAL_API_KEY'),
+      baseUrl: readEnv(env, 'MISTRAL_BASE_URL') || MISTRAL_DEFAULT_BASE_URL,
+    };
+  }
+  if (provider === 'bedrock') {
+    return {
+      region: resolveBedrockRegion(env),
+    };
+  }
+  if (provider === 'ollama') {
+    return {
+      baseUrl: readEnv(env, 'OLLAMA_BASE_URL') || 'http://localhost:11434',
+    };
+  }
+  if (provider === 'openrouter') {
+    return {
+      apiKey: readEnv(env, 'OPENROUTER_API_KEY'),
+      baseUrl: readEnv(env, 'OPENROUTER_BASE_URL') || OPENROUTER_DEFAULT_BASE_URL,
+      httpReferer: readEnv(env, 'OPENROUTER_HTTP_REFERER') || 'https://formulai.cloud',
+      appTitle: readEnv(env, 'OPENROUTER_APP_TITLE') || 'FormulAI',
+    };
+  }
+  return {
+    apiKey: readEnv(env, 'OPENAI_API_KEY'),
+    reasoningEffort: resolveOpenAiReasoningEffort(env),
+    reasoningEfforts: Object.fromEntries(
+      LLM_TASKS.map((task) => [task, resolveOpenAiReasoningEffort(env, task)]),
+    ) as LlmProviderConfig['reasoningEfforts'],
+  };
+}
+
+function modelsForProvider(
+  provider: LlmProviderName,
+  env: NodeJS.ProcessEnv,
+): LlmTaskModels {
+  return {
+    chat: resolveTaskModel(provider, 'chat', env),
+    analysis: resolveTaskModel(provider, 'analysis', env),
+    guardian: resolveTaskModel(provider, 'guardian', env),
+    classification: resolveTaskModel(provider, 'classification', env),
+    embedding: resolveTaskModel(provider, 'embedding', env),
+  };
+}
+
+/**
+ * Config for one task — use this with `createChatModel(task, config)`.
+ * Guardian / classification may resolve to OpenRouter while chat stays OpenAI.
+ */
+export function resolveLlmTaskConfig(
+  task: LlmTask,
+  env: NodeJS.ProcessEnv = process.env,
+): LlmProviderConfig {
+  const provider = resolveTaskProvider(task, env);
+  const temperature = parseFloat(readEnv(env, 'LLM_TEMPERATURE') || '0.7');
+  const safeTemperature = Number.isFinite(temperature) ? temperature : 0.7;
+  const models = modelsForProvider(provider, env);
+  return {
+    provider,
+    models,
+    taskProviders: { [task]: provider },
+    temperature: safeTemperature,
+    ...credentialsForProvider(provider, env, safeTemperature),
+  };
+}
+
 export function resolveLlmProviderConfig(
   env: NodeJS.ProcessEnv = process.env,
 ): LlmProviderConfig {
@@ -194,53 +346,49 @@ export function resolveLlmProviderConfig(
   const temperature = parseFloat(readEnv(env, 'LLM_TEMPERATURE') || '0.7');
   const safeTemperature = Number.isFinite(temperature) ? temperature : 0.7;
 
+  const taskProviders = Object.fromEntries(
+    LLM_TASKS.map((task) => [task, resolveTaskProvider(task, env)]),
+  ) as Record<LlmTask, LlmProviderName>;
+
+  // Record the model that will actually serve each task (may be jev).
   const models: LlmTaskModels = {
-    chat: resolveTaskModel(provider, 'chat', env),
-    analysis: resolveTaskModel(provider, 'analysis', env),
-    guardian: resolveTaskModel(provider, 'guardian', env),
+    chat: resolveTaskModel(taskProviders.chat, 'chat', env),
+    analysis: resolveTaskModel(taskProviders.analysis, 'analysis', env),
+    guardian: resolveTaskModel(taskProviders.guardian, 'guardian', env),
+    classification: resolveTaskModel(
+      taskProviders.classification,
+      'classification',
+      env,
+    ),
     embedding: resolveTaskModel(provider, 'embedding', env),
   };
 
-  if (provider === 'mistral') {
-    return {
-      provider,
-      models,
-      apiKey: readEnv(env, 'MISTRAL_API_KEY'),
-      baseUrl: readEnv(env, 'MISTRAL_BASE_URL') || MISTRAL_DEFAULT_BASE_URL,
-      temperature: safeTemperature,
-    };
-  }
-
-  if (provider === 'bedrock') {
-    return {
-      provider,
-      models,
-      region: resolveBedrockRegion(env),
-      temperature: safeTemperature,
-    };
-  }
-
-  if (provider === 'ollama') {
-    return {
-      provider,
-      models,
-      baseUrl: readEnv(env, 'OLLAMA_BASE_URL') || 'http://localhost:11434',
-      temperature: safeTemperature,
-    };
-  }
-
   return {
-    provider: 'openai',
+    provider,
     models,
-    apiKey: readEnv(env, 'OPENAI_API_KEY'),
+    taskProviders,
     temperature: safeTemperature,
-    reasoningEffort: resolveOpenAiReasoningEffort(env),
-    reasoningEfforts: {
-      chat: resolveOpenAiReasoningEffort(env, 'chat'),
-      analysis: resolveOpenAiReasoningEffort(env, 'analysis'),
-      guardian: resolveOpenAiReasoningEffort(env, 'guardian'),
-    },
+    ...credentialsForProvider(provider, env, safeTemperature),
   };
+}
+
+export function usesJevDecisions(
+  task: LlmTask,
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  const config = resolveLlmTaskConfig(task, env);
+  return (
+    config.provider === 'openrouter' &&
+    isJevDecisionModel(config.models[task]) &&
+    Boolean(config.apiKey)
+  );
+}
+
+/** True when classification is routed to jev — split combined analysis. */
+export function shouldSplitCombinedAnalysis(
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  return usesJevDecisions('classification', env);
 }
 
 export function resolveEmbeddingProvider(
@@ -298,7 +446,8 @@ export function resolveEmbeddingModelName(
 /**
  * Map an MLflow flow key to the task model that should serve it.
  * Analytics + document extraction use the analysis model; form chat / guardian
- * use their dedicated slots.
+ * use their dedicated slots. Combined-analysis classification overlay is jev
+ * and does not go through invokeFlow.
  */
 export function resolveTaskForFlow(flowKey: string): LlmTask {
   if (flowKey.startsWith('analytics.') || flowKey.startsWith('document_form.')) {

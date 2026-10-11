@@ -13,6 +13,9 @@ describe('GuardianService', () => {
   let mockSandbox: { escapeUserInput: jest.Mock };
 
   beforeEach(() => {
+    delete process.env.OPENROUTER_API_KEY;
+    delete process.env.LLM_PROVIDER_GUARDIAN;
+    delete process.env.LLM_MODEL_GUARDIAN;
     mockMlflowPrompts = {
       formatFlow: jest.fn().mockResolvedValue({
         prompt: 'guardian system prompt',
