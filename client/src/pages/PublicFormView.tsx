@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Send, AlertCircle, CheckCircle } from 'lucide-react';
 import { FormData, Question, QuestionType } from '../services/formsService';
@@ -32,11 +32,18 @@ const PublicFormView: React.FC = () => {
   const questionsPerPage = 5;
   const language = form ? getFormLanguage(form) : uiLanguage;
 
-  useEffect(() => {
-    const previous = document.documentElement.lang;
-    document.documentElement.lang = language;
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    const previous = root.lang;
+    root.lang = language;
+    root.setAttribute('lang', language);
     return () => {
-      document.documentElement.lang = previous;
+      root.lang = previous;
+      if (previous) {
+        root.setAttribute('lang', previous);
+      } else {
+        root.removeAttribute('lang');
+      }
     };
   }, [language]);
 
