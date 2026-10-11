@@ -48,10 +48,16 @@ export class EmailService {
             : null,
         });
 
-        console.log(`Email would be sent to ${email}: ${info.messageId}`);
+        console.log('Form invitation sent', {
+          formId: invitationData.formId,
+          messageId: info.messageId,
+        });
 
       } catch (error: any) {
-        console.error('Failed to send email to %s:', email, error);
+        console.error('Failed to send form invitation', {
+          formId: invitationData.formId,
+          error: error.message,
+        });
         results.push({
           email: email.trim(),
           success: false,

@@ -4,12 +4,22 @@
 
 name: formulai-oss
 
+# json-file rotates by size, not age. 20m × 15 files ≈ 300MB/container.
+# At typical API verbosity that bounds retention to roughly a few weeks–a month.
+# Age-based cleanup still needs the host (see PR notes for Rafał).
+x-default-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "15"
+
 services:
   backend:
     build:
       context: .
       dockerfile: server/Dockerfile
     restart: unless-stopped
+    logging: *default-logging
     environment:
       NODE_ENV: production
       MONGODB_URI: mongodb://mongodb:27017/formulai
@@ -42,6 +52,7 @@ services:
       context: .
       dockerfile: server/Dockerfile
     restart: unless-stopped
+    logging: *default-logging
     environment:
       NODE_ENV: production
       MONGODB_URI: mongodb://mongodb:27017/formulai
@@ -75,6 +86,7 @@ services:
       args:
         VITE_API_BASE_URL: /api
     restart: unless-stopped
+    logging: *default-logging
     volumes:
       - ./gateway/nginx.conf:/etc/nginx/nginx.conf:ro
     ports:

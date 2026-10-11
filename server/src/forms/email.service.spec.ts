@@ -41,6 +41,31 @@ describe('EmailService', () => {
       expect(result[1]).toMatchObject({ email: 'b@test.com', success: true });
     });
 
+    it('does not log recipient email addresses', async () => {
+      const logSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
+      const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+      try {
+        await service.sendFormInvitation({
+          formId: 'f1',
+          formTitle: 'Survey',
+          emails: ['secret.invitee@example.com'],
+          subject: 'Invitation',
+          message: 'Hi',
+          formUrl: 'https://app.com/form/1',
+        });
+
+        const logs = [...logSpy.mock.calls, ...errorSpy.mock.calls]
+          .map((args) => args.map((arg) => (typeof arg === 'string' ? arg : JSON.stringify(arg))).join(' '))
+          .join('\n');
+        expect(logs).not.toContain('secret.invitee@example.com');
+        expect(logs).toContain('f1');
+      } finally {
+        logSpy.mockRestore();
+        errorSpy.mockRestore();
+      }
+    });
+
     it('pushes failure result when sendMail throws', async () => {
       mockSendMail
         .mockResolvedValueOnce({ messageId: 'ok' })
