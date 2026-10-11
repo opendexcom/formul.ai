@@ -2,6 +2,7 @@ import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { FormsService } from './forms.service';
 import { ResponseService } from './response.service';
+import { serializeLogArgs } from './response-submission-log';
 
 describe('FormsService', () => {
   let service: FormsService;
@@ -417,6 +418,48 @@ describe('FormsService', () => {
       expect(result.success).toBe(true);
       expect(result.formId).toBe(String(form._id));
       expect(result.responseId).toBe(saved._id);
+    });
+
+    it('does not log answer text or respondent personal data', async () => {
+      const form: any = {
+        _id: new Types.ObjectId(),
+        title: 'Test',
+        isPublic: true,
+        isActive: true,
+      };
+      (mockFormModel.findById as jest.Mock).mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue(form),
+      });
+
+      const saved = { _id: 'resp1', submittedAt: new Date() } as any;
+      mockResponseService.createResponse.mockResolvedValueOnce(saved);
+
+      const logSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
+      const secretAnswer = 'SECRET_ANSWER_TEXT_DO_NOT_LOG';
+      const secretEmail = 'secret.respondent@example.com';
+
+      try {
+        await service.submitResponse(
+          String(form._id),
+          {
+            responses: { q1: secretAnswer },
+            respondentEmail: secretEmail,
+          },
+          '203.0.113.10',
+          'SecretUserAgent/1.0',
+        );
+
+        const logs = logSpy.mock.calls.map((args) => serializeLogArgs(args)).join('\n');
+        expect(logs).not.toContain(secretAnswer);
+        expect(logs).not.toContain(secretEmail);
+        expect(logs).not.toContain('203.0.113.10');
+        expect(logs).not.toContain('SecretUserAgent/1.0');
+        expect(logs).toContain(String(form._id));
+        expect(logs).toContain('resp1');
+        expect(logs).toMatch(/"answerCount":1/);
+      } finally {
+        logSpy.mockRestore();
+      }
     });
   });
 });
