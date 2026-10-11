@@ -30,6 +30,7 @@ describe('TopicClusterer', () => {
 
     const topicVectorStore = {
       isAvailable: () => options.vectorAvailable ?? false,
+      prepareForClustering: jest.fn().mockResolvedValue(options.vectorAvailable ?? false),
       upsertTopics: jest.fn().mockResolvedValue(undefined),
       upsertTopic: jest.fn().mockResolvedValue(null),
       topicKeyFromText: (text: string) =>
@@ -95,6 +96,7 @@ describe('TopicClusterer', () => {
     const clusterer = new TopicClusterer(
       aiService as any,
       topicVectorStore as any,
+      { recordUsage: jest.fn() } as any,
       responseModel as any,
       {
         findById: jest.fn().mockReturnValue({
@@ -108,7 +110,7 @@ describe('TopicClusterer', () => {
     return { clusterer, aiService, topicVectorStore, responseModel };
   }
 
-  it('falls back to LLM batch mapping when vector store unavailable', async () => {
+  it('uses deterministic mapping when vector store is unavailable and topic count is small', async () => {
     const { clusterer, aiService } = createClusterer({ vectorAvailable: false });
 
     const result = await clusterer.clusterAndStoreCanonicalTopics(
@@ -117,11 +119,7 @@ describe('TopicClusterer', () => {
       jest.fn(),
     );
 
-    expect(aiService.invokeFlow).toHaveBeenCalledWith(
-      'analytics.topic_clustering_batch',
-      expect.any(Object),
-      expect.any(Object),
-    );
+    expect(aiService.invokeFlow).not.toHaveBeenCalled();
     expect(result.canonicalTopics.length).toBeGreaterThan(0);
   });
 

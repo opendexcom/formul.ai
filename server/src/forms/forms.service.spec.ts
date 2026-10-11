@@ -6,6 +6,7 @@ import { ResponseService } from './response.service';
 describe('FormsService', () => {
   let service: FormsService;
   let mockFormModel: any;
+  let mockProjectModel: any;
   let mockResponseService: jest.Mocked<ResponseService>;
 
   beforeEach(() => {
@@ -18,6 +19,10 @@ describe('FormsService', () => {
     mockFormModel.findById = jest.fn();
     mockFormModel.findByIdAndDelete = jest.fn();
 
+    mockProjectModel = {
+      create: jest.fn().mockResolvedValue({}),
+    };
+
     mockResponseService = {
       getFormAnalytics: jest.fn(),
       getResponseCount: jest.fn(),
@@ -25,7 +30,7 @@ describe('FormsService', () => {
       createResponse: jest.fn(),
     } as any;
 
-    service = new FormsService(mockFormModel, mockResponseService);
+    service = new FormsService(mockFormModel, mockProjectModel, mockResponseService);
   });
 
   describe('create', () => {

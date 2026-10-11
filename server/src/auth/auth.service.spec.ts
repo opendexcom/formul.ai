@@ -63,7 +63,16 @@ describe('AuthService', () => {
         );
       }
       if (query.email) {
-        return users.find(u => u.email === query.email.$eq) || null;
+        const exact = query.email.$eq;
+        if (typeof exact === 'string') {
+          return users.find(u => u.email === exact) || null;
+        }
+        const pattern = query.email.$regex;
+        const flags = query.email.$options;
+        if (typeof pattern === 'string') {
+          const re = new RegExp(pattern, flags);
+          return users.find(u => re.test(u.email)) || null;
+        }
       }
       return null;
     });
@@ -207,6 +216,26 @@ describe('AuthService', () => {
         email: user.email,
         sub: user._id,
       });
+      expect(result.token).toBe('signed-jwt-token');
+      expect(result.user.email).toBe(user.email);
+    });
+
+    it('finds the user when email case differs', async () => {
+      const user = createUser({
+        _id: '123',
+        email: 'test@example.com',
+        isEmailVerified: true,
+      });
+      mockUserModel.findOne.mockImplementationOnce(async (query: any) => {
+        const re = new RegExp(query.email.$regex, query.email.$options);
+        return re.test(user.email) ? user : null;
+      });
+
+      const result = await service.login({
+        email: 'Test@Example.COM',
+        password: 'pw',
+      } as any);
+
       expect(result.token).toBe('signed-jwt-token');
       expect(result.user.email).toBe(user.email);
     });

@@ -22,7 +22,7 @@ function normalizeMessage(message: string | string[]): string {
 /**
  * Extracts a user-friendly error message from various error types
  */
-export const getErrorMessage = (error: unknown): string => {
+export const getErrorMessage = (error: unknown, fallback?: string): string => {
   if (axios.isAxiosError(error)) {
     const axiosError = error as AxiosError<ApiErrorData>;
 
@@ -81,7 +81,7 @@ export const getErrorMessage = (error: unknown): string => {
     return error;
   }
 
-  return 'An unexpected error occurred';
+  return fallback ?? 'An unexpected error occurred';
 };
 
 /**
