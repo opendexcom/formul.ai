@@ -59,7 +59,7 @@ If you stay on MiniLM, set `LOCAL_EMBEDDING_MODEL=Xenova/all-MiniLM-L6-v2` and l
 
 ```bash
 cd server
-RUN_LOCAL_EMBEDDING_CLUSTER_TEST=1 pnpm test -- polish-survey-clustering
+pnpm test:polish-cluster
 ```
 
 That comparison is **opt-in** so CI does not download Hugging Face models.

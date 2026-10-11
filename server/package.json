@@ -26,7 +26,7 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "test:polish-cluster": "RUN_LOCAL_EMBEDDING_CLUSTER_TEST=1 jest --testPathPattern=polish-survey-clustering --runInBand",
+    "test:polish-cluster": "RUN_LOCAL_EMBEDDING_CLUSTER_TEST=1 ts-node --transpile-only scripts/compare-polish-embeddings.ts",
     "generate:responses": "ts-node scripts/generate-fake-responses.ts"
   },
   "dependencies": {
