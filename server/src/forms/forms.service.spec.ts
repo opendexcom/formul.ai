@@ -220,6 +220,31 @@ describe('FormsService', () => {
       expect(result).not.toHaveProperty('createdBy');
       expect(result).not.toHaveProperty('invitations');
     });
+
+    it('logs only formId and outcome, not the form title', async () => {
+      const formId = new Types.ObjectId();
+      const secretTitle = 'SECRET_TITLE_DO_NOT_LOG';
+      const form: any = {
+        _id: formId,
+        title: secretTitle,
+        isPublic: true,
+        isActive: true,
+        questions: [],
+        settings: {},
+      };
+      mockPublicFormQuery(form);
+      const logSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
+
+      try {
+        await service.findPublicForm(String(formId));
+        const logs = logSpy.mock.calls.map((args) => serializeLogArgs(args)).join('\n');
+        expect(logs).not.toContain(secretTitle);
+        expect(logs).toContain(String(formId));
+        expect(logs).toMatch(/"outcome":"ok"/);
+      } finally {
+        logSpy.mockRestore();
+      }
+    });
   });
 
   describe('update', () => {

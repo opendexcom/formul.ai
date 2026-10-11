@@ -269,36 +269,28 @@ export class FormsService {
 
   // Public form methods (no authentication required)
   async findPublicForm(id: string): Promise<PublicFormDto> {
-    console.log('Finding public form with ID:', id);
-
     const form = await this.formModel
       .findById(id)
       .select(PUBLIC_FORM_SELECT)
       .lean()
       .exec();
-    console.log(
-      'Form found:',
-      form
-        ? `Title: ${form.title}, isPublic: ${form.isPublic}, isActive: ${form.isActive}`
-        : 'null',
-    );
 
     if (!form) {
-      console.log('Form not found in database');
+      console.log('Public form lookup', { formId: id, outcome: 'not_found' });
       throw new NotFoundException('Form not found');
     }
 
     if (!form.isPublic) {
-      console.log('Form is not public');
+      console.log('Public form lookup', { formId: id, outcome: 'not_public' });
       throw new ForbiddenException('This form is not public');
     }
 
     if (!form.isActive) {
-      console.log('Form is not active');
+      console.log('Public form lookup', { formId: id, outcome: 'not_active' });
       throw new ForbiddenException('This form is not currently accepting responses');
     }
 
-    console.log('Returning public form successfully');
+    console.log('Public form lookup', { formId: id, outcome: 'ok' });
     return toPublicFormDto(form);
   }
 

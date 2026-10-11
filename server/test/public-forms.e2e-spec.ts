@@ -14,6 +14,27 @@ import {
   PUBLIC_SETTINGS_ALLOWED_KEYS,
 } from '../src/forms/dto/public-form.dto';
 
+/**
+ * Fields the old full-document GET leaked. This suite seeds them on a
+ * public + active form so the request would fail against the pre-whitelist
+ * serializer and must pass against the allowlist.
+ */
+const FORBIDDEN_PUBLIC_FORM_KEYS = [
+  'analytics',
+  'analyticsLock',
+  'analyticsLockStartedAt',
+  'isActive',
+  'isPublic',
+  'createdBy',
+  'projectId',
+  'owner',
+  'invitations',
+  'collaborators',
+  'statistics',
+  'variantKey',
+  '__v',
+] as const;
+
 describe('Public forms (e2e) – no analytics / owner / invitations leak', () => {
   let app: INestApplication<App>;
   let formModel: Model<FormDocument>;
@@ -23,6 +44,7 @@ describe('Public forms (e2e) – no analytics / owner / invitations leak', () =>
   const leakedQuote = 'Another respondent said: the cafeteria coffee is terrible';
   const ownerEmail = 'form-owner@example.com';
   const inviteeEmail = 'invitee@example.com';
+  const lockStartedAt = new Date('2026-01-15T12:00:00.000Z');
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -52,6 +74,7 @@ describe('Public forms (e2e) – no analytics / owner / invitations leak', () =>
       projectId: new Types.ObjectId(),
       variantKey: 'main',
       analyticsLock: 'lock-task',
+      analyticsLockStartedAt: lockStartedAt,
       questions: [
         {
           id: 'q1',
@@ -114,25 +137,51 @@ describe('Public forms (e2e) – no analytics / owner / invitations leak', () =>
     }
   });
 
-  it('GET /api/public/forms/:id omits analytics, owner, and invitations', async () => {
+  it('seeds a public+active form whose stored document still has the leak payload', async () => {
+    const stored = (await formModel.collection.findOne({
+      _id: new Types.ObjectId(seededFormId),
+    })) as {
+      isPublic?: boolean;
+      isActive?: boolean;
+      createdBy?: unknown;
+      projectId?: unknown;
+      analyticsLock?: string;
+      analyticsLockStartedAt?: Date;
+      analytics?: {
+        representativeQuotes?: string[];
+        quotes?: { representative?: Array<{ text?: string }> };
+      };
+    } | null;
+
+    expect(stored).toBeTruthy();
+    expect(stored?.isPublic).toBe(true);
+    expect(stored?.isActive).toBe(true);
+    expect(stored?.createdBy).toBeDefined();
+    expect(stored?.projectId).toBeDefined();
+    expect(stored?.analyticsLock).toBe('lock-task');
+    expect(stored?.analyticsLockStartedAt).toEqual(lockStartedAt);
+    expect(stored?.analytics?.representativeQuotes).toEqual([leakedQuote]);
+    expect(stored?.analytics?.quotes?.representative?.[0]?.text).toBe(leakedQuote);
+  });
+
+  it('GET /api/public/forms/:id omits analytics quotes and other leaked fields', async () => {
     const res = await request(app.getHttpServer())
       .get(`/api/public/forms/${seededFormId}`)
       .expect(200);
 
-    expect(res.body).not.toHaveProperty('analytics');
-    expect(res.body).not.toHaveProperty('owner');
-    expect(res.body).not.toHaveProperty('invitations');
-    expect(res.body).not.toHaveProperty('createdBy');
-    expect(res.body).not.toHaveProperty('collaborators');
-    expect(res.body).not.toHaveProperty('statistics');
-    expect(res.body).not.toHaveProperty('projectId');
-    expect(res.body).not.toHaveProperty('analyticsLock');
+    // Old findById().exec() returned the raw document; these would then be present.
+    expect(res.body.analytics?.representativeQuotes).toBeUndefined();
+    expect(res.body.analytics).toBeUndefined();
+    for (const key of FORBIDDEN_PUBLIC_FORM_KEYS) {
+      expect(res.body).not.toHaveProperty(key);
+    }
 
     const bodyText = JSON.stringify(res.body);
     expect(bodyText).not.toContain(leakedQuote);
     expect(bodyText).not.toContain(ownerEmail);
     expect(bodyText).not.toContain(inviteeEmail);
     expect(bodyText).not.toContain('invite-secret');
+    expect(bodyText).not.toContain('lock-task');
   });
 
   it('GET /api/public/forms/:id returns only the allowlisted key set', async () => {
@@ -146,6 +195,16 @@ describe('Public forms (e2e) – no analytics / owner / invitations leak', () =>
     );
     expect(keys).toEqual([...PUBLIC_FORM_REQUIRED_KEYS].sort());
     expect(keys.every((key) => PUBLIC_FORM_ALLOWED_KEYS.includes(key as any))).toBe(true);
+    for (const key of [
+      'analyticsLock',
+      'analyticsLockStartedAt',
+      'isActive',
+      'isPublic',
+      'createdBy',
+      'projectId',
+    ]) {
+      expect(keys).not.toContain(key);
+    }
 
     expect(res.body).toMatchObject({
       id: seededFormId,
