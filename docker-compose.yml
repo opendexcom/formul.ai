@@ -4,14 +4,12 @@
 
 name: formulai-oss
 
-# json-file rotates by size, not age. 20m × 15 files ≈ 300MB/container.
-# At typical API verbosity that bounds retention to roughly a few weeks–a month.
-# Age-based cleanup still needs the host (see PR notes for Rafał).
-x-default-logging: &default-logging
+# Match production (daemon.json + EE prod compose): keep less personal data, not more.
+x-logging: &default-logging
   driver: json-file
   options:
-    max-size: "20m"
-    max-file: "15"
+    max-size: "10m"
+    max-file: "3"
 
 services:
   backend:
