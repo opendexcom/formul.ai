@@ -19,6 +19,7 @@ import type { Request as ExpressRequest, Response as ExpressResponse } from 'exp
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { JwtService } from '@nestjs/jwt';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { FormAccessGuard } from './form-access.guard';
 import { FormsService } from './forms.service';
 import { EmailService, SendInvitationDto } from './email.service';
 import { AnalyticsService } from './analytics.service';
@@ -30,7 +31,7 @@ import { ProgressService } from '../analytics/queues/progress.service';
 
 @ApiTags('Forms')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, FormAccessGuard)
 @Controller('forms')
 export class FormsController {
   constructor(
