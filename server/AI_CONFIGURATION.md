@@ -58,6 +58,20 @@ ollama serve
 ollama run llama2 "Hello"
 ```
 
+## Local embeddings
+
+Used for semantic LLM cache and vector topic clustering (`EMBEDDING_PROVIDER=local`).
+
+```env
+EMBEDDING_PROVIDER=local
+LOCAL_EMBEDDING_MODEL=Xenova/multilingual-e5-small
+LLM_EMBEDDING_DIMENSION=384
+LOCAL_EMBEDDING_WARMUP=true
+LOCAL_EMBEDDING_THREADS=2
+```
+
+The default is multilingual E5-small (384-d), the same vector size as the previous English `Xenova/all-MiniLM-L6-v2`. E5 inputs are automatically prefixed with `query: ` / `passage: `. After changing models, flush Redis topic/cache vectors and re-run analytics — see [Local embeddings](../docs/local-embeddings.md).
+
 ## Configuration Parameters
 
 | Parameter | Description | Default |
@@ -68,6 +82,9 @@ ollama run llama2 "Hello"
 | `OPENAI_MODEL` | OpenAI model name | `gpt-4o-mini` |
 | `OLLAMA_BASE_URL` | Ollama server URL | `http://localhost:11434` |
 | `OLLAMA_MODEL` | Ollama model name | `llama2` |
+| `EMBEDDING_PROVIDER` | Embedding backend: `local`, `ollama`, or `openai` | `local` |
+| `LOCAL_EMBEDDING_MODEL` | Hugging Face / Xenova id for local embeddings | `Xenova/multilingual-e5-small` |
+| `LLM_EMBEDDING_DIMENSION` | Vector size (keep 384 for E5-small and MiniLM) | `384` |
 
 ## Switching Providers
 

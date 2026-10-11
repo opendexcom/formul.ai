@@ -84,3 +84,123 @@ export function pickCanonicalLabelFromCluster(
 export function normalizeTopicKey(topicText: string): string {
   return topicText.trim().toLowerCase();
 }
+
+/** Cosine similarity. Local embeddings are L2-normalized, so this is a dot product. */
+export function cosineSimilarity(a: number[], b: number[]): number {
+  const n = Math.min(a.length, b.length);
+  let dot = 0;
+  let normA = 0;
+  let normB = 0;
+  for (let i = 0; i < n; i++) {
+    dot += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+  if (normA === 0 || normB === 0) return 0;
+  return dot / Math.sqrt(normA * normB);
+}
+
+export interface EmbeddedItem {
+  key: string;
+  embedding: number[];
+}
+
+/**
+ * In-memory equivalent of Redis KNN + union-find topic clustering:
+ * connect each item to its top-`k` neighbors above `threshold`, then merge.
+ */
+export function clusterByCosineSimilarity(
+  items: EmbeddedItem[],
+  options?: { k?: number; threshold?: number },
+): Map<string, string[]> {
+  const k = options?.k ?? parseInt(process.env.ANALYTICS_TOPIC_KNN_K ?? '15', 10);
+  const threshold =
+    options?.threshold ??
+    parseFloat(process.env.ANALYTICS_TOPIC_SIMILARITY_THRESHOLD ?? '0.82');
+
+  const uf = new UnionFind();
+  for (const item of items) {
+    uf.add(item.key);
+  }
+
+  for (const item of items) {
+    const neighbors = items
+      .filter((other) => other.key !== item.key)
+      .map((other) => ({
+        key: other.key,
+        similarity: cosineSimilarity(item.embedding, other.embedding),
+      }))
+      .filter((n) => n.similarity >= threshold)
+      .sort((a, b) => b.similarity - a.similarity)
+      .slice(0, k);
+
+    for (const neighbor of neighbors) {
+      uf.union(item.key, neighbor.key);
+    }
+  }
+
+  return uf.groups();
+}
+
+export function clusterPurity(
+  predictedGroups: Map<string, string[]>,
+  labelsByKey: Map<string, string>,
+): number {
+  let correct = 0;
+  let total = 0;
+  for (const members of predictedGroups.values()) {
+    const counts = new Map<string, number>();
+    for (const key of members) {
+      const label = labelsByKey.get(key);
+      if (!label) continue;
+      counts.set(label, (counts.get(label) ?? 0) + 1);
+      total += 1;
+    }
+    let majority = 0;
+    for (const count of counts.values()) {
+      if (count > majority) majority = count;
+    }
+    correct += majority;
+  }
+  return total === 0 ? 0 : correct / total;
+}
+
+/** Adjusted Rand index vs ground-truth labels. 1 = perfect, 0 ≈ random. */
+export function adjustedRandIndex(
+  predictedGroups: Map<string, string[]>,
+  labelsByKey: Map<string, string>,
+): number {
+  const keys = Array.from(labelsByKey.keys());
+  const predLabel = new Map<string, string>();
+  for (const [root, members] of predictedGroups.entries()) {
+    for (const key of members) {
+      predLabel.set(key, root);
+    }
+  }
+
+  let n00 = 0;
+  let n11 = 0;
+  let n10 = 0;
+  let n01 = 0;
+  for (let i = 0; i < keys.length; i++) {
+    for (let j = i + 1; j < keys.length; j++) {
+      const sameTrue = labelsByKey.get(keys[i]) === labelsByKey.get(keys[j]);
+      const samePred = predLabel.get(keys[i]) === predLabel.get(keys[j]);
+      if (sameTrue && samePred) n11 += 1;
+      else if (!sameTrue && !samePred) n00 += 1;
+      else if (sameTrue && !samePred) n10 += 1;
+      else n01 += 1;
+    }
+  }
+
+  const n = keys.length;
+  if (n < 2) return 1;
+  const combinations = (n * (n - 1)) / 2;
+  const sumPredSame = n11 + n01;
+  const sumTrueSame = n11 + n10;
+  const expectedIndex = (sumPredSame * sumTrueSame) / combinations;
+  const maxIndex = 0.5 * (sumPredSame + sumTrueSame);
+  const denominator = maxIndex - expectedIndex;
+  if (Math.abs(denominator) < 1e-12) return 1;
+  return (n11 - expectedIndex) / denominator;
+}

@@ -2,14 +2,47 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { withEmbeddingSpan } from '../mlflow/mlflow-trace-context';
 
 export type EmbeddingProvider = 'local' | 'ollama' | 'openai';
+export type EmbeddingRole = 'query' | 'passage';
 
 type FeatureExtractor = (
   text: string,
   options?: Record<string, unknown>,
 ) => Promise<{ data: Float32Array | number[] }>;
 
-const DEFAULT_LOCAL_MODEL = 'Xenova/all-MiniLM-L6-v2';
-const DEFAULT_LOCAL_DIMENSION = 384;
+/** Multilingual E5-small (intfloat), 384-d — same index DIM as MiniLM-L6-v2. */
+export const DEFAULT_LOCAL_MODEL = 'Xenova/multilingual-e5-small';
+/** Previous English-only default; keep for opt-in comparisons and rollback. */
+export const LEGACY_LOCAL_MODEL = 'Xenova/all-MiniLM-L6-v2';
+export const DEFAULT_LOCAL_DIMENSION = 384;
+
+const E5_PREFIX: Record<EmbeddingRole, string> = {
+  query: 'query: ',
+  passage: 'passage: ',
+};
+
+export function isE5EmbeddingModel(model: string): boolean {
+  return /(?:^|[/-])e5(?:-|$)/i.test(model);
+}
+
+/**
+ * E5 models expect "query: " / "passage: " prefixes (including non-English).
+ * For clustering and other symmetric similarity, official E5 guidance is to
+ * use the query prefix on every text. Retrieval uses query vs passage.
+ */
+export function applyEmbeddingPrefix(
+  text: string,
+  role: EmbeddingRole,
+  model: string,
+): string {
+  const trimmed = text.trim();
+  if (!trimmed || !isE5EmbeddingModel(model)) {
+    return trimmed;
+  }
+  if (/^(query|passage): /i.test(trimmed)) {
+    return trimmed;
+  }
+  return `${E5_PREFIX[role]}${trimmed}`;
+}
 
 @Injectable()
 export class EmbeddingService implements OnModuleInit {
@@ -96,11 +129,34 @@ export class EmbeddingService implements OnModuleInit {
         model: this.getModelName(),
         textLength: text.length,
       },
-      () => this.embedQueryInner(text),
+      () => this.embedInner(text, 'query'),
     );
   }
 
-  private async embedQueryInner(text: string): Promise<number[]> {
+  /**
+   * Document/passage embedding. E5 local models get a "passage: " prefix.
+   * Topic clustering uses {@link embedQuery} (query prefix) because E5
+   * treats symmetric similarity / clustering as a query-side task.
+   */
+  async embedDocuments(texts: string[]): Promise<number[][]> {
+    return Promise.all(texts.map((text) => this.embedDocument(text)));
+  }
+
+  async embedDocument(text: string): Promise<number[]> {
+    return withEmbeddingSpan(
+      {
+        provider: this.getProvider(),
+        model: this.getModelName(),
+        textLength: text.length,
+      },
+      () => this.embedInner(text, 'passage'),
+    );
+  }
+
+  private async embedInner(
+    text: string,
+    role: EmbeddingRole,
+  ): Promise<number[]> {
     switch (this.getProvider()) {
       case 'openai':
         if (!this.openAiModel) {
@@ -110,13 +166,17 @@ export class EmbeddingService implements OnModuleInit {
       case 'ollama':
         return this.embedWithOllama(text);
       default:
-        return this.embedWithLocalModel(text);
+        return this.embedWithLocalModel(text, role);
     }
   }
 
-  private async embedWithLocalModel(text: string): Promise<number[]> {
+  private async embedWithLocalModel(
+    text: string,
+    role: EmbeddingRole,
+  ): Promise<number[]> {
     const extractor = await this.ensureLocalModel();
-    const output = await extractor(text, {
+    const input = applyEmbeddingPrefix(text, role, this.getModelName());
+    const output = await extractor(input, {
       pooling: 'mean',
       normalize: true,
     });

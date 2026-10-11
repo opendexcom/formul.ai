@@ -1,6 +1,9 @@
 import {
   UnionFind,
+  adjustedRandIndex,
   buildClustersFromGroups,
+  clusterByCosineSimilarity,
+  clusterPurity,
   pickCanonicalLabelFromCluster,
   normalizeTopicKey,
   TopicClusterMember,
@@ -55,6 +58,28 @@ describe('topic-vector-cluster.util', () => {
   describe('normalizeTopicKey', () => {
     it('lowercases and trims topic text', () => {
       expect(normalizeTopicKey('  Company Culture ')).toBe('company culture');
+    });
+  });
+
+  describe('clusterByCosineSimilarity + metrics', () => {
+    it('merges near-duplicate embeddings and keeps orthogonal ones apart', () => {
+      const items = [
+        { key: 'a1', embedding: [1, 0] },
+        { key: 'a2', embedding: [0.99, 0.01] },
+        { key: 'b1', embedding: [0, 1] },
+        { key: 'b2', embedding: [0.01, 0.99] },
+      ];
+      const groups = clusterByCosineSimilarity(items, { k: 3, threshold: 0.9 });
+      expect(groups.size).toBe(2);
+
+      const labels = new Map([
+        ['a1', 'cena'],
+        ['a2', 'cena'],
+        ['b1', 'dostawa'],
+        ['b2', 'dostawa'],
+      ]);
+      expect(clusterPurity(groups, labels)).toBe(1);
+      expect(adjustedRandIndex(groups, labels)).toBeCloseTo(1);
     });
   });
 });
