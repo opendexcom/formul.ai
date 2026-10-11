@@ -1,6 +1,7 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { JwtModule } from '@nestjs/jwt';
+import { getJwtSecret } from '../auth/jwt-secret';
 import { getCoreSchemaOrThrow } from '../schemas/core-schema-registry';
 import { Form } from '../schemas/form.schema';
 import { Project } from '../schemas/project.schema';
@@ -29,7 +30,7 @@ import { AiCoreModule } from '../ai/ai.module';
       { name: Response.name, schema: getCoreSchemaOrThrow(Response.name) },
     ]),
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'your-secret-key',
+      secret: getJwtSecret(),
       signOptions: { expiresIn: (process.env.JWT_EXPIRES_IN as any) || '7d' },
     }),
     forwardRef(() => AiCoreModule),

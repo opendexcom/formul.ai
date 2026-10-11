@@ -12,6 +12,7 @@ import { getCoreSchemaOrThrow } from '../schemas/core-schema-registry';
 
 import { FormsModule } from '../forms/forms.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { getJwtSecret } from './jwt-secret';
 
 @Module({
   imports: [
@@ -21,7 +22,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) =>
         ({
-          secret: configService.get<string>('JWT_SECRET') || 'your-secret-key',
+          secret: getJwtSecret(),
           signOptions: {
             expiresIn: configService.get<string>('JWT_EXPIRES_IN') as string,
           },

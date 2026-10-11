@@ -18,6 +18,9 @@ export class FormsService {
 
   async create(createFormDto: CreateFormDto, userId: string): Promise<Form> {
     const ownerId = new Types.ObjectId(userId);
+    if (createFormDto.projectId) {
+      await this.assertProjectAccess(userId, createFormDto.projectId);
+    }
     const projectId = createFormDto.projectId
       ? new Types.ObjectId(createFormDto.projectId)
       : new Types.ObjectId();
@@ -91,6 +94,22 @@ export class FormsService {
     return form;
   }
 
+  /**
+   * Owner-only project lookup. Same 404-on-denial model as assertFormAccess.
+   */
+  async assertProjectAccess(userId: string, projectId: string): Promise<ProjectDocument> {
+    if (!userId || !projectId || !Types.ObjectId.isValid(projectId)) {
+      throw new NotFoundException('Project not found');
+    }
+
+    const project = await this.projectModel.findById(projectId);
+    if (!project || project.ownerId.toString() !== String(userId)) {
+      throw new NotFoundException('Project not found');
+    }
+
+    return project;
+  }
+
   async findOne(id: string, userId?: string): Promise<Form> {
     const form = await this.formModel.findById(id).populate('createdBy', 'firstName lastName email').exec();
 
@@ -114,6 +133,10 @@ export class FormsService {
 
     // Explicitly exclude system fields that should NEVER be updated
     const { _id, createdBy, createdAt, updatedAt, __v, ...safeUpdateData } = updateFormDto as any;
+
+    if (safeUpdateData.projectId) {
+      await this.assertProjectAccess(userId, String(safeUpdateData.projectId));
+    }
     
     console.log('UPDATE FORM - Safe update data:', JSON.stringify(safeUpdateData, null, 2));
     
