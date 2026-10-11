@@ -11,6 +11,11 @@ import {
 } from './topic-vector-cluster.util';
 
 describe('topic-vector-cluster.util', () => {
+  afterEach(() => {
+    delete process.env.LOCAL_EMBEDDING_MODEL;
+    delete process.env.ANALYTICS_TOPIC_SIMILARITY_THRESHOLD;
+  });
+
   describe('UnionFind', () => {
     it('merges connected keys into one group', () => {
       const uf = new UnionFind();
@@ -85,6 +90,19 @@ describe('topic-vector-cluster.util', () => {
       const kmeans = clusterByKMeans(items, 2);
       expect(clusterPurity(kmeans, labels)).toBe(1);
       expect(adjustedRandIndex(kmeans, labels)).toBeCloseTo(1);
+    });
+
+    it('uses the E5 0.90 default so mid-band neighbors stay unmerged', () => {
+      delete process.env.ANALYTICS_TOPIC_SIMILARITY_THRESHOLD;
+      process.env.LOCAL_EMBEDDING_MODEL = 'Xenova/multilingual-e5-small';
+      const items = [
+        { key: 'a', embedding: [1, 0] },
+        { key: 'b', embedding: [0.85, Math.sqrt(1 - 0.85 ** 2)] },
+      ];
+      expect(clusterByCosineSimilarity(items).size).toBe(2);
+
+      process.env.LOCAL_EMBEDDING_MODEL = 'Xenova/all-MiniLM-L6-v2';
+      expect(clusterByCosineSimilarity(items).size).toBe(1);
     });
   });
 });

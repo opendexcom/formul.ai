@@ -1,3 +1,5 @@
+import { resolveTopicSimilarityThreshold } from '../../ai/local-embedding-defaults';
+
 export interface TopicClusterMember {
   topicKey: string;
   topicText: string;
@@ -115,8 +117,7 @@ export function clusterByCosineSimilarity(
 ): Map<string, string[]> {
   const k = options?.k ?? parseInt(process.env.ANALYTICS_TOPIC_KNN_K ?? '15', 10);
   const threshold =
-    options?.threshold ??
-    parseFloat(process.env.ANALYTICS_TOPIC_SIMILARITY_THRESHOLD ?? '0.82');
+    options?.threshold ?? resolveTopicSimilarityThreshold();
 
   const uf = new UnionFind();
   for (const item of items) {

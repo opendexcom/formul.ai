@@ -276,8 +276,7 @@ export class TopicVectorStore implements OnModuleInit {
     if (!(await this.prepareForClustering())) return [];
 
     const threshold =
-      minSimilarity ??
-      parseFloat(process.env.ANALYTICS_TOPIC_SIMILARITY_THRESHOLD ?? '0.82');
+      minSimilarity ?? this.embeddingService.getTopicSimilarityThreshold();
     const buffer = this.embeddingToBuffer(embedding);
     const filter = `@form_id:{${this.escapeTag(formId)}}`;
 

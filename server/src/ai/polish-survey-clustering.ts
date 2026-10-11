@@ -2,6 +2,7 @@ import {
   DEFAULT_LOCAL_MODEL,
   EmbeddingService,
   LEGACY_LOCAL_MODEL,
+  resolveTopicSimilarityThreshold,
 } from './embedding.service';
 import { POLISH_SURVEY_ANSWERS } from './fixtures/polish-survey-responses.fixture';
 import {
@@ -90,10 +91,12 @@ export async function embedAndCluster(
   labelsByKey: Map<string, string>,
 ): Promise<ModelClusterReport> {
   const previousModel = process.env.LOCAL_EMBEDDING_MODEL;
+  const previousThreshold = process.env.ANALYTICS_TOPIC_SIMILARITY_THRESHOLD;
   process.env.EMBEDDING_PROVIDER = 'local';
   process.env.LOCAL_EMBEDDING_MODEL = model;
   process.env.LOCAL_EMBEDDING_WARMUP = 'false';
   process.env.LLM_EMBEDDING_DIMENSION = '384';
+  delete process.env.ANALYTICS_TOPIC_SIMILARITY_THRESHOLD;
 
   const service = new EmbeddingService();
   const started = Date.now();
@@ -106,6 +109,12 @@ export async function embedAndCluster(
   const dimension = embeddings[0]?.length ?? 0;
   const items = keys.map((key, i) => ({ key, embedding: embeddings[i] }));
   const topicCount = new Set(labelsByKey.values()).size;
+  const modelDefaultThreshold = resolveTopicSimilarityThreshold(model);
+  const graphDefault = metricsForGroups(
+    clusterByCosineSimilarity(items),
+    labelsByKey,
+    modelDefaultThreshold,
+  );
   const byThreshold = POLISH_CLUSTER_THRESHOLDS.map((threshold) =>
     metricsForGroups(
       clusterByCosineSimilarity(items, { threshold }),
@@ -113,8 +122,6 @@ export async function embedAndCluster(
       threshold,
     ),
   );
-  const graphDefault =
-    byThreshold.find((row) => row.threshold === 0.82) ?? byThreshold[0];
   const graphBestAri = byThreshold.reduce((best, row) =>
     row.ari > best.ari ? row : best,
   );
@@ -128,6 +135,11 @@ export async function embedAndCluster(
     delete process.env.LOCAL_EMBEDDING_MODEL;
   } else {
     process.env.LOCAL_EMBEDDING_MODEL = previousModel;
+  }
+  if (previousThreshold === undefined) {
+    delete process.env.ANALYTICS_TOPIC_SIMILARITY_THRESHOLD;
+  } else {
+    process.env.ANALYTICS_TOPIC_SIMILARITY_THRESHOLD = previousThreshold;
   }
 
   return {
@@ -214,6 +226,16 @@ export function assertE5ClustersBetter(
   if (e5.pairwise.gap <= minilm.pairwise.gap) {
     throw new Error(
       `E5 same-vs-diff topic gap ${e5.pairwise.gap.toFixed(4)} was not better than MiniLM ${minilm.pairwise.gap.toFixed(4)}`,
+    );
+  }
+  if (e5.graphDefault.clusterCount <= 1) {
+    throw new Error(
+      `E5 graph clustering at the model default (${e5.graphDefault.threshold}) collapsed to ${e5.graphDefault.clusterCount} cluster(s)`,
+    );
+  }
+  if (e5.graphDefault.ari <= minilm.graphDefault.ari) {
+    throw new Error(
+      `E5 graph ARI ${e5.graphDefault.ari.toFixed(4)} @${e5.graphDefault.threshold} was not better than MiniLM ${minilm.graphDefault.ari.toFixed(4)} @${minilm.graphDefault.threshold}`,
     );
   }
 }

@@ -9,20 +9,27 @@ type FeatureExtractor = (
   options?: Record<string, unknown>,
 ) => Promise<{ data: Float32Array | number[] }>;
 
-/** Multilingual E5-small (intfloat), 384-d — same index DIM as MiniLM-L6-v2. */
-export const DEFAULT_LOCAL_MODEL = 'Xenova/multilingual-e5-small';
-/** Previous English-only default; keep for opt-in comparisons and rollback. */
-export const LEGACY_LOCAL_MODEL = 'Xenova/all-MiniLM-L6-v2';
-export const DEFAULT_LOCAL_DIMENSION = 384;
+export {
+  DEFAULT_LOCAL_DIMENSION,
+  DEFAULT_LOCAL_MODEL,
+  defaultTopicSimilarityThreshold,
+  E5_TOPIC_SIMILARITY_THRESHOLD,
+  isE5EmbeddingModel,
+  LEGACY_LOCAL_MODEL,
+  MINILM_TOPIC_SIMILARITY_THRESHOLD,
+  resolveTopicSimilarityThreshold,
+} from './local-embedding-defaults';
+import {
+  DEFAULT_LOCAL_DIMENSION,
+  DEFAULT_LOCAL_MODEL,
+  isE5EmbeddingModel,
+  resolveTopicSimilarityThreshold,
+} from './local-embedding-defaults';
 
 const E5_PREFIX: Record<EmbeddingRole, string> = {
   query: 'query: ',
   passage: 'passage: ',
 };
-
-export function isE5EmbeddingModel(model: string): boolean {
-  return /(?:^|[/-])e5(?:-|$)/i.test(model);
-}
 
 /**
  * E5 models expect "query: " / "passage: " prefixes (including non-English).
@@ -120,6 +127,10 @@ export class EmbeddingService implements OnModuleInit {
       default:
         return process.env.LOCAL_EMBEDDING_MODEL || DEFAULT_LOCAL_MODEL;
     }
+  }
+
+  getTopicSimilarityThreshold(): number {
+    return resolveTopicSimilarityThreshold(this.getModelName());
   }
 
   async embedQuery(text: string): Promise<number[]> {

@@ -2,9 +2,12 @@ import {
   applyEmbeddingPrefix,
   DEFAULT_LOCAL_DIMENSION,
   DEFAULT_LOCAL_MODEL,
+  E5_TOPIC_SIMILARITY_THRESHOLD,
   EmbeddingService,
   isE5EmbeddingModel,
   LEGACY_LOCAL_MODEL,
+  MINILM_TOPIC_SIMILARITY_THRESHOLD,
+  resolveTopicSimilarityThreshold,
 } from './embedding.service';
 
 describe('EmbeddingService', () => {
@@ -17,6 +20,25 @@ describe('EmbeddingService', () => {
     delete process.env.OLLAMA_BASE_URL;
     delete process.env.LOCAL_EMBEDDING_WARMUP;
     delete process.env.LOCAL_EMBEDDING_MODEL;
+    delete process.env.ANALYTICS_TOPIC_SIMILARITY_THRESHOLD;
+  });
+
+  it('uses a per-model topic similarity threshold unless env overrides', () => {
+    expect(resolveTopicSimilarityThreshold(DEFAULT_LOCAL_MODEL)).toBe(0.9);
+    expect(resolveTopicSimilarityThreshold(LEGACY_LOCAL_MODEL)).toBe(0.82);
+    expect(E5_TOPIC_SIMILARITY_THRESHOLD).toBe(0.9);
+    expect(MINILM_TOPIC_SIMILARITY_THRESHOLD).toBe(0.82);
+
+    const e5 = new EmbeddingService();
+    expect(e5.getTopicSimilarityThreshold()).toBe(0.9);
+
+    process.env.LOCAL_EMBEDDING_MODEL = LEGACY_LOCAL_MODEL;
+    const minilm = new EmbeddingService();
+    expect(minilm.getTopicSimilarityThreshold()).toBe(0.82);
+
+    process.env.ANALYTICS_TOPIC_SIMILARITY_THRESHOLD = '0.77';
+    expect(e5.getTopicSimilarityThreshold()).toBe(0.77);
+    expect(resolveTopicSimilarityThreshold(DEFAULT_LOCAL_MODEL)).toBe(0.77);
   });
 
   it('defaults to multilingual e5-small with 384 dimensions (same as MiniLM)', () => {

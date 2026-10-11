@@ -55,7 +55,14 @@ If you stay on MiniLM, set `LOCAL_EMBEDDING_MODEL=Xenova/all-MiniLM-L6-v2` and l
 
 ## Clustering threshold
 
-E5 cosine scores sit in a tighter, higher band than MiniLM (typical pairwise similarities ~0.78–0.92 vs MiniLM’s broader 0.29–0.85). The app default `ANALYTICS_TOPIC_SIMILARITY_THRESHOLD=0.82` was tuned for MiniLM and **over-merges** E5 topic vectors (union-find collapses most items). If topic clusters look too coarse after the switch, raise the threshold toward `0.88`–`0.90` and re-run analytics. Embedding-space quality (k-means / same-vs-diff gap) is still better with E5 on Polish text.
+Topic merge uses a **per-model** cosine threshold unless `ANALYTICS_TOPIC_SIMILARITY_THRESHOLD` is set:
+
+| Model | Default threshold | Why |
+| --- | --- | --- |
+| `Xenova/all-MiniLM-L6-v2` (and other non-E5) | `0.82` | Historical MiniLM-tuned value |
+| E5-family (`*e5*`, including `multilingual-e5-small`) | `0.90` | Tuned on the Polish survey fixture (best graph ARI; `0.82` collapses E5 into one cluster) |
+
+`ANALYTICS_TOPIC_SIMILARITY_THRESHOLD` is an **explicit override** for both models. Leave it unset so the default follows `LOCAL_EMBEDDING_MODEL`. If you still have `=0.82` in an old `.env`, remove it after switching to E5 or clustering will over-merge.
 
 ## Performance (CPU)
 
@@ -87,5 +94,5 @@ That comparison is **opt-in** so CI does not download Hugging Face models.
 | `LOCAL_EMBEDDING_THREADS` | `2` | WASM/ONNX thread count |
 | `LLM_EMBEDDING_DIMENSION` | `384` | Must match the model; keep 384 for E5-small and MiniLM |
 | `TRANSFORMERS_CACHE` | `.cache/transformers` | Model download cache |
-| `ANALYTICS_TOPIC_SIMILARITY_THRESHOLD` | `0.82` | Cosine similarity to merge topics |
+| `ANALYTICS_TOPIC_SIMILARITY_THRESHOLD` | unset (MiniLM `0.82`, E5 `0.90`) | Explicit override for topic merge cosine |
 | `RUN_LOCAL_EMBEDDING_CLUSTER_TEST` | unset | Set to `1` to run the Polish clustering comparison |
