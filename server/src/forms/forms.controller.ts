@@ -484,7 +484,6 @@ export class PublicFormsController {
   @ApiResponse({ status: 404, description: 'Form not found or not public' })
   @ApiResponse({ status: 403, description: 'Form is not public' })
   async getPublicForm(@Param('id') id: string) {
-    console.log('Public form request for ID:', id);
     return this.formsService.findPublicForm(id);
   }
 
