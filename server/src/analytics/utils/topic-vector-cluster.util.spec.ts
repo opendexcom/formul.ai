@@ -1,12 +1,21 @@
 import {
   UnionFind,
+  adjustedRandIndex,
   buildClustersFromGroups,
+  clusterByCosineSimilarity,
+  clusterByKMeans,
+  clusterPurity,
   pickCanonicalLabelFromCluster,
   normalizeTopicKey,
   TopicClusterMember,
 } from './topic-vector-cluster.util';
 
 describe('topic-vector-cluster.util', () => {
+  afterEach(() => {
+    delete process.env.LOCAL_EMBEDDING_MODEL;
+    delete process.env.ANALYTICS_TOPIC_SIMILARITY_THRESHOLD;
+  });
+
   describe('UnionFind', () => {
     it('merges connected keys into one group', () => {
       const uf = new UnionFind();
@@ -55,6 +64,45 @@ describe('topic-vector-cluster.util', () => {
   describe('normalizeTopicKey', () => {
     it('lowercases and trims topic text', () => {
       expect(normalizeTopicKey('  Company Culture ')).toBe('company culture');
+    });
+  });
+
+  describe('clusterByCosineSimilarity + metrics', () => {
+    it('merges near-duplicate embeddings and keeps orthogonal ones apart', () => {
+      const items = [
+        { key: 'a1', embedding: [1, 0] },
+        { key: 'a2', embedding: [0.99, 0.01] },
+        { key: 'b1', embedding: [0, 1] },
+        { key: 'b2', embedding: [0.01, 0.99] },
+      ];
+      const groups = clusterByCosineSimilarity(items, { k: 3, threshold: 0.9 });
+      expect(groups.size).toBe(2);
+
+      const labels = new Map([
+        ['a1', 'cena'],
+        ['a2', 'cena'],
+        ['b1', 'dostawa'],
+        ['b2', 'dostawa'],
+      ]);
+      expect(clusterPurity(groups, labels)).toBe(1);
+      expect(adjustedRandIndex(groups, labels)).toBeCloseTo(1);
+
+      const kmeans = clusterByKMeans(items, 2);
+      expect(clusterPurity(kmeans, labels)).toBe(1);
+      expect(adjustedRandIndex(kmeans, labels)).toBeCloseTo(1);
+    });
+
+    it('uses the E5 0.90 default so mid-band neighbors stay unmerged', () => {
+      delete process.env.ANALYTICS_TOPIC_SIMILARITY_THRESHOLD;
+      process.env.LOCAL_EMBEDDING_MODEL = 'Xenova/multilingual-e5-small';
+      const items = [
+        { key: 'a', embedding: [1, 0] },
+        { key: 'b', embedding: [0.85, Math.sqrt(1 - 0.85 ** 2)] },
+      ];
+      expect(clusterByCosineSimilarity(items).size).toBe(2);
+
+      process.env.LOCAL_EMBEDDING_MODEL = 'Xenova/all-MiniLM-L6-v2';
+      expect(clusterByCosineSimilarity(items).size).toBe(1);
     });
   });
 });
