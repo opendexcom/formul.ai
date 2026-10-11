@@ -296,6 +296,7 @@ export class FormsService {
       });
     }
 
+    form.language = resolveFormLanguage(form.language);
     console.log('Returning public form successfully');
     return form;
   }

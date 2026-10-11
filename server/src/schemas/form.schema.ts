@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
+import { FORM_LANGUAGE_CODES } from '../forms/form-languages';
 
 export type FormDocument = Form & Document;
 
@@ -99,7 +100,7 @@ export class Form {
   isPublic: boolean;
 
   /** Respondent-facing UI language. Existing documents without this field default to en-US. */
-  @Prop({ type: String, default: 'en-US' })
+  @Prop({ type: String, enum: FORM_LANGUAGE_CODES, default: 'en-US' })
   language?: string;
 
   @Prop({ type: String })

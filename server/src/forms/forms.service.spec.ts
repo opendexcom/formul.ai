@@ -189,6 +189,23 @@ describe('FormsService', () => {
 
       const result = await service.findPublicForm(String(form._id));
       expect(result).toBe(form);
+      expect(result.language).toBe('en-US');
+    });
+
+    it('always returns a resolved language on the public form payload', async () => {
+      const form: any = {
+        _id: new Types.ObjectId(),
+        title: 'Test',
+        isPublic: true,
+        isActive: true,
+        language: 'pl',
+      };
+      (mockFormModel.findById as jest.Mock).mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue(form),
+      });
+
+      const result = await service.findPublicForm(String(form._id));
+      expect(result.language).toBe('pl');
     });
   });
 
