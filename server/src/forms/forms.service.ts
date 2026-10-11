@@ -6,6 +6,7 @@ import { Project, ProjectDocument } from '../schemas/project.schema';
 import { CreateFormDto, UpdateFormDto } from './dto/form.dto';
 import { ResponseService } from './response.service';
 import { buildResponseSubmissionLogMeta } from './response-submission-log';
+import { resolveFormLanguage } from './form-languages';
 
 @Injectable()
 export class FormsService {
@@ -25,6 +26,7 @@ export class FormsService {
       createdBy: ownerId,
       projectId,
       variantKey: createFormDto.variantKey ?? 'main',
+      language: createFormDto.language ?? 'en-US',
       settings: {
         allowMultipleResponses: true,
         requireLogin: false,
@@ -280,12 +282,18 @@ export class FormsService {
 
     if (!form.isPublic) {
       console.log('Form is not public');
-      throw new ForbiddenException('This form is not public');
+      throw new ForbiddenException({
+        message: 'This form is not public',
+        language: resolveFormLanguage(form.language),
+      });
     }
 
     if (!form.isActive) {
       console.log('Form is not active');
-      throw new ForbiddenException('This form is not currently accepting responses');
+      throw new ForbiddenException({
+        message: 'This form is not currently accepting responses',
+        language: resolveFormLanguage(form.language),
+      });
     }
 
     console.log('Returning public form successfully');

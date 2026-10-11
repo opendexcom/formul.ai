@@ -1,22 +1,27 @@
 import React from 'react';
 import { FormSettings as FormSettingsType } from '../../services/formsService';
+import { FORM_LANGUAGES, type FormLanguage } from '../../i18n/languages';
 
 interface FormSettingsProps {
   settings: FormSettingsType;
   isActive: boolean;
   isPublic: boolean;
+  language: FormLanguage;
   onUpdateSettings: (settings: FormSettingsType) => void;
   onToggleActive: (isActive: boolean) => void;
   onTogglePublic: (isPublic: boolean) => void;
+  onUpdateLanguage: (language: FormLanguage) => void;
 }
 
 const FormSettings: React.FC<FormSettingsProps> = ({
   settings,
   isActive,
   isPublic,
+  language,
   onUpdateSettings,
   onToggleActive,
   onTogglePublic,
+  onUpdateLanguage,
 }) => {
   const updateSettings = (updates: Partial<FormSettingsType>) => {
     onUpdateSettings({ ...settings, ...updates });
@@ -119,6 +124,26 @@ const FormSettings: React.FC<FormSettingsProps> = ({
           <div>
             <h3 className="text-lg font-medium text-gray-900 mb-4">Display</h3>
             <div className="space-y-6">
+              <div>
+                <label htmlFor="respondent-form-language" className="block text-sm font-medium text-gray-900 mb-1">
+                  Respondent form language
+                </label>
+                <p className="text-sm text-gray-500 mb-2">
+                  Language of buttons, validation, and system messages on the public form. Question text is not translated.
+                </p>
+                <select
+                  id="respondent-form-language"
+                  value={language}
+                  onChange={(e) => onUpdateLanguage(e.target.value as FormLanguage)}
+                  className="w-full p-2 border border-gray-300 rounded-md"
+                >
+                  {FORM_LANGUAGES.map((option) => (
+                    <option key={option.code} value={option.code}>
+                      {option.nativeName}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div className="flex items-center justify-between">
                 <div>
                   <label className="text-sm font-medium text-gray-900">Show Progress Bar</label>

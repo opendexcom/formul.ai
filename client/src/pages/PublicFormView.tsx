@@ -4,6 +4,13 @@ import { Send, AlertCircle, CheckCircle } from 'lucide-react';
 import { FormData, Question, QuestionType } from '../services/formsService';
 import { Button, LoadingSpinner, Alert } from '../components/ui';
 import { isOtherOption, getOptionLabel, findOtherOption, migrateQuestionForOther } from '../utils/otherOption';
+import {
+  DEFAULT_FORM_LANGUAGE,
+  getFormLanguage,
+  resolveFormLanguage,
+  t,
+  type FormLanguage,
+} from '../i18n/respondent';
 
 interface FormResponse {
   [questionId: string]: string | number | string[] | boolean | null;
@@ -21,7 +28,17 @@ const PublicFormView: React.FC = () => {
   const [submitted, setSubmitted] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [currentPage, setCurrentPage] = useState(0);
+  const [uiLanguage, setUiLanguage] = useState<FormLanguage>(DEFAULT_FORM_LANGUAGE);
   const questionsPerPage = 5;
+  const language = form ? getFormLanguage(form) : uiLanguage;
+
+  useEffect(() => {
+    const previous = document.documentElement.lang;
+    document.documentElement.lang = language;
+    return () => {
+      document.documentElement.lang = previous;
+    };
+  }, [language]);
 
   useEffect(() => {
     if (formId) {
@@ -37,12 +54,20 @@ const PublicFormView: React.FC = () => {
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api'}/public/forms/${id}`);
 
       if (!response.ok) {
+        let errorLanguage = DEFAULT_FORM_LANGUAGE;
+        try {
+          const body = await response.json();
+          errorLanguage = resolveFormLanguage(body.language ?? body.message?.language);
+        } catch {
+          // Keep default language when the error body is not JSON.
+        }
+        setUiLanguage(errorLanguage);
         if (response.status === 404) {
-          throw new Error('Form not found');
+          throw new Error(t('formNotFound', errorLanguage));
         } else if (response.status === 403) {
-          throw new Error('This form is not publicly available or is no longer accepting responses');
+          throw new Error(t('formClosed', errorLanguage));
         } else {
-          throw new Error('Failed to load form');
+          throw new Error(t('loadFailed', errorLanguage));
         }
       }
 
@@ -52,9 +77,10 @@ const PublicFormView: React.FC = () => {
         ...formData,
         questions: formData.questions.map((q: Question) => migrateQuestionForOther(q)),
       };
+      setUiLanguage(getFormLanguage(migratedForm));
       setForm(migratedForm);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to load form';
+      const errorMessage = error instanceof Error ? error.message : t('loadFailed', uiLanguage);
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -90,7 +116,7 @@ const PublicFormView: React.FC = () => {
           ? !Array.isArray(value) || value.length === 0
           : !value || value === '';
       if (question.required && isEmpty) {
-        errors[question.id] = 'This field is required';
+        errors[question.id] = t('required', language);
       }
 
       // Validate "Other" text input when "Other" option is selected
@@ -104,7 +130,7 @@ const PublicFormView: React.FC = () => {
             (question.type === QuestionType.DROPDOWN && value === otherOption);
           
           if (isOtherSelected && (!otherValues[question.id] || otherValues[question.id].trim() === '')) {
-            errors[question.id] = 'Please specify your answer';
+            errors[question.id] = t('specifyAnswer', language);
           }
         }
       }
@@ -115,12 +141,12 @@ const PublicFormView: React.FC = () => {
           case QuestionType.EMAIL:
             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
             if (typeof responses[question.id] === 'string' && !emailRegex.test(responses[question.id] as string)) {
-              errors[question.id] = 'Please enter a valid email address';
+              errors[question.id] = t('invalidEmail', language);
             }
             break;
           case QuestionType.NUMBER:
             if (isNaN(Number(responses[question.id]))) {
-              errors[question.id] = 'Please enter a valid number';
+              errors[question.id] = t('invalidNumber', language);
             }
             break;
         }
@@ -184,14 +210,13 @@ const PublicFormView: React.FC = () => {
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to submit response: ${errorText}`);
+        throw new Error(t('submitFailed', language));
       }
 
       await response.json();
       setSubmitted(true);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to submit response';
+      const errorMessage = error instanceof Error ? error.message : t('submitFailed', language);
       setError(errorMessage);
     } finally {
       setSubmitting(false);
@@ -221,7 +246,7 @@ const PublicFormView: React.FC = () => {
             className={inputClasses}
             value={value as string}
             onChange={(e) => handleInputChange(question.id, e.target.value)}
-            placeholder="Enter your answer"
+            placeholder={t('enterAnswer', language)}
           />
         );
 
@@ -232,7 +257,7 @@ const PublicFormView: React.FC = () => {
             rows={4}
             value={value as string}
             onChange={(e) => handleInputChange(question.id, e.target.value)}
-            placeholder="Enter your answer"
+            placeholder={t('enterAnswer', language)}
           />
         );
 
@@ -243,7 +268,7 @@ const PublicFormView: React.FC = () => {
             className={inputClasses}
             value={value as string}
             onChange={(e) => handleInputChange(question.id, e.target.value)}
-            placeholder="Enter your email address"
+            placeholder={t('enterEmail', language)}
           />
         );
 
@@ -256,7 +281,7 @@ const PublicFormView: React.FC = () => {
             onChange={(e) => handleInputChange(question.id, e.target.value)}
             onBlur={(e) => {
               if (e.target.value !== '' && isNaN(Number(e.target.value))) {
-                setValidationErrors(prev => ({ ...prev, [question.id]: 'Please enter a valid number' }));
+                setValidationErrors(prev => ({ ...prev, [question.id]: t('invalidNumber', language) }));
               } else {
                 setValidationErrors(prev => {
                   const { [question.id]: removed, ...rest } = prev;
@@ -264,7 +289,7 @@ const PublicFormView: React.FC = () => {
                 });
               }
             }}
-            placeholder="Enter a number"
+            placeholder={t('enterNumber', language)}
           />
         );
 
@@ -314,7 +339,7 @@ const PublicFormView: React.FC = () => {
                       value={otherValues[question.id] || ''}
                       onChange={(e) => setOtherValues(prev => ({ ...prev, [question.id]: e.target.value }))}
                       className="mt-2 ml-6 w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder={question.otherPlaceholder || 'Please specify'}
+                      placeholder={question.otherPlaceholder || t('pleaseSpecify', language)}
                     />
                   )}
                 </div>
@@ -356,7 +381,7 @@ const PublicFormView: React.FC = () => {
                       value={otherValues[question.id] || ''}
                       onChange={(e) => setOtherValues(prev => ({ ...prev, [question.id]: e.target.value }))}
                       className="mt-2 ml-6 w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder={question.otherPlaceholder || 'Please specify'}
+                      placeholder={question.otherPlaceholder || t('pleaseSpecify', language)}
                     />
                   )}
                 </div>
@@ -375,7 +400,7 @@ const PublicFormView: React.FC = () => {
               value={value as string}
               onChange={(e) => handleInputChange(question.id, e.target.value)}
             >
-              <option value="">Select an option</option>
+              <option value="">{t('selectOption', language)}</option>
               {question.options?.map((option, index) => (
                 <option key={index} value={option}>
                   {getOptionLabel(option)}
@@ -388,7 +413,7 @@ const PublicFormView: React.FC = () => {
                 value={otherValues[question.id] || ''}
                 onChange={(e) => setOtherValues(prev => ({ ...prev, [question.id]: e.target.value }))}
                 className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${validationErrors[question.id] ? 'border-red-300' : 'border-gray-300'}`}
-                placeholder={question.otherPlaceholder || 'Please specify'}
+                placeholder={question.otherPlaceholder || t('pleaseSpecify', language)}
               />
             )}
           </div>
@@ -429,7 +454,7 @@ const PublicFormView: React.FC = () => {
             className={inputClasses}
             value={value as string}
             onChange={(e) => handleInputChange(question.id, e.target.value)}
-            placeholder="Enter your answer"
+            placeholder={t('enterAnswer', language)}
           />
         );
     }
@@ -437,15 +462,15 @@ const PublicFormView: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <LoadingSpinner size="lg" text="Loading form..." />
+      <div lang={language} className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <LoadingSpinner size="lg" text={t('loadingForm', language)} />
       </div>
     );
   }
 
-  if (error) {
+  if (error && !form) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div lang={language} className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full">
           <Alert
             type="error"
@@ -457,7 +482,7 @@ const PublicFormView: React.FC = () => {
             onClick={() => navigate('/')}
             className="w-full"
           >
-            Go Home
+            {t('goHome', language)}
           </Button>
         </div>
       </div>
@@ -466,22 +491,22 @@ const PublicFormView: React.FC = () => {
 
   if (submitted) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div lang={language} className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full text-center">
           <div className="bg-white rounded-lg shadow-sm p-8">
             <CheckCircle className="w-16 h-16 text-green-600 mx-auto mb-4" />
             <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-              Thank you!
+              {t('thankYou', language)}
             </h2>
             <p className="text-gray-600 mb-6">
-              Your response has been submitted successfully.
+              {t('thankYouBody', language)}
             </p>
             <Button
               variant="secondary"
               onClick={() => navigate('/')}
               className="w-full"
             >
-              Go Home
+              {t('goHome', language)}
             </Button>
           </div>
         </div>
@@ -502,6 +527,7 @@ const PublicFormView: React.FC = () => {
 
   return (
     <div 
+      lang={language}
       className="min-h-screen p-8"
       style={{ 
         backgroundColor: form.settings?.customTheme?.backgroundColor || '#F9FAFB',
@@ -513,7 +539,7 @@ const PublicFormView: React.FC = () => {
         {form.settings?.showProgressBar && totalPages > 1 && (
           <div className="mb-6">
             <div className="flex justify-between text-sm text-gray-600 mb-2">
-              <span>Progress</span>
+              <span>{t('progress', language)}</span>
               <span>{progressPercentage}%</span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
@@ -558,8 +584,8 @@ const PublicFormView: React.FC = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No questions yet</h3>
-              <p className="text-gray-500">This form has no questions.</p>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">{t('noQuestions', language)}</h3>
+              <p className="text-gray-500">{t('noQuestionsBody', language)}</p>
             </div>
           ) : (
             currentQuestions.map((question) => (
@@ -616,7 +642,7 @@ const PublicFormView: React.FC = () => {
                       onClick={() => setCurrentPage(prev => prev - 1)}
                       className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
                     >
-                      Previous
+                      {t('previous', language)}
                     </button>
                   )}
                 </div>
@@ -629,7 +655,7 @@ const PublicFormView: React.FC = () => {
                       className="px-6 py-2 text-white rounded-md hover:opacity-90"
                       style={{ backgroundColor: form.settings?.customTheme?.primaryColor || '#3B82F6' }}
                     >
-                      Next
+                      {t('next', language)}
                     </button>
                   ) : (
                     <Button
@@ -641,7 +667,7 @@ const PublicFormView: React.FC = () => {
                       disabled={submitting}
                       style={{ backgroundColor: form.settings?.customTheme?.primaryColor }}
                     >
-                      {submitting ? 'Submitting...' : 'Submit'}
+                      {submitting ? t('submitting', language) : t('submit', language)}
                     </Button>
                   )}
                 </div>

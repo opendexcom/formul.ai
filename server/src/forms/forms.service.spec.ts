@@ -50,6 +50,7 @@ describe('FormsService', () => {
       expect(instance.data.title).toBe('My form');
       expect(instance.data.createdBy).toBeInstanceOf(Types.ObjectId);
       expect(instance.data.settings.allowMultipleResponses).toBe(true);
+      expect(instance.data.language).toBe('en-US');
       expect(result).toBe(instance);
     });
   });
