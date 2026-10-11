@@ -32,14 +32,17 @@ export class BatchProcessor {
    * - Short responses (<200 chars): larger chunks (25) for efficiency
    */
   adaptiveChunkSize(responseCount: number, avgLength: number): number {
-    // Determine base chunk size based on response length
+    const chunkLong = parseInt(process.env.ANALYTICS_CHUNK_SIZE_LONG ?? '5', 10);
+    const chunkMed = parseInt(process.env.ANALYTICS_CHUNK_SIZE_MED ?? '10', 10);
+    const chunkShort = parseInt(process.env.ANALYTICS_CHUNK_SIZE_SHORT ?? '20', 10);
+
     let baseChunkSize: number;
     if (avgLength > 500) {
-      baseChunkSize = 1; // Small chunks for long responses
+      baseChunkSize = chunkLong;
     } else if (avgLength > 200) {
-      baseChunkSize = 3; // Medium chunks for medium responses
+      baseChunkSize = chunkMed;
     } else {
-      baseChunkSize = 5; // Large chunks for short responses
+      baseChunkSize = chunkShort;
     }
 
     // If we have fewer responses than the chunk size, just use one chunk

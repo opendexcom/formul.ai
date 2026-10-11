@@ -23,6 +23,7 @@ import { FormsService } from './forms.service';
 import { EmailService, SendInvitationDto } from './email.service';
 import { AnalyticsService } from './analytics.service';
 import { CreateFormDto, UpdateFormDto } from './dto/form.dto';
+import { buildTopicFilterQuery } from './topic-filter.util';
 import { randomUUID } from 'crypto';
 import { OrchestrationProducer } from '../analytics/queues/orchestration.producer';
 import { ProgressService } from '../analytics/queues/progress.service';
@@ -155,26 +156,45 @@ export class FormsController {
     // Verify user owns the form
     await this.formsService.findOne(id, userId);
 
-    // Build query filters
-    const filters: any = {};
+    // Build query filters (combine with $and when multiple dimensions are active)
+    const filterParts: Record<string, unknown>[] = [];
     if (sentiment) {
-      // Case-insensitive sentiment filter using MongoDB $regex syntax
-      filters['metadata.overallSentiment.label'] = { $regex: `^${sentiment}$`, $options: 'i' };
-      console.log('[getFormResponses] Sentiment filter applied:', { sentiment, filter: filters['metadata.overallSentiment.label'] });
+      filterParts.push({
+        'metadata.overallSentiment.label': {
+          $regex: `^${sentiment}$`,
+          $options: 'i',
+        },
+      });
     }
     if (topics) {
-      const topicArray = topics.split(',').map(t => t.trim());
-      // Filter by canonicalTopics (clustered topics) for consistency with analytics
-      filters['metadata.canonicalTopics'] = { $in: topicArray };
+      const topicFilter = buildTopicFilterQuery(topics.split(','));
+      if (topicFilter) {
+        filterParts.push(topicFilter);
+      }
     }
     if (representativeness) {
-      // Case-insensitive representativeness filter
-      filters['metadata.quotes.representativeness'] = { $regex: `^${representativeness}$`, $options: 'i' };
+      filterParts.push({
+        'metadata.quotes.representativeness': {
+          $regex: `^${representativeness}$`,
+          $options: 'i',
+        },
+      });
     }
     if (depth) {
-      // Case-insensitive depth filter
-      filters['metadata.quotes.responseQuality.depth'] = { $regex: `^${depth}$`, $options: 'i' };
+      filterParts.push({
+        'metadata.quotes.responseQuality.depth': {
+          $regex: `^${depth}$`,
+          $options: 'i',
+        },
+      });
     }
+
+    const filters =
+      filterParts.length === 0
+        ? {}
+        : filterParts.length === 1
+          ? filterParts[0]
+          : { $and: filterParts };
 
     console.log('[getFormResponses] Complete filters object:', JSON.stringify(filters, null, 2));
     return this.formsService.getFormResponses(id, filters);
@@ -313,7 +333,7 @@ export class FormsController {
 
         // Enqueue orchestration job (don't await)
         console.log('[SSE] Enqueuing orchestration job with taskId:', taskId);
-        await this.orchestrationProducer.enqueueOrchestration(id, taskId, true);
+        await this.orchestrationProducer.enqueueOrchestration(id, taskId, true, userId);
 
         // Cleanup on client disconnect (only if not already unsubscribed)
         reqExpress.on('close', () => {

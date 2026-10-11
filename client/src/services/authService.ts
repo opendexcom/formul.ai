@@ -12,6 +12,7 @@ export interface RegisterRequest {
   password: string;
   firstName: string;
   lastName: string;
+  acceptedTerms?: boolean;
 }
 
 export interface ForgotPasswordRequest {
@@ -82,6 +83,10 @@ class AuthService {
   logout(): void {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+  }
+
+  updateStoredUser(user: AuthResponse['user']): void {
+    localStorage.setItem('user', JSON.stringify(user));
   }
 
   getCurrentUser() {

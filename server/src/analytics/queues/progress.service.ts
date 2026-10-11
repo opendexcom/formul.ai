@@ -11,6 +11,12 @@ export interface ProgressUpdate {
   stats?: any;
   processedResponseIds?: string[];
   modifiedCount?: number;
+  usage?: {
+    model?: string;
+    promptTokens?: number;
+    completionTokens?: number;
+    totalTokens?: number;
+  };
 }
 
 @Injectable()
@@ -20,12 +26,16 @@ export class ProgressService {
   ) {}
 
   async publishProgress(update: ProgressUpdate): Promise<void> {
-    // Use Bull's built-in Redis client to publish events
-    const client = this.orchestrationQueue.client;
-    await client.publish(
-      'analytics:progress',
-      JSON.stringify(update),
-    );
+    try {
+      const client = this.orchestrationQueue.client;
+      await client.publish(
+        'analytics:progress',
+        JSON.stringify(update),
+      );
+    } catch (e) {
+      // Redis pub/sub errors are non-fatal — progress updates are best-effort
+      console.warn('[ProgressService] Failed to publish progress (non-fatal):', e instanceof Error ? e.message : e);
+    }
   }
 
   async onProgress(callback: (update: ProgressUpdate) => void): Promise<() => Promise<void>> {

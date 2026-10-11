@@ -1,13 +1,27 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FileText, Grid3x3 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useCapabilities } from '../../context/CapabilitiesContext';
+import { useBillingAvailable } from '../../hooks/useBillingAvailable';
 import { useNavigate } from 'react-router-dom';
 import Button from '../ui/Button';
+import { usePluginNav } from '../../plugins/pluginNavigation';
+import type { PluginNavItem } from '../../plugins/types';
 
 interface HeaderProps {
   title?: string;
   showUserMenu?: boolean;
   className?: string;
+}
+
+function navItemVisible(
+  item: PluginNavItem,
+  hasFeature: (feature: string) => boolean,
+  userRoles: string[] | undefined,
+): boolean {
+  if (item.requiresFeature && !hasFeature(item.requiresFeature)) return false;
+  if (item.requiresRole && !userRoles?.includes(item.requiresRole)) return false;
+  return true;
 }
 
 const Header: React.FC<HeaderProps> = ({
@@ -16,15 +30,25 @@ const Header: React.FC<HeaderProps> = ({
   className = ''
 }) => {
   const { user, logout } = useAuth();
+  const { hasFeature } = useCapabilities();
   const navigate = useNavigate();
-  const [showAppsMenu, setShowAppsMenu] = useState(false);
+  const pluginNav = usePluginNav();
+  const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdown when clicking outside
+  const headerLinks = pluginNav.filter(
+    (item) => item.location === 'header-link' && navItemVisible(item, hasFeature, user?.roles),
+  );
+  const appsMenuItems = pluginNav.filter(
+    (item) => item.location === 'apps-menu' && navItemVisible(item, hasFeature, user?.roles),
+  );
+  const isAdmin = user?.roles?.includes('admin');
+  const hasBilling = useBillingAvailable();
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setShowAppsMenu(false);
+        setShowMenu(false);
       }
     };
 
@@ -32,21 +56,37 @@ const Header: React.FC<HeaderProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleAdminSettings = () => {
-    setShowAppsMenu(false);
-    navigate('/admin/settings');
+  const closeMenu = () => setShowMenu(false);
+
+  const navigateTo = (path: string) => {
+    closeMenu();
+    navigate(path);
+  };
+
+  const openNavItem = (item: PluginNavItem) => {
+    closeMenu();
+    if (item.external) {
+      window.open(item.path, '_blank');
+      return;
+    }
+    navigate(item.path);
   };
 
   return (
     <header className={`bg-white shadow-sm border-b ${className}`}>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="w-full px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          <div className="flex items-center">
+          <button
+            type="button"
+            onClick={() => navigate('/dashboard')}
+            className="flex items-center rounded-lg transition hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            aria-label="Go to dashboard"
+          >
             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center mr-3">
               <FileText className="w-4 h-4 text-white" />
             </div>
             <h1 className="text-xl font-semibold text-gray-900">{title}</h1>
-          </div>
+          </button>
 
           {showUserMenu && user && (
             <div className="flex items-center space-x-4">
@@ -54,63 +94,86 @@ const Header: React.FC<HeaderProps> = ({
                 Welcome, {user.firstName}
               </span>
 
-              {user.roles?.includes('admin') && (
-                <div className="relative" ref={menuRef}>
-                  <button
-                    onClick={() => setShowAppsMenu(!showAppsMenu)}
-                    className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-                    aria-label="Apps menu"
-                  >
-                    <Grid3x3 className="w-5 h-5" />
-                  </button>
+              {headerLinks.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => openNavItem(item)}
+                  className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                >
+                  {item.label}
+                </button>
+              ))}
 
-                  {showAppsMenu && (
-                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+              <div className="relative" ref={menuRef}>
+                <button
+                  type="button"
+                  onClick={() => setShowMenu(!showMenu)}
+                  className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                  aria-label="Menu"
+                  aria-expanded={showMenu}
+                >
+                  <Grid3x3 className="w-5 h-5" />
+                </button>
+
+                {showMenu && (
+                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                    <button
+                      type="button"
+                      onClick={() => navigateTo('/dashboard')}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                    >
+                      Dashboard
+                    </button>
+
+                    <div className="my-1 border-t border-gray-100" role="separator" />
+
+                    <p className="px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                      Settings
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => navigateTo('/settings/preferences')}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                    >
+                      Profile
+                    </button>
+                    {hasBilling && (
                       <button
-                        onClick={() => {
-                          setShowAppsMenu(false);
-                          navigate('/dashboard');
-                        }}
+                        type="button"
+                        onClick={() => navigateTo('/settings/billing')}
                         className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
                       >
-                        <div className="flex items-center">
-                          <span>Dashboard</span>
-                        </div>
+                        Billing
                       </button>
+                    )}
+                    {isAdmin && (
                       <button
-                        onClick={() => {
-                          setShowAppsMenu(false);
-                          navigate('/admin');
-                        }}
+                        type="button"
+                        onClick={() => navigateTo('/admin/settings')}
                         className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
                       >
-                        <div className="flex items-center">
-                          <span>Admin Dashboard</span>
-                        </div>
+                        Admin
                       </button>
-                      <button
-                        onClick={handleAdminSettings}
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-                      >
-                        <div className="flex items-center">
-                          <span>Admin Settings</span>
-                        </div>
-                      </button>
-                      <button
-                        onClick={() => {
-                          setShowAppsMenu(false);
-                          window.open(`${window.location.origin}/api/admin/queues`, '_blank');
-                        }}
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-                      >
-                        <div className="flex items-center">
-                          <span>Queue Monitor</span>
-                        </div>
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
+                    )}
+
+                    {appsMenuItems.length > 0 && (
+                      <>
+                        <div className="my-1 border-t border-gray-100" role="separator" />
+                        {appsMenuItems.map((item) => (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => openNavItem(item)}
+                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                          >
+                            {item.label}
+                          </button>
+                        ))}
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
 
               <Button
                 variant="ghost"

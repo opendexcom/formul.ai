@@ -2,7 +2,10 @@ import {
   Injectable,
   ConflictException,
   UnauthorizedException,
+  Inject,
 } from '@nestjs/common';
+import type { PluginContributionRegistry } from '@opendexcom/plugin-interface';
+import { PLUGIN_CONTRIBUTION_REGISTRY } from '../plugins/plugin-contribution.registry';
 import { InjectModel } from '@nestjs/mongoose';
 import { JwtService } from '@nestjs/jwt';
 import { Model } from 'mongoose';
@@ -19,6 +22,24 @@ import { EmailService } from '../forms/email.service';
 import { SettingsService } from '../settings/settings.service';
 import * as crypto from 'crypto';
 
+export function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** Case-insensitive exact match so mixed-case legacy emails still log in. */
+function emailEqualsQuery(email: string) {
+  return {
+    email: {
+      $regex: `^${escapeRegExp(normalizeEmail(email))}$`,
+      $options: 'i',
+    },
+  };
+}
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -26,6 +47,8 @@ export class AuthService {
     private jwtService: JwtService,
     private emailService: EmailService,
     private settingsService: SettingsService,
+    @Inject(PLUGIN_CONTRIBUTION_REGISTRY)
+    private readonly contributions: PluginContributionRegistry,
   ) {}
 
   async register(registerDto: RegisterDto) {
@@ -35,12 +58,16 @@ export class AuthService {
       throw new UnauthorizedException('Registration is currently disabled');
     }
 
-    const { email, password, firstName, lastName } = registerDto;
+    const { password, firstName, lastName } = registerDto;
+    const email = normalizeEmail(registerDto.email);
+    const body = registerDto as unknown as Record<string, unknown>;
+
+    for (const ext of this.contributions.getRegistrationExtensions()) {
+      await ext.validateRegister(body);
+    }
 
     // Check if user already exists
-    const existingUser = await this.userModel.findOne({
-      email: { $eq: email },
-    });
+    const existingUser = await this.userModel.findOne(emailEqualsQuery(email));
     if (existingUser) {
       throw new ConflictException('User with this email already exists');
     }
@@ -63,6 +90,14 @@ export class AuthService {
     });
 
     await user.save();
+
+    const registeredUser = {
+      id: String(user._id),
+      email: user.email,
+    };
+    for (const ext of this.contributions.getRegistrationExtensions()) {
+      await ext.onUserRegistered?.(registeredUser, body);
+    }
 
     // Send confirmation email
     await this.emailService.sendConfirmationEmail(
@@ -94,10 +129,11 @@ export class AuthService {
   }
 
   async login(loginDto: LoginDto) {
-    const { email, password } = loginDto;
+    const { password } = loginDto;
+    const email = normalizeEmail(loginDto.email);
 
     // Find user
-    const user = await this.userModel.findOne({ email: { $eq: email } });
+    const user = await this.userModel.findOne(emailEqualsQuery(email));
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
@@ -137,9 +173,9 @@ export class AuthService {
   }
 
   async forgotPassword(forgotPasswordDto: ForgotPasswordDto) {
-    const { email } = forgotPasswordDto;
+    const email = normalizeEmail(forgotPasswordDto.email);
 
-    const user = await this.userModel.findOne({ email: { $eq: email } });
+    const user = await this.userModel.findOne(emailEqualsQuery(email));
 
     // Always return success message to prevent email enumeration
     if (!user) {

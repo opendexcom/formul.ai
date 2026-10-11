@@ -14,6 +14,7 @@ import {
   Cloud,
   Filter
 } from 'lucide-react';
+import { normalizeTopicSentimentPercentages } from '../../utils/analysis';
 
 interface PrintableAnalyticsReportProps {
   form: FormData;
@@ -413,9 +414,10 @@ export const PrintableAnalyticsReport: React.FC<PrintableAnalyticsReportProps> =
             </div>
             <div className="space-y-3">
               {analytics.sentiment.topicCorrelations.slice(0, 10).map((correlation, index) => {
-                const sentiment = correlation.sentiment || { positive: 0, neutral: 0, negative: 0 };
+                const rawSentiment = correlation.sentiment || { positive: 0, neutral: 0, negative: 0 };
                 const averageScore = correlation.averageScore ?? 0;
                 const responseCount = correlation.responseCount ?? 0;
+                const sentiment = normalizeTopicSentimentPercentages(rawSentiment, responseCount);
                 
                 return (
                   <div key={index} className="break-inside-avoid bg-gray-50 border border-gray-200 rounded-lg p-3">

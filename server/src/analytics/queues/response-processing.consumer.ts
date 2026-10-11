@@ -12,6 +12,7 @@ import { Response } from '../../schemas/response.schema';
 import type { Model } from 'mongoose';
 import type { FormDocument } from '../../schemas/form.schema';
 import type { ResponseDocument } from '../../schemas/response.schema';
+import { runWithMlflowTraceContextAsync, buildWorkerTraceContext } from '../../mlflow/mlflow-trace-context';
 
 @Processor(QueueName.RESPONSE_PROCESSING)
 export class ResponseProcessingConsumer {
@@ -25,36 +26,52 @@ export class ResponseProcessingConsumer {
     private readonly responseModel: Model<ResponseDocument>,
   ) {}
 
-  @Process({ name: 'process-batch', concurrency: 5 })
+  @Process('process-batch')
   async handleBatch(job: Job<ResponseProcessingJobData>) {
-    const { taskId, formId, responseIds, batchIndex, totalBatches } = job.data;
+    const { taskId, formId, userId } = job.data;
+    return runWithMlflowTraceContextAsync(
+      buildWorkerTraceContext({
+        sessionId: taskId,
+        userId,
+        tags: { formId, worker: 'response-processing', taskId },
+      }),
+      () => this.handleBatchInner(job),
+    );
+  }
+
+  private async handleBatchInner(job: Job<ResponseProcessingJobData>) {
+    const { taskId, formId, responseIds, batchIndex, totalBatches, userId } =
+      job.data;
     console.log(`[ResponseProcessingConsumer][${taskId}] Starting batch ${batchIndex + 1}/${totalBatches} with ${responseIds.length} responses`);
-    
     await this.progressService.publishProgress({
       taskId,
       type: 'progress',
       message: `Processing batch ${batchIndex + 1}/${totalBatches}`,
       progress: Math.round(((batchIndex + 1) / totalBatches) * 40),
     });
-    // Fetch the form document using formId
     const form = await this.formModel.findById(formId).exec();
     if (!form) {
       throw new Error('Form document not found for response processing');
     }
-    await this.responseProcessor.processResponses(
+    const result = await this.responseProcessor.processResponses(
       form,
       taskId,
       (update) => this.progressService.publishProgress({
         taskId,
-        type: update.type, // Pass through all event types (progress, responses_processing, responses_processed, etc.)
+        type: update.type,
         message: update.message,
         progress: update.progress,
         stats: update.stats,
         processedResponseIds: update.processedResponseIds,
       }),
-      responseIds
+      responseIds,
+      userId,
     );
-    job.progress(100);
+    if (result.failedCount > 0) {
+      throw new Error(
+        `Failed to process ${result.failedCount} response batch(es) for form ${formId}`,
+      );
+    }
     return { success: true, batchIndex, processedCount: responseIds.length };
   }
 

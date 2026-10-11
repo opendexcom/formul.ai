@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useMemo } from 'react';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
   Users,
@@ -9,12 +9,15 @@ import {
   PieChart,
   TrendingUp,
   RefreshCw,
-  Filter
+  Filter,
 } from 'lucide-react';
 import formsService, { FormData } from '../services/formsService';
-import { Header } from '../components/common';
+import { QuotaLimitBanner } from '../components/common';
 import { Button, LoadingSpinner, Alert } from '../components/ui';
 import { computeOverallClimate } from '../utils/analysis';
+import { expandSelectedTopics, normalizeTopicLabelList, normalizeThemes } from '../utils/topic-filter.util';
+import { useUsageLimits } from '../hooks/useUsageLimits';
+import { parseQuotaErrorFromResponse } from '../utils/quotaErrors';
 import {
   AnalyticsSummaryCard,
   OverallClimateCard,
@@ -26,6 +29,7 @@ import {
   TopicSentimentCard,
   RawResponsesTable
 } from '../components/analytics';
+import { AppPageLayout } from '../components/common';
 import { KeyFindingsCard } from '../components/analytics/KeyFindingsCard';
 import { RecommendationsCard } from '../components/analytics/RecommendationsCard';
 import { ClosedQuestionTopicsCard } from '../components/analytics/ClosedQuestionTopicsCard';
@@ -50,6 +54,7 @@ interface ResponseData {
       score?: number;
       emotionalTone?: string;
     };
+    topicMapping?: Record<string, string>;
   };
 }
 
@@ -62,9 +67,21 @@ const hasAnalyticsData = (analytics: AnalyticsData | null): boolean => {
          (analytics.topics?.topTopics && analytics.topics.topTopics.length > 0);
 };
 
-const FormAnalytics: React.FC = () => {
-  const { formId } = useParams<{ formId: string }>();
+const FormAnalytics: React.FC<{
+  embedded?: boolean;
+  formIdOverride?: string;
+  projectIdOverride?: string;
+  variantOverride?: string;
+}> = ({ embedded = false, formIdOverride, projectIdOverride, variantOverride }) => {
+  const { formId: routeFormId } = useParams<{ formId: string }>();
+  const formId = formIdOverride ?? routeFormId;
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const projectIdFromQuery = projectIdOverride ?? searchParams.get('projectId');
+  const variantFromQuery = variantOverride ?? searchParams.get('variant');
+  const backTarget = projectIdFromQuery
+    ? `/projects/${projectIdFromQuery}/variants`
+    : '/overview';
   const [form, setForm] = useState<FormData | null>(null);
   const [responses, setResponses] = useState<ResponseData[]>([]);
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
@@ -75,6 +92,11 @@ const FormAnalytics: React.FC = () => {
   const [progressPercent, setProgressPercent] = useState<number>(0);
   const [showRefreshModal, setShowRefreshModal] = useState(false);
   const [, setCurrentTaskId] = useState<string | null>(null);
+  const { tokensExceeded } = useUsageLimits();
+  const analyticsBlocked = tokensExceeded;
+
+  const LayoutWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) =>
+    embedded ? <>{children}</> : <AppPageLayout>{children}</AppPageLayout>;
 
   // Detailed progress stats
   const [progressStats, setProgressStats] = useState<{
@@ -152,6 +174,10 @@ const FormAnalytics: React.FC = () => {
 
   const handleRefreshAnalytics = async (options: RefreshOptions) => {
     if (!formId) return;
+    if (analyticsBlocked) {
+      setError('Monthly token quota exceeded. Upgrade your plan to run analytics.');
+      return;
+    }
 
     logger.debug('[Frontend] Starting analytics refresh with options:', options);
 
@@ -212,6 +238,15 @@ const FormAnalytics: React.FC = () => {
         logger.debug('[Frontend] SSE response status:', response.status);
 
         if (!response.ok) {
+          if (response.status === 429) {
+            const quotaMessage = await parseQuotaErrorFromResponse(response);
+            setError(
+              quotaMessage ||
+                'Monthly token quota exceeded. Upgrade your plan to run analytics.',
+            );
+            setRefreshingAnalytics(false);
+            return;
+          }
           throw new Error(`HTTP error! status: ${response.status}`);
         }
 
@@ -470,54 +505,88 @@ const FormAnalytics: React.FC = () => {
 
   const filteredResponses = getFilteredResponses();
 
-  // Extract available topics from analytics for filter panel
-  const availableTopics = analytics?.topics?.topTopics || [];
+  const topicMapping = useMemo(() => {
+    if (analytics?.topics?.topicMapping) {
+      return analytics.topics.topicMapping;
+    }
+    const merged: Record<string, string> = {};
+    for (const response of responses) {
+      const mapping = response.metadata?.topicMapping;
+      if (!mapping) continue;
+      for (const [raw, canonical] of Object.entries(mapping)) {
+        if (typeof canonical === 'string' && raw.trim()) {
+          merged[raw.trim().toLowerCase()] = canonical;
+        }
+      }
+    }
+    return merged;
+  }, [analytics?.topics?.topicMapping, responses]);
+
+  const expandedTopicFilter = useMemo(
+    () => expandSelectedTopics(filters.topics || [], topicMapping),
+    [filters.topics, topicMapping],
+  );
+
+  // Extract available topics from analytics for filter panel (canonical labels)
+  const availableTopics = useMemo(() => {
+    const fromThemes = normalizeThemes(
+      analytics?.topics?.dominantThemes ?? [],
+      topicMapping,
+    ).map((t) => t.theme);
+    if (fromThemes.length > 0) return fromThemes;
+    return normalizeTopicLabelList(analytics?.topics?.topTopics ?? [], topicMapping);
+  }, [analytics?.topics?.dominantThemes, analytics?.topics?.topTopics, topicMapping]);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <Header />
+      <LayoutWrapper>
         <div className="flex items-center justify-center py-12">
           <LoadingSpinner size="lg" text="Loading analytics..." />
         </div>
-      </div>
+      </LayoutWrapper>
     );
   }
 
   if (error && !form) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <Header />
-        <div className="max-w-4xl mx-auto px-4 py-8">
+      <LayoutWrapper>
+        <div>
           <Alert type="error" message={error} className="mb-4" />
-          <Button variant="secondary" onClick={() => navigate('/dashboard')}>
-            Back to Dashboard
-          </Button>
+          {!embedded && (
+            <Button variant="secondary" onClick={() => navigate(backTarget)}>
+              Back
+            </Button>
+          )}
         </div>
-      </div>
+      </LayoutWrapper>
     );
   }
 
   if (!form) return null;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
-
-      <div className="max-w-7xl mx-auto px-4 py-8">
+    <LayoutWrapper>
+      <div className="w-full">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center space-x-4">
-            <Button
-              variant="ghost"
-              icon={ArrowLeft}
-              onClick={() => navigate('/dashboard')}
-            >
-              Back
-            </Button>
+            {!embedded && (
+              <Button
+                variant="ghost"
+                icon={ArrowLeft}
+                onClick={() => navigate(backTarget)}
+              >
+                Back
+              </Button>
+            )}
             <div>
               <h1 className="text-2xl font-bold text-gray-900">{form.title}</h1>
               <p className="text-gray-600">Form Analytics</p>
+              {projectIdFromQuery && (variantFromQuery || form.variantKey) && (
+                <p className="mt-1 text-sm text-blue-700">
+                  Variant {variantFromQuery || form.variantKey}
+                </p>
+              )}
             </div>
           </div>
 
@@ -526,7 +595,7 @@ const FormAnalytics: React.FC = () => {
               variant="secondary"
               icon={RefreshCw}
               onClick={() => setShowRefreshModal(true)}
-              disabled={refreshingAnalytics || responses.length < 10}
+              disabled={analyticsBlocked || refreshingAnalytics || responses.length < 10}
               loading={refreshingAnalytics}
             >
               {hasAnalyticsData(analytics) ? 'Refresh Analytics' : 'Generate Analytics'}
@@ -541,6 +610,13 @@ const FormAnalytics: React.FC = () => {
             </Button>
           </div>
         </div>
+
+        {analyticsBlocked && (
+          <QuotaLimitBanner
+            message="Monthly token quota exceeded. You can view cached analytics but cannot generate or refresh until you upgrade."
+            className="mb-6"
+          />
+        )}
 
         {error && (
           <Alert type="error" message={error} className="mb-6" />
@@ -605,9 +681,11 @@ const FormAnalytics: React.FC = () => {
           <div className="bg-white rounded-lg shadow-sm border p-10 text-center">
             <PieChart className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No responses yet</h3>
-            <p className="text-gray-600 mb-4">Share your form to start collecting responses and see analytics here.</p>
-            <Button variant="primary" onClick={() => navigate(`/forms/${formId}/edit`)}>
-              Share Form
+            <p className="text-gray-600 mb-4">
+              Collect responses first, then return here to review analytics.
+            </p>
+            <Button variant="secondary" onClick={() => navigate(backTarget)}>
+              Back to study
             </Button>
           </div>
         ) : hasActiveFilters && filteredResponses.length === 0 ? (
@@ -669,7 +747,7 @@ const FormAnalytics: React.FC = () => {
                 variant="primary"
                 icon={RefreshCw}
                 onClick={() => setShowRefreshModal(true)}
-                disabled={responses.length < 10}
+                disabled={analyticsBlocked || responses.length < 10}
               >
                 Generate Analytics
               </Button>
@@ -791,20 +869,26 @@ const FormAnalytics: React.FC = () => {
                           analytics={analytics || undefined}
                           onTopicClick={handleTopicClick}
                           selectedTopics={filters.topics || []}
+                          filterTopics={expandedTopicFilter}
+                          topicMapping={topicMapping}
                         />
                         <TopicSentimentCard
                           analytics={analytics || undefined}
                           selectedTopics={filters.topics || []}
+                          filterTopics={expandedTopicFilter}
                           onTopicClick={handleTopicClick}
                         />
                         <TopicRelationshipsCard
                           analytics={analytics || undefined}
                           selectedTopics={filters.topics || []}
+                          filterTopics={expandedTopicFilter}
+                          onTopicClick={handleTopicClick}
                         />
                         <div className="lg:col-span-2">
                           <ClosedQuestionTopicsCard
                             analytics={analytics || undefined}
                             selectedTopics={filters.topics || []}
+                            filterTopics={expandedTopicFilter}
                             hasActiveFilters={hasActiveFilters}
                           />
                         </div>
@@ -835,7 +919,7 @@ const FormAnalytics: React.FC = () => {
         pendingResponses={responses.filter(r => !r.metadata?.processedForAnalytics && r.metadata?.hasTextContent).length}
         hasExistingAnalytics={hasAnalyticsData(analytics)}
       />
-    </div>
+    </LayoutWrapper>
   );
 };
 

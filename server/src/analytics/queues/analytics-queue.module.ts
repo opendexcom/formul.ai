@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { BullModule } from '@nestjs/bull';
 import { MongooseModule } from '@nestjs/mongoose';
 import { QueueName } from './queue.names';
@@ -25,8 +25,14 @@ import { FindingsGenerator } from '../generators/findings.generator';
 import { RecommendationsGenerator } from '../generators/recommendations.generator';
 import { BatchProcessor } from '../utils/batch.processor';
 import { PromptBuilder } from '../utils/prompt.builder';
+import { AnalyticsAggregationService } from '../utils/analytics-aggregation.service';
+import { TopicVectorStore } from '../stores/topic-vector.store';
 import { DeadLetterService } from './dead-letter.service';
 import { DeadLetterConsumer } from './dead-letter.consumer';
+import { AnalyticsInsightsGraphService } from '../../graphs/analytics/analytics-insights.graph.service';
+import { AnalyticsUsageTrackerService } from '../services/analytics-usage-tracker.service';
+import { ProjectsModule } from '../../projects/projects.module';
+import { NotificationsModule } from '../../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -39,6 +45,11 @@ import { DeadLetterConsumer } from './dead-letter.consumer';
           removeOnComplete: 1000,
           removeOnFail: false,
         },
+        settings: {
+          lockDuration: 300000,
+          stalledInterval: 15000,
+          maxStalledCount: 5,
+        },
       },
       {
         name: QueueName.RESPONSE_PROCESSING,
@@ -47,6 +58,15 @@ import { DeadLetterConsumer } from './dead-letter.consumer';
           backoff: { type: 'exponential', delay: 5000 },
           removeOnComplete: 1000,
           removeOnFail: false,
+        },
+        settings: {
+          lockDuration: 300000,
+          stalledInterval: 15000,
+          maxStalledCount: 3,
+        },
+        limiter: {
+          max: parseInt(process.env.ANALYTICS_QUEUE_RATE_MAX ?? '100', 10),
+          duration: 1000,
         },
       },
       {
@@ -57,6 +77,11 @@ import { DeadLetterConsumer } from './dead-letter.consumer';
           removeOnComplete: 1000,
           removeOnFail: false,
         },
+        settings: {
+          lockDuration: 300000,
+          stalledInterval: 15000,
+          maxStalledCount: 5,
+        },
       },
       {
         name: QueueName.AGGREGATION,
@@ -66,6 +91,11 @@ import { DeadLetterConsumer } from './dead-letter.consumer';
           removeOnComplete: 1000,
           removeOnFail: false,
         },
+        settings: {
+          lockDuration: 300000,
+          stalledInterval: 15000,
+          maxStalledCount: 5,
+        },
       },
       {
         name: QueueName.AI_GENERATION,
@@ -74,6 +104,11 @@ import { DeadLetterConsumer } from './dead-letter.consumer';
           backoff: { type: 'exponential', delay: 5000 },
           removeOnComplete: 1000,
           removeOnFail: false,
+        },
+        settings: {
+          lockDuration: 300000,
+          stalledInterval: 15000,
+          maxStalledCount: 5,
         },
       },
       {
@@ -90,6 +125,8 @@ import { DeadLetterConsumer } from './dead-letter.consumer';
       { name: Response.name, schema: getCoreSchemaOrThrow(Response.name) },
     ]),
     AiCoreModule,
+    forwardRef(() => ProjectsModule),
+    NotificationsModule,
   ],
   providers: [
     // Queue producers/consumers
@@ -115,7 +152,11 @@ import { DeadLetterConsumer } from './dead-letter.consumer';
     RecommendationsGenerator,
     BatchProcessor,
     PromptBuilder,
+    AnalyticsAggregationService,
+    TopicVectorStore,
+    AnalyticsInsightsGraphService,
+    AnalyticsUsageTrackerService,
   ],
-  exports: [OrchestrationProducer, ProgressService],
+  exports: [OrchestrationProducer, ProgressService, AnalyticsUsageTrackerService],
 })
 export class AnalyticsQueueModule {}

@@ -8,6 +8,11 @@ export interface GeneratedForm {
   questions: Question[];
 }
 
+export interface GenerateAIFormResponse {
+  form: GeneratedForm;
+  usage?: { model?: string; promptTokens?: number; completionTokens?: number; totalTokens?: number };
+}
+
 class AIService {
   private api = apiClient;
 
@@ -16,11 +21,11 @@ class AIService {
    */
   async generateForm(userPrompt: string): Promise<GeneratedForm> {
     try {
-      const response = await this.api.post<GeneratedForm>(
+      const response = await this.api.post<GenerateAIFormResponse>(
         '/ai/generate',
         { prompt: userPrompt, mode: 'generate' }
       );
-      return response.data;
+      return response.data.form;
     } catch (error) {
       throw new Error(getErrorMessage(error));
     }
@@ -31,11 +36,11 @@ class AIService {
    */
   async refineForm(currentForm: GeneratedForm, refinementPrompt: string): Promise<GeneratedForm> {
     try {
-      const response = await this.api.post<GeneratedForm>(
+      const response = await this.api.post<GenerateAIFormResponse>(
         '/ai/generate',
         { prompt: refinementPrompt, mode: 'refine', currentForm }
       );
-      return response.data;
+      return response.data.form;
     } catch (error) {
       throw new Error(getErrorMessage(error));
     }

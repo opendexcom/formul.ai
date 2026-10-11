@@ -4,6 +4,8 @@ import { AnalyticsData, ResponseWithMetadata } from '../types/analytics';
 
 export interface FormData {
   _id?: string;
+  projectId?: string;
+  variantKey?: 'main' | 'A' | 'B';
   title: string;
   description?: string;
   questions: Question[];
@@ -21,9 +23,13 @@ export interface Question {
   type: QuestionType;
   required: boolean;
   canBeOther: boolean;
+  otherPlaceholder?: string;
   options?: string[];
   order: number;
   validation?: Record<string, ValidationRule>;
+  reverseCoded?: boolean;
+  /** Source-variant question ID this reverse-coded item pairs with (usually on main). */
+  pairedQuestionId?: string;
 }
 
 export enum QuestionType {
@@ -37,6 +43,7 @@ export enum QuestionType {
   DATE = 'date',
   TIME = 'time',
   RATING = 'rating',
+  COMMENT = 'comment',
 }
 
 export interface ValidationRule {

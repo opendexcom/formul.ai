@@ -1,5 +1,5 @@
 import React from 'react';
-import { Edit, BarChart3, Eye, Share, Users } from 'lucide-react';
+import { Edit, BarChart3, Eye, Share, Trash2, Users } from 'lucide-react';
 import { FormData } from '../../services/formsService';
 
 interface FormCardProps {
@@ -8,6 +8,8 @@ interface FormCardProps {
   onPreview: (formId: string) => void;
   onAnalytics?: (formId: string) => void;
   onShare?: (formId: string) => void;
+  onDelete?: (formId: string) => void;
+  isDeleting?: boolean;
   responseCount?: number;
   className?: string;
 }
@@ -18,6 +20,8 @@ const FormCard: React.FC<FormCardProps> = ({
   onPreview,
   onAnalytics,
   onShare,
+  onDelete,
+  isDeleting = false,
   responseCount = 0,
   className = ''
 }) => {
@@ -84,6 +88,16 @@ const FormCard: React.FC<FormCardProps> = ({
                 title="Share"
               >
                 <Share className="w-4 h-4" />
+              </button>
+            )}
+            {onDelete && (
+              <button
+                onClick={() => onDelete(form._id!)}
+                disabled={isDeleting}
+                className="p-2 text-gray-400 hover:text-red-600 rounded-md hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-gray-400 disabled:hover:bg-transparent"
+                title="Delete"
+              >
+                <Trash2 className="w-4 h-4" />
               </button>
             )}
           </div>

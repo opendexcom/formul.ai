@@ -1,20 +1,32 @@
 import React, { useState } from 'react';
 import { BarChart3, ThumbsUp, ThumbsDown, Minus, ChevronDown, ChevronUp } from 'lucide-react';
 import { AnalyticsData } from '../../types/analytics';
+import { normalizeTopicSentimentPercentages } from '../../utils/analysis';
+import { topicMatchesFilter } from '../../utils/topic-filter.util';
 
 interface TopicSentimentCardProps {
   analytics?: AnalyticsData;
   selectedTopics?: string[];
+  /** Expanded topics including canonical equivalents (for filtering). */
+  filterTopics?: string[];
   onTopicClick?: (topic: string) => void;
 }
 
-export const TopicSentimentCard: React.FC<TopicSentimentCardProps> = ({ analytics, selectedTopics = [], onTopicClick }) => {
+export const TopicSentimentCard: React.FC<TopicSentimentCardProps> = ({
+  analytics,
+  selectedTopics = [],
+  filterTopics,
+  onTopicClick,
+}) => {
   const [showAll, setShowAll] = useState(false);
   const topicCorrelations = analytics?.sentiment?.topicCorrelations || [];
+  const activeFilter = filterTopics ?? selectedTopics;
 
   // Filter by selected topics if any are selected
-  const filteredCorrelations = selectedTopics.length > 0
-    ? topicCorrelations.filter(correlation => selectedTopics.includes(correlation.topic))
+  const filteredCorrelations = activeFilter.length > 0
+    ? topicCorrelations.filter((correlation) =>
+        topicMatchesFilter(correlation.topic, activeFilter),
+      )
     : topicCorrelations;
 
   const displayedCorrelations = showAll ? filteredCorrelations : filteredCorrelations.slice(0, 8);
@@ -93,7 +105,7 @@ export const TopicSentimentCard: React.FC<TopicSentimentCardProps> = ({ analytic
       </div>
       
       <p className="text-sm text-gray-600 mb-4">
-        How respondents feel about different topics
+        How respondents feel specifically about each topic (not overall response mood)
         {selectedTopics.length > 0 && (
           <span className="ml-2 text-blue-600 font-medium">
             (filtered to {selectedTopics.length} {selectedTopics.length === 1 ? 'topic' : 'topics'})
@@ -103,7 +115,8 @@ export const TopicSentimentCard: React.FC<TopicSentimentCardProps> = ({ analytic
 
       <div className="space-y-3">
         {displayedCorrelations.map((correlation, index) => {
-          const { sentiment, averageScore, responseCount } = getSentimentData(correlation);
+          const { sentiment: rawSentiment, averageScore, responseCount } = getSentimentData(correlation);
+          const sentiment = normalizeTopicSentimentPercentages(rawSentiment, responseCount);
           const isSelected = selectedTopics.includes(correlation.topic);
           
           return (

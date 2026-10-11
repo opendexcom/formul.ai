@@ -1,12 +1,18 @@
-import 'dotenv/config';
+import './env';
+import { initMlflowLangchainTracing } from './mlflow/mlflow-langchain-tracing';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { PluginLoaderService } from './plugins/plugin-loader.service';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  await initMlflowLangchainTracing();
+
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    rawBody: true, // Required for Stripe webhook signature verification (EE plugin) at POST /api/webhooks/stripe
+  });
 
   // Enable CORS
   app.enableCors({
@@ -38,17 +44,27 @@ async function bootstrap() {
   const pluginLoader = app.get(PluginLoaderService);
   await pluginLoader.initializePlugins(app);
 
+  const loadedPlugins = pluginLoader.getLoadedPluginNames();
+  const pluginsEnv = (process.env.PLUGINS || '').trim();
+  if (pluginsEnv && loadedPlugins.length === 0) {
+    throw new Error(
+      `PLUGINS=${pluginsEnv} is set but no plugins loaded. ` +
+        'Check server startup logs for plugin load errors.',
+    );
+  }
+
   const port = process.env.PORT ?? 3001;
   await app.listen(port);
   console.log(`Application is running on: http://localhost:${port}`);
   console.log(`API Documentation: http://localhost:${port}/api/docs`);
 
-  // Log loaded plugins
-  const loadedPlugins = Array.from(pluginLoader['loadedPlugins'].keys());
   if (loadedPlugins.length > 0) {
     console.log(`🔌 Loaded plugins: ${loadedPlugins.join(', ')}`);
   } else {
     console.log(`🔌 No plugins loaded (OSS mode)`);
   }
 }
-bootstrap();
+bootstrap().catch((err) => {
+  console.error('Bootstrap failed:', err);
+  process.exit(1);
+});

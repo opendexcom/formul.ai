@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Question, QuestionType } from '../../services/formsService';
+import { isOtherOption, getOptionLabel, markAsOtherOption, findOtherOption, getOtherOptionIndex, migrateQuestionForOther } from '../../utils/otherOption';
+import { QuestionRoleBadge, QuestionRole } from '../variants/QuestionRoleBadge';
 
 interface QuestionEditorProps {
   question: Question;
@@ -7,6 +9,10 @@ interface QuestionEditorProps {
   onUpdate: (updates: Partial<Question>) => void;
   onDelete: () => void;
   onDuplicate: () => void;
+  questionDesignRole?: QuestionRole;
+  /** Questions from the source variant (usually main) for pairing reverse-coded items. */
+  sourceVariantQuestions?: Question[];
+  sourceVariantLabel?: string;
 }
 
 const QuestionEditor: React.FC<QuestionEditorProps> = ({
@@ -15,11 +21,59 @@ const QuestionEditor: React.FC<QuestionEditorProps> = ({
   onUpdate,
   onDelete,
   onDuplicate,
+  questionDesignRole,
+  sourceVariantQuestions,
+  sourceVariantLabel = 'main',
 }) => {
+  const pairedOriginal = sourceVariantQuestions?.find(
+    (candidate) => candidate.id === (question.pairedQuestionId ?? question.id),
+  );
+
+  const handleReverseCodedChange = (checked: boolean) => {
+    const updates: Partial<Question> = { reverseCoded: checked };
+    if (checked && sourceVariantQuestions?.length) {
+      const match =
+        sourceVariantQuestions.find((candidate) => candidate.id === question.id) ??
+        sourceVariantQuestions.find((candidate) => candidate.type === question.type);
+      updates.pairedQuestionId = match?.id ?? sourceVariantQuestions[0].id;
+    } else if (!checked) {
+      updates.pairedQuestionId = undefined;
+    }
+    onUpdate(updates);
+  };
   const [isEditing, setIsEditing] = useState(false);
+  const [placeholderInputs, setPlaceholderInputs] = useState<Record<string, string>>({});
+
+  // Ensure the question is properly migrated when it changes
+  useEffect(() => {
+    if (question.canBeOther && question.options && question.options.length > 0) {
+      const hasOtherOption = question.options.some(opt => isOtherOption(opt));
+      if (!hasOtherOption) {
+        // Migration needed: canBeOther is true but no option has the prefix
+        const migrated = migrateQuestionForOther(question);
+        const migratedOptions = migrated.options || [];
+        if (migratedOptions.length > 0 && isOtherOption(migratedOptions[migratedOptions.length - 1])) {
+          onUpdate({ options: migratedOptions });
+        }
+      }
+    } else if (!question.canBeOther && question.options) {
+      // Check if there's an "other" option but canBeOther is false
+      const hasOtherOption = question.options.some(opt => isOtherOption(opt));
+      if (hasOtherOption) {
+        onUpdate({ canBeOther: true });
+      }
+    }
+  }, [question, onUpdate]);
 
   const addOption = () => {
-    const newOptions = [...(question.options || []), `Option ${(question.options?.length || 0) + 1}`];
+    const currentOptions = question.options || [];
+    const otherIndex = getOtherOptionIndex(currentOptions);
+    const regularCount = currentOptions.length - (otherIndex >= 0 ? 1 : 0);
+    const newOption = `Option ${regularCount + 1}`;
+    const newOptions =
+      otherIndex >= 0
+        ? [...currentOptions.slice(0, otherIndex), newOption, ...currentOptions.slice(otherIndex)]
+        : [...currentOptions, newOption];
     onUpdate({ options: newOptions });
   };
 
@@ -30,9 +84,45 @@ const QuestionEditor: React.FC<QuestionEditorProps> = ({
   };
 
   const removeOption = (index: number) => {
-    const newOptions = question.options?.filter((_, i) => i !== index) || [];
-    onUpdate({ options: newOptions });
+    if (!question.options) return;
+    
+    const option = question.options[index];
+    const isOtherOpt = isOtherOption(option);
+    
+    // If removing the "other" option, also unset canBeOther
+    if (isOtherOpt) {
+      const newOptions = question.options.filter((_, i) => i !== index);
+      onUpdate({ 
+        options: newOptions,
+        canBeOther: false,
+        otherPlaceholder: undefined
+      });
+    } else {
+      const newOptions = question.options.filter((_, i) => i !== index);
+      onUpdate({ options: newOptions });
+    }
   };
+
+  const addOtherOption = () => {
+    const currentOptions = question.options || [];
+    const existingOtherOption = findOtherOption(currentOptions);
+    
+    if (!existingOtherOption) {
+      const updates: Partial<Question> = {
+        canBeOther: true,
+        options: [...currentOptions, markAsOtherOption('Other')]
+      };
+      
+      // Set default placeholder if not already set (only if truly undefined/null, not empty string)
+      if (question.otherPlaceholder === undefined || question.otherPlaceholder === null) {
+        updates.otherPlaceholder = 'Please specify';
+      }
+      
+      onUpdate(updates);
+    }
+  };
+
+
 
   const renderQuestionInput = () => {
     switch (question.type) {
@@ -86,129 +176,76 @@ const QuestionEditor: React.FC<QuestionEditorProps> = ({
         );
 
       case QuestionType.MULTIPLE_CHOICE:
+        const hasOtherOptionMC = question.options ? findOtherOption(question.options) !== null : false;
         return (
           <div className="space-y-2">
-            {question.options?.map((option, index) => (
-              <div key={index} className="flex items-center space-x-3">
-                <input type="radio" disabled className="text-blue-600" />
-                {isSelected ? (
-                  <div className="flex items-center space-x-2 flex-1">
-                    <input
-                      type="text"
-                      value={option}
-                      onChange={(e) => updateOption(index, e.target.value)}
-                      className="flex-1 p-2 border border-gray-300 rounded"
-                      placeholder={`Option ${index + 1}`}
-                    />
-                    {question.options && question.options.length > 1 && (
-                      <button
-                        onClick={() => removeOption(index)}
-                        className="text-red-500 hover:text-red-700"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-                    )}
-                  </div>
-                ) : (
-                  <span className="text-gray-700">{option}</span>
-                )}
-              </div>
-            ))}
+            {question.options?.map((option, index) => {
+              const isOtherOpt = isOtherOption(option);
+              return (
+                <div key={index} className="flex items-center space-x-3">
+                  <input type="radio" disabled className="text-blue-600" />
+                  {isSelected ? (
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="text"
+                          value={getOptionLabel(option)}
+                          onChange={(e) => {
+                            const newLabel = e.target.value;
+                            // If it's the other option, preserve the prefix
+                            if (isOtherOpt) {
+                              updateOption(index, markAsOtherOption(newLabel));
+                            } else {
+                              updateOption(index, newLabel);
+                            }
+                          }}
+                          className="flex-1 p-2 border border-gray-300 rounded text-base"
+                          placeholder={`Option ${index + 1}`}
+                        />
+                        {isOtherOpt && (
+                          <>
+                            <span className="text-xs text-gray-500 whitespace-nowrap">Placeholder:</span>
+                            <input
+                              type="text"
+                              value={placeholderInputs[question.id] ?? (question.otherPlaceholder ?? '')}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                setPlaceholderInputs(prev => ({ ...prev, [question.id]: value }));
+                                onUpdate({ otherPlaceholder: value === '' ? undefined : value });
+                              }}
+                              onBlur={() => {
+                                // Clean up local state on blur
+                                setPlaceholderInputs(prev => {
+                                  const newState = { ...prev };
+                                  delete newState[question.id];
+                                  return newState;
+                                });
+                              }}
+                              className="w-40 p-2 border border-gray-300 rounded text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              placeholder="Please specify"
+                            />
+                          </>
+                        )}
+                        {question.options && question.options.length > 1 && (
+                          <button
+                            onClick={() => removeOption(index)}
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <span className="text-gray-700">{getOptionLabel(option)}</span>
+                  )}
+                </div>
+              );
+            })}
             {isSelected && (
-              <button
-                onClick={addOption}
-                className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 text-sm"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-                <span>Add option</span>
-              </button>
-            )}
-          </div>
-        );
-
-      case QuestionType.CHECKBOX:
-        return (
-          <div className="space-y-2">
-            {question.options?.map((option, index) => (
-              <div key={index} className="flex items-center space-x-3">
-                <input type="checkbox" disabled className="text-blue-600" />
-                {isSelected ? (
-                  <div className="flex items-center space-x-2 flex-1">
-                    <input
-                      type="text"
-                      value={option}
-                      onChange={(e) => updateOption(index, e.target.value)}
-                      className="flex-1 p-2 border border-gray-300 rounded"
-                      placeholder={`Option ${index + 1}`}
-                    />
-                    {question.options && question.options.length > 1 && (
-                      <button
-                        onClick={() => removeOption(index)}
-                        className="text-red-500 hover:text-red-700"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-                    )}
-                  </div>
-                ) : (
-                  <span className="text-gray-700">{option}</span>
-                )}
-              </div>
-            ))}
-            {isSelected && (
-              <button
-                onClick={addOption}
-                className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 text-sm"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-                <span>Add option</span>
-              </button>
-            )}
-          </div>
-        );
-
-      case QuestionType.DROPDOWN:
-        return (
-          <div>
-            <select className="w-full p-3 border border-gray-300 rounded-md bg-gray-50" disabled>
-              <option>Choose...</option>
-              {question.options?.map((option, index) => (
-                <option key={index} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-            {isSelected && (
-              <div className="mt-3 space-y-2">
-                {question.options?.map((option, index) => (
-                  <div key={index} className="flex items-center space-x-2">
-                    <input
-                      type="text"
-                      value={option}
-                      onChange={(e) => updateOption(index, e.target.value)}
-                      className="flex-1 p-2 border border-gray-300 rounded"
-                      placeholder={`Option ${index + 1}`}
-                    />
-                    {question.options && question.options.length > 1 && (
-                      <button
-                        onClick={() => removeOption(index)}
-                        className="text-red-500 hover:text-red-700"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-                    )}
-                  </div>
-                ))}
+              <div className="flex items-center space-x-2">
                 <button
                   onClick={addOption}
                   className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 text-sm"
@@ -218,6 +255,210 @@ const QuestionEditor: React.FC<QuestionEditorProps> = ({
                   </svg>
                   <span>Add option</span>
                 </button>
+                {!hasOtherOptionMC && (
+                  <button
+                    onClick={addOtherOption}
+                    className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 text-sm"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    <span>Add Other option</span>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        );
+
+      case QuestionType.CHECKBOX:
+        const hasOtherOptionCB = question.options ? findOtherOption(question.options) !== null : false;
+        return (
+          <div className="space-y-2">
+            {question.options?.map((option, index) => {
+              const isOtherOpt = isOtherOption(option);
+              return (
+                <div key={index} className="flex items-center space-x-3">
+                  <input type="checkbox" disabled className="text-blue-600" />
+                  {isSelected ? (
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="text"
+                          value={getOptionLabel(option)}
+                          onChange={(e) => {
+                            const newLabel = e.target.value;
+                            // If it's the other option, preserve the prefix
+                            if (isOtherOpt) {
+                              updateOption(index, markAsOtherOption(newLabel));
+                            } else {
+                              updateOption(index, newLabel);
+                            }
+                          }}
+                          className="flex-1 p-2 border border-gray-300 rounded text-base"
+                          placeholder={`Option ${index + 1}`}
+                        />
+                        {isOtherOpt && (
+                          <>
+                            <span className="text-xs text-gray-500 whitespace-nowrap">Placeholder:</span>
+                            <input
+                              type="text"
+                              value={placeholderInputs[question.id] ?? (question.otherPlaceholder ?? '')}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                setPlaceholderInputs(prev => ({ ...prev, [question.id]: value }));
+                                onUpdate({ otherPlaceholder: value === '' ? undefined : value });
+                              }}
+                              onBlur={() => {
+                                // Clean up local state on blur
+                                setPlaceholderInputs(prev => {
+                                  const newState = { ...prev };
+                                  delete newState[question.id];
+                                  return newState;
+                                });
+                              }}
+                              className="w-40 p-2 border border-gray-300 rounded text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              placeholder="Please specify"
+                            />
+                          </>
+                        )}
+                        {question.options && question.options.length > 1 && (
+                          <button
+                            onClick={() => removeOption(index)}
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <span className="text-gray-700">{getOptionLabel(option)}</span>
+                  )}
+                </div>
+              );
+            })}
+            {isSelected && (
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={addOption}
+                  className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 text-sm"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  <span>Add option</span>
+                </button>
+                {!hasOtherOptionCB && (
+                  <button
+                    onClick={addOtherOption}
+                    className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 text-sm"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    <span>Add Other option</span>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        );
+
+      case QuestionType.DROPDOWN:
+        const hasOtherOptionDD = question.options ? findOtherOption(question.options) !== null : false;
+        return (
+          <div>
+            <select className="w-full p-3 border border-gray-300 rounded-md bg-gray-50" disabled>
+              <option>Choose...</option>
+              {question.options?.map((option, index) => (
+                <option key={index} value={option}>
+                  {getOptionLabel(option)}
+                </option>
+              ))}
+            </select>
+            {isSelected && (
+              <div className="mt-3 space-y-2">
+                {question.options?.map((option, index) => {
+                  const isOtherOpt = isOtherOption(option);
+                  return (
+                    <div key={index} className="flex items-center space-x-2">
+                      <input
+                        type="text"
+                        value={getOptionLabel(option)}
+                        onChange={(e) => {
+                          const newLabel = e.target.value;
+                          // If it's the other option, preserve the prefix
+                          if (isOtherOpt) {
+                            updateOption(index, markAsOtherOption(newLabel));
+                          } else {
+                            updateOption(index, newLabel);
+                          }
+                        }}
+                          className="flex-1 p-2 border border-gray-300 rounded text-base"
+                          placeholder={`Option ${index + 1}`}
+                      />
+                      {isOtherOpt && (
+                        <>
+                          <span className="text-xs text-gray-500 whitespace-nowrap">Placeholder:</span>
+                          <input
+                            type="text"
+                            value={placeholderInputs[question.id] ?? (question.otherPlaceholder ?? '')}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setPlaceholderInputs(prev => ({ ...prev, [question.id]: value }));
+                              onUpdate({ otherPlaceholder: value === '' ? undefined : value });
+                            }}
+                            onBlur={() => {
+                              // Clean up local state on blur
+                              setPlaceholderInputs(prev => {
+                                const newState = { ...prev };
+                                delete newState[question.id];
+                                return newState;
+                              });
+                            }}
+                            className="w-40 p-2 border border-gray-300 rounded text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            placeholder="Please specify"
+                          />
+                        </>
+                      )}
+                      {question.options && question.options.length > 1 && (
+                        <button
+                          onClick={() => removeOption(index)}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={addOption}
+                    className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 text-sm"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    <span>Add option</span>
+                  </button>
+                  {!hasOtherOptionDD && (
+                    <button
+                      onClick={addOtherOption}
+                      className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 text-sm"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                      </svg>
+                      <span>Add Other option</span>
+                    </button>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -295,6 +536,13 @@ const QuestionEditor: React.FC<QuestionEditorProps> = ({
           </div>
         );
 
+      case QuestionType.COMMENT:
+        return (
+          <p className="text-sm text-gray-500 italic">
+            {isSelected ? 'This block is shown as static text to respondents (no answer collected).' : (question.description || 'Add a hint or instruction above.')}
+          </p>
+        );
+
       default:
         return null;
     }
@@ -304,6 +552,11 @@ const QuestionEditor: React.FC<QuestionEditorProps> = ({
     <div className="p-6">
       {/* Question Title */}
       <div className="mb-4">
+        {questionDesignRole && questionDesignRole !== 'core' && (
+          <div className="mb-2">
+            <QuestionRoleBadge role={questionDesignRole} />
+          </div>
+        )}
         {isSelected ? (
           <input
             type="text"
@@ -322,57 +575,104 @@ const QuestionEditor: React.FC<QuestionEditorProps> = ({
           </h3>
         )}
         
-        {isSelected && question.description !== undefined && (
-          <textarea
-            value={question.description || ''}
-            onChange={(e) => onUpdate({ description: e.target.value })}
-            className="mt-2 text-sm text-gray-600 bg-transparent border-none focus:outline-none focus:ring-0 p-0 w-full resize-none"
-            placeholder="Question description (optional)"
-            rows={2}
-          />
+        {(isSelected || question.type === QuestionType.COMMENT) && (question.description !== undefined || isSelected) && (
+          question.type === QuestionType.COMMENT && !isSelected ? (
+            <p className="mt-2 text-sm text-gray-600 whitespace-pre-wrap">{question.description || ''}</p>
+          ) : (
+            <textarea
+              value={question.description || ''}
+              onChange={(e) => onUpdate({ description: e.target.value })}
+              className="mt-2 text-sm text-gray-600 bg-transparent border-none focus:outline-none focus:ring-0 p-0 w-full resize-none"
+              placeholder={question.type === QuestionType.COMMENT ? 'Hint or help text for respondents...' : 'Question description (optional)'}
+              rows={question.type === QuestionType.COMMENT ? 3 : 2}
+            />
+          )
         )}
       </div>
 
-      {/* Question Input */}
+      {/* Question Input (for COMMENT this shows static hint preview) */}
       <div className="mb-4">
         {renderQuestionInput()}
       </div>
 
       {/* Question Actions */}
       {isSelected && (
-        <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-          <div className="flex items-center space-x-4">
-            <label className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                checked={question.required}
-                onChange={(e) => onUpdate({ required: e.target.checked })}
-                className="text-blue-600"
-              />
-              <span className="text-sm text-gray-700">Required</span>
-            </label>
+        <div className="space-y-3 border-t border-gray-200 pt-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-4">
+              {question.type !== QuestionType.COMMENT && (
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={question.required}
+                    onChange={(e) => onUpdate({ required: e.target.checked })}
+                    className="text-blue-600"
+                  />
+                  <span className="text-sm text-gray-700">Required</span>
+                </label>
+              )}
+              {question.type === QuestionType.RATING && (
+                <label className="flex items-center space-x-2" title="Higher values mean the opposite of the construct">
+                  <input
+                    type="checkbox"
+                    checked={question.reverseCoded ?? false}
+                    onChange={(e) => handleReverseCodedChange(e.target.checked)}
+                    className="text-purple-600"
+                  />
+                  <span className="text-sm text-gray-700">Reverse coded</span>
+                </label>
+              )}
+            </div>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={onDuplicate}
+                className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
+                title="Duplicate question"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+              </button>
+              <button
+                onClick={onDelete}
+                className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded"
+                title="Delete question"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+            </div>
           </div>
-
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={onDuplicate}
-              className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
-              title="Duplicate question"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-              </svg>
-            </button>
-            <button
-              onClick={onDelete}
-              className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded"
-              title="Delete question"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
-            </button>
-          </div>
+          {question.reverseCoded && sourceVariantQuestions && sourceVariantQuestions.length > 0 && (
+            <div className="max-w-md">
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                Original question (variant {sourceVariantLabel})
+              </label>
+              <select
+                value={question.pairedQuestionId ?? question.id}
+                onChange={(e) => onUpdate({ pairedQuestionId: e.target.value, reverseCoded: true })}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+              >
+                {sourceVariantQuestions.map((candidate) => (
+                  <option key={candidate.id} value={candidate.id}>
+                    {candidate.title}
+                  </option>
+                ))}
+              </select>
+              {pairedOriginal && (
+                <p className="mt-1 text-xs text-purple-700">
+                  This reverse-coded item pairs with: &ldquo;{pairedOriginal.title}&rdquo;
+                </p>
+              )}
+            </div>
+          )}
+          {question.type === QuestionType.RATING && question.reverseCoded && (
+            <p className="text-xs text-purple-700">
+              Higher values mean the opposite of the construct; analytics will invert scores before
+              comparison.
+            </p>
+          )}
         </div>
       )}
 

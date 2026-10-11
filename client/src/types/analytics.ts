@@ -169,6 +169,8 @@ export interface TopicsAnalytics {
     frequency: number;
     relationship: string;
   }>;
+  /** Raw discovered topic → canonical label (for cross-card filtering). */
+  topicMapping?: Record<string, string>;
   saturation?: {
     saturated: boolean;
     reasoning: string;
@@ -352,6 +354,7 @@ export interface ResponseMetadata {
   };
   allTopics?: string[];
   canonicalTopics?: string[];
+  topicMapping?: Record<string, string>;
   qualityScore?: number;
   topics?: Array<{
     topic: string;

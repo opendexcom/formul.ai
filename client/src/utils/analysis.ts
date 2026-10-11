@@ -272,3 +272,25 @@ export function summarize(form: FormData, responses: any[]): InsightsSummary {
 
   return { responseCount: responses.length, completionAvgPct, topOptions };
 }
+
+/** Normalize topic sentiment for display (handles legacy raw-count rows). */
+export function normalizeTopicSentimentPercentages(
+  sentiment: { positive: number; neutral: number; negative: number },
+  responseCount: number,
+): { positive: number; neutral: number; negative: number } {
+  const sum = sentiment.positive + sentiment.neutral + sentiment.negative;
+  if (sum <= 0) {
+    return { positive: 0, neutral: 0, negative: 0 };
+  }
+
+  // Legacy analytics stored raw counts in sentiment fields
+  if (responseCount > 0 && sum <= responseCount) {
+    return {
+      positive: Math.round((sentiment.positive / sum) * 100),
+      neutral: Math.round((sentiment.neutral / sum) * 100),
+      negative: Math.round((sentiment.negative / sum) * 100),
+    };
+  }
+
+  return sentiment;
+}

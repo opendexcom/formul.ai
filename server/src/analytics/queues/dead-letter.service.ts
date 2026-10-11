@@ -3,6 +3,7 @@ import { InjectQueue } from '@nestjs/bull';
 import type { Job, Queue } from 'bull';
 import { QueueName } from './queue.names';
 import type { DeadLetterJobData } from './queue.names';
+import { recordDlqFailureToMlflow } from '../../mlflow/mlflow-trace-context';
 
 @Injectable()
 export class DeadLetterService {
@@ -46,6 +47,14 @@ export class DeadLetterService {
       });
     } catch (e: any) {
       this.logger.error(`Failed to enqueue DLQ item for job ${job.id}: ${e?.message}`);
+    }
+
+    try {
+      await recordDlqFailureToMlflow(payload);
+    } catch (e: any) {
+      this.logger.error(
+        `Failed to record DLQ failure in MLflow for job ${job.id}: ${e?.message}`,
+      );
     }
   }
 }

@@ -1,12 +1,18 @@
 import { Injectable, Logger, DynamicModule } from '@nestjs/common';
+import { statSync } from 'fs';
+import { resolve } from 'path';
+import { pathToFileURL } from 'url';
 import {
   FormulAIPlugin,
   PluginConfig,
-  PluginContext,
   registerSchema,
   getSchema,
   getSchemaOrThrow,
   hasSchema,
+} from '@opendexcom/plugin-interface';
+import type {
+  PluginContext,
+  PluginContributionRegistry,
 } from '@opendexcom/plugin-interface';
 
 @Injectable()
@@ -14,21 +20,10 @@ export class PluginLoaderService {
   private readonly logger = new Logger(PluginLoaderService.name);
   private loadedPlugins: Map<string, FormulAIPlugin> = new Map();
 
-  /**
-   * Build a PluginContext that references the host's schema registry.
-   * Every plugin receives this so all schema operations go through
-   * the same Map, regardless of how many copies of plugin-interface exist.
-   */
-  private buildPluginContext(): PluginContext {
-    return {
-      schemaRegistry: {
-        register: registerSchema,
-        get: getSchema,
-        getOrThrow: getSchemaOrThrow,
-        has: hasSchema,
-      },
-    };
-  }
+  constructor(
+    private readonly contributionRegistry: PluginContributionRegistry,
+    private readonly pluginContext: PluginContext,
+  ) {}
 
   /**
    * Load plugins from environment configuration.
@@ -39,7 +34,7 @@ export class PluginLoaderService {
     const pluginConfigs = this.getPluginConfigs();
     const modules: DynamicModule[] = [];
     const orderedNames = this.getPluginLoadOrder(Object.keys(pluginConfigs));
-    const context = this.buildPluginContext();
+    const failures: Array<{ name: string; message: string }> = [];
 
     for (const pluginName of orderedNames) {
       const config = pluginConfigs[pluginName];
@@ -51,17 +46,26 @@ export class PluginLoaderService {
 
       try {
         const plugin = await this.loadPlugin(pluginName, config);
-        const module = await plugin.register(context);
+        const module = await plugin.register(this.pluginContext);
+        if (plugin.contribute) {
+          await plugin.contribute(this.contributionRegistry);
+        }
         modules.push(module);
         this.loadedPlugins.set(pluginName, plugin);
         this.logger.log(`✓ Loaded plugin: ${plugin.name} v${plugin.version}`);
       } catch (error) {
-        this.logger.error(
-          `✗ Failed to load plugin ${pluginName}:`,
-          error.message,
-        );
-        // Continue loading other plugins
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.error(`✗ Failed to load plugin ${pluginName}:`, message);
+        failures.push({ name: pluginName, message });
       }
+    }
+
+    if (failures.length > 0) {
+      const summary = failures.map((f) => `${f.name}: ${f.message}`).join('; ');
+      throw new Error(
+        `One or more configured plugins failed to load (${summary}). ` +
+          'Fix the error and restart the server — billing and other EE routes will not be available until the plugin loads.',
+      );
     }
 
     return modules;
@@ -84,10 +88,16 @@ export class PluginLoaderService {
     } catch (npmError) {
       // Try loading from custom plugin directory or default local directory
       try {
-        const pluginDir = process.env.PLUGIN_DIR || '../../plugins';
-        const localPath = `${pluginDir}/${pluginName}/dist/index.js`;
-        this.logger.log(`Attempting to load plugin ${pluginName} from local path ${localPath}...`);
-        const pluginModule = await import(localPath);
+        const pluginDir =
+          process.env.PLUGIN_DIR || resolve(__dirname, '../../plugins');
+        const localPath = resolve(pluginDir, pluginName, 'dist', 'index.js');
+        const mtimeMs = statSync(localPath).mtimeMs;
+        // Bust Node ESM import cache so ee-backend route changes apply after nest restart.
+        const localUrl = `${pathToFileURL(localPath).href}?v=${mtimeMs}`;
+        this.logger.log(
+          `Attempting to load plugin ${pluginName} from local path ${localPath}...`,
+        );
+        const pluginModule = await import(localUrl);
         // Handle both ES module and CommonJS exports
         const PluginClass = pluginModule.default.default || pluginModule;
         return new PluginClass(config.options);
@@ -154,6 +164,11 @@ export class PluginLoaderService {
    */
   getPlugin(name: string): FormulAIPlugin | undefined {
     return this.loadedPlugins.get(name);
+  }
+
+  /** Names of plugins that loaded successfully (from PLUGINS env). */
+  getLoadedPluginNames(): string[] {
+    return Array.from(this.loadedPlugins.keys());
   }
 
   /**

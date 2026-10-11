@@ -1,14 +1,26 @@
 import React from 'react';
 import { AnalyticsData } from '../../types/analytics';
 import { TrendingUp, MessageCircle, AlertTriangle, Sparkles } from 'lucide-react';
+import {
+  normalizeThemes,
+  topicMatchesFilter,
+} from '../../utils/topic-filter.util';
 
 interface TopicsThemesCardProps {
   analytics?: AnalyticsData;
   onTopicClick?: (topic: string) => void;
   selectedTopics?: string[];
+  filterTopics?: string[];
+  topicMapping?: Record<string, string>;
 }
 
-export const TopicsThemesCard: React.FC<TopicsThemesCardProps> = ({ analytics, onTopicClick, selectedTopics = [] }) => {
+export const TopicsThemesCard: React.FC<TopicsThemesCardProps> = ({
+  analytics,
+  onTopicClick,
+  selectedTopics = [],
+  filterTopics,
+  topicMapping,
+}) => {
   if (!analytics?.topics) {
     return (
       <div className="bg-white rounded-lg shadow-sm border p-6">
@@ -18,7 +30,17 @@ export const TopicsThemesCard: React.FC<TopicsThemesCardProps> = ({ analytics, o
     );
   }
 
-  const { dominantThemes = [], emergingThemes = [], counterNarratives = [] } = analytics.topics;
+  const mapping = topicMapping ?? analytics.topics.topicMapping;
+  const activeFilter = filterTopics ?? selectedTopics;
+  const dominantThemes = normalizeThemes(
+    analytics.topics.dominantThemes ?? [],
+    mapping,
+  );
+  const emergingThemes = normalizeThemes(
+    analytics.topics.emergingThemes ?? [],
+    mapping,
+  );
+  const { counterNarratives = [] } = analytics.topics;
 
   const renderDominantThemes = () => {
     if (dominantThemes.length === 0) {
@@ -28,7 +50,7 @@ export const TopicsThemesCard: React.FC<TopicsThemesCardProps> = ({ analytics, o
     return (
       <div className="space-y-3">
         {dominantThemes.map((theme, idx) => {
-          const isSelected = selectedTopics.includes(theme.theme);
+          const isSelected = topicMatchesFilter(theme.theme, activeFilter);
           return (
             <div 
               key={idx} 
@@ -80,7 +102,7 @@ export const TopicsThemesCard: React.FC<TopicsThemesCardProps> = ({ analytics, o
         </h3>
         <div className="space-y-2">
           {emergingThemes.slice(0, 3).map((theme, idx) => {
-            const isSelected = selectedTopics.includes(theme.theme);
+            const isSelected = topicMatchesFilter(theme.theme, activeFilter);
             return (
               <div 
                 key={idx} 

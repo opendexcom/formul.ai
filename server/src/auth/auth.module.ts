@@ -4,6 +4,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { PassportModule } from '@nestjs/passport';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { AdminBootstrapService } from './admin-bootstrap.service';
 import { SettingsModule } from '../settings/settings.module';
 import { JwtStrategy } from './jwt.strategy';
 import { User } from '../schemas/user.schema';
@@ -20,7 +21,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) =>
         ({
-          secret: configService.get<string>('JWT_SECRET'),
+          secret: configService.get<string>('JWT_SECRET') || 'your-secret-key',
           signOptions: {
             expiresIn: configService.get<string>('JWT_EXPIRES_IN') as string,
           },
@@ -31,7 +32,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
     forwardRef(() => FormsModule),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
+  providers: [AuthService, AdminBootstrapService, JwtStrategy],
   exports: [AuthService],
 })
 export class AuthModule {}

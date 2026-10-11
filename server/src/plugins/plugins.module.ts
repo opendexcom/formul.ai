@@ -1,28 +1,60 @@
 import { Module, DynamicModule, Global } from '@nestjs/common';
+import {
+    DefaultPluginContributionRegistry,
+    extendSchema,
+    registerCapability,
+    registerSchema,
+    getSchema,
+    getSchemaOrThrow,
+    hasSchema,
+    markAllSchemasCompiled,
+} from '@opendexcom/plugin-interface';
 import { PluginLoaderService } from './plugin-loader.service';
+import { PLUGIN_CONTRIBUTION_REGISTRY } from './plugin-contribution.registry';
 import { registerCoreSchemas } from '../schemas/core-schema-registry';
+import { AiCoreModule } from '../ai/ai.module';
+import { AuthModule } from '../auth/auth.module';
 
 @Global()
 @Module({
     providers: [PluginLoaderService],
-    exports: [PluginLoaderService],
+    exports: [PluginLoaderService, PLUGIN_CONTRIBUTION_REGISTRY],
 })
 export class PluginsModule {
     static async forRoot(): Promise<DynamicModule> {
         registerCoreSchemas();
-        const pluginLoader = new PluginLoaderService();
+        const contributionRegistry = new DefaultPluginContributionRegistry();
+        const pluginContext = {
+            schemaRegistry: {
+                register: registerSchema,
+                extend: extendSchema,
+                get: getSchema,
+                getOrThrow: getSchemaOrThrow,
+                has: hasSchema,
+            },
+            capabilities: {
+                register: registerCapability,
+            },
+            hostModules: { aiCore: AiCoreModule, auth: AuthModule },
+        };
+        const pluginLoader = new PluginLoaderService(contributionRegistry, pluginContext);
         const pluginModules = await pluginLoader.loadPlugins();
+        markAllSchemasCompiled();
 
         return {
             module: PluginsModule,
             imports: pluginModules,
             providers: [
                 {
+                    provide: PLUGIN_CONTRIBUTION_REGISTRY,
+                    useValue: contributionRegistry,
+                },
+                {
                     provide: PluginLoaderService,
                     useValue: pluginLoader,
                 },
             ],
-            exports: [PluginLoaderService],
+            exports: [PluginLoaderService, PLUGIN_CONTRIBUTION_REGISTRY],
         };
     }
 }

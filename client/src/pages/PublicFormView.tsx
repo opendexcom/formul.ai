@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Send, AlertCircle, CheckCircle } from 'lucide-react';
 import { FormData, Question, QuestionType } from '../services/formsService';
 import { Button, LoadingSpinner, Alert } from '../components/ui';
+import { isOtherOption, getOptionLabel, findOtherOption, migrateQuestionForOther } from '../utils/otherOption';
 
 interface FormResponse {
   [questionId: string]: string | number | string[] | boolean | null;
@@ -13,6 +14,7 @@ const PublicFormView: React.FC = () => {
   const navigate = useNavigate();
   const [form, setForm] = useState<FormData | null>(null);
   const [responses, setResponses] = useState<FormResponse>({});
+  const [otherValues, setOtherValues] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -45,7 +47,12 @@ const PublicFormView: React.FC = () => {
       }
 
       const formData = await response.json();
-      setForm(formData);
+      // Migrate questions so "other" options have the __OTHER__: prefix (backward compatibility)
+      const migratedForm: FormData = {
+        ...formData,
+        questions: formData.questions.map((q: Question) => migrateQuestionForOther(q)),
+      };
+      setForm(migratedForm);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to load form';
       setError(errorMessage);
@@ -75,8 +82,31 @@ const PublicFormView: React.FC = () => {
     const errors: Record<string, string> = {};
 
     form.questions.forEach(question => {
-      if (question.required && (!responses[question.id] || responses[question.id] === '')) {
+      if (question.type === QuestionType.COMMENT) return;
+
+      const value = responses[question.id];
+      const isEmpty =
+        question.type === QuestionType.CHECKBOX
+          ? !Array.isArray(value) || value.length === 0
+          : !value || value === '';
+      if (question.required && isEmpty) {
         errors[question.id] = 'This field is required';
+      }
+
+      // Validate "Other" text input when "Other" option is selected
+      if (question.canBeOther && question.options) {
+        const value = responses[question.id];
+        const otherOption = findOtherOption(question.options);
+        if (otherOption) {
+          const isOtherSelected = 
+            (question.type === QuestionType.CHECKBOX && Array.isArray(value) && value.includes(otherOption)) ||
+            (question.type === QuestionType.MULTIPLE_CHOICE && value === otherOption) ||
+            (question.type === QuestionType.DROPDOWN && value === otherOption);
+          
+          if (isOtherSelected && (!otherValues[question.id] || otherValues[question.id].trim() === '')) {
+            errors[question.id] = 'Please specify your answer';
+          }
+        }
       }
 
       // Add specific validation based on question type
@@ -112,6 +142,35 @@ const PublicFormView: React.FC = () => {
       setSubmitting(true);
       setError('');
 
+      // Process responses to include "Other" option text values
+      const processedResponses = { ...responses };
+      form.questions.forEach(question => {
+        if (question.canBeOther && question.options && otherValues[question.id]) {
+          const value = processedResponses[question.id];
+          const otherOption = findOtherOption(question.options);
+          if (otherOption) {
+            const otherLabel = getOptionLabel(otherOption);
+            if (question.type === QuestionType.CHECKBOX && Array.isArray(value)) {
+              // Replace the other option with the actual text value in checkbox arrays
+              const index = value.indexOf(otherOption);
+              if (index !== -1) {
+                processedResponses[question.id] = [
+                  ...value.slice(0, index),
+                  `${otherLabel}: ${otherValues[question.id]}`,
+                  ...value.slice(index + 1)
+                ];
+              }
+            } else if (question.type === QuestionType.MULTIPLE_CHOICE && value === otherOption) {
+              // Replace the other option with the actual text value for multiple choice
+              processedResponses[question.id] = `${otherLabel}: ${otherValues[question.id]}`;
+            } else if (question.type === QuestionType.DROPDOWN && value === otherOption) {
+              // Replace the other option with the actual text value for dropdown
+              processedResponses[question.id] = `${otherLabel}: ${otherValues[question.id]}`;
+            }
+          }
+        }
+      });
+
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api'}/public/forms/${formId}/responses`, {
         method: 'POST',
         headers: {
@@ -119,7 +178,7 @@ const PublicFormView: React.FC = () => {
         },
         body: JSON.stringify({
           formId,
-          responses,
+          responses: processedResponses,
           submittedAt: new Date().toISOString(),
         }),
       });
@@ -130,11 +189,6 @@ const PublicFormView: React.FC = () => {
       }
 
       await response.json();
-
-      if (!response.ok) {
-        throw new Error('Failed to submit response');
-      }
-
       setSubmitted(true);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to submit response';
@@ -145,6 +199,14 @@ const PublicFormView: React.FC = () => {
   };
 
   const renderQuestion = (question: Question) => {
+    if (question.type === QuestionType.COMMENT) {
+      return (
+        <div className="text-gray-600 text-sm whitespace-pre-wrap">
+          {question.description || ''}
+        </div>
+      );
+    }
+
     const value = responses[question.id] ?? '';
     const hasError = validationErrors[question.id];
 
@@ -192,6 +254,16 @@ const PublicFormView: React.FC = () => {
             className={inputClasses}
             value={value as string | number}
             onChange={(e) => handleInputChange(question.id, e.target.value)}
+            onBlur={(e) => {
+              if (e.target.value !== '' && isNaN(Number(e.target.value))) {
+                setValidationErrors(prev => ({ ...prev, [question.id]: 'Please enter a valid number' }));
+              } else {
+                setValidationErrors(prev => {
+                  const { [question.id]: removed, ...rest } = prev;
+                  return rest;
+                });
+              }
+            }}
             placeholder="Enter a number"
           />
         );
@@ -217,63 +289,109 @@ const PublicFormView: React.FC = () => {
         );
 
       case QuestionType.MULTIPLE_CHOICE:
+        const otherOption = question.canBeOther && question.options ? findOtherOption(question.options) : null;
+        const isOtherSelected = otherOption !== null && value === otherOption;
         return (
           <div className="space-y-2">
-            {question.options?.map((option, index) => (
-              <label key={index} className="flex items-center space-x-2">
-                <input
-                  type="radio"
-                  name={question.id}
-                  value={option}
-                  checked={value === option}
-                  onChange={(e) => handleInputChange(question.id, e.target.value)}
-                  className="text-blue-600 focus:ring-blue-500"
-                />
-                <span>{option}</span>
-              </label>
-            ))}
+            {question.options?.map((option, index) => {
+              const isOtherOpt = isOtherOption(option);
+              return (
+                <div key={index}>
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      name={question.id}
+                      value={option}
+                      checked={value === option}
+                      onChange={(e) => handleInputChange(question.id, e.target.value)}
+                      className="text-blue-600 focus:ring-blue-500"
+                    />
+                    <span>{getOptionLabel(option)}</span>
+                  </label>
+                  {isOtherOpt && isOtherSelected && (
+                    <input
+                      type="text"
+                      value={otherValues[question.id] || ''}
+                      onChange={(e) => setOtherValues(prev => ({ ...prev, [question.id]: e.target.value }))}
+                      className="mt-2 ml-6 w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder={question.otherPlaceholder || 'Please specify'}
+                    />
+                  )}
+                </div>
+              );
+            })}
           </div>
         );
 
       case QuestionType.CHECKBOX:
+        const checkboxValues = Array.isArray(value) ? value : [];
+        const checkboxOtherOption = question.canBeOther && question.options ? findOtherOption(question.options) : null;
+        const isOtherChecked = checkboxOtherOption !== null && checkboxValues.includes(checkboxOtherOption);
         return (
           <div className="space-y-2">
-            {question.options?.map((option, index) => (
-              <label key={index} className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  value={option}
-                  checked={Array.isArray(value) && value.includes(option)}
-                  onChange={(e) => {
-                    const currentValues = Array.isArray(value) ? value : [];
-                    if (e.target.checked) {
-                      handleInputChange(question.id, [...currentValues, option]);
-                    } else {
-                      handleInputChange(question.id, currentValues.filter(v => v !== option));
-                    }
-                  }}
-                  className="text-blue-600 focus:ring-blue-500"
-                />
-                <span>{option}</span>
-              </label>
-            ))}
+            {question.options?.map((option, index) => {
+              const isOtherOpt = isOtherOption(option);
+              return (
+                <div key={index}>
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      value={option}
+                      checked={checkboxValues.includes(option)}
+                      onChange={(e) => {
+                        const currentValues = Array.isArray(value) ? value : [];
+                        if (e.target.checked) {
+                          handleInputChange(question.id, [...currentValues, option]);
+                        } else {
+                          handleInputChange(question.id, currentValues.filter(v => v !== option));
+                        }
+                      }}
+                      className="text-blue-600 focus:ring-blue-500"
+                    />
+                    <span>{getOptionLabel(option)}</span>
+                  </label>
+                  {isOtherOpt && isOtherChecked && (
+                    <input
+                      type="text"
+                      value={otherValues[question.id] || ''}
+                      onChange={(e) => setOtherValues(prev => ({ ...prev, [question.id]: e.target.value }))}
+                      className="mt-2 ml-6 w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder={question.otherPlaceholder || 'Please specify'}
+                    />
+                  )}
+                </div>
+              );
+            })}
           </div>
         );
 
       case QuestionType.DROPDOWN:
+        const dropdownOtherOption = question.canBeOther && question.options ? findOtherOption(question.options) : null;
+        const isDropdownOtherSelected = dropdownOtherOption !== null && value === dropdownOtherOption;
         return (
-          <select
-            className={inputClasses}
-            value={value as string}
-            onChange={(e) => handleInputChange(question.id, e.target.value)}
-          >
-            <option value="">Select an option</option>
-            {question.options?.map((option, index) => (
-              <option key={index} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
+          <div className="space-y-2">
+            <select
+              className={inputClasses}
+              value={value as string}
+              onChange={(e) => handleInputChange(question.id, e.target.value)}
+            >
+              <option value="">Select an option</option>
+              {question.options?.map((option, index) => (
+                <option key={index} value={option}>
+                  {getOptionLabel(option)}
+                </option>
+              ))}
+            </select>
+            {isDropdownOtherSelected && (
+              <input
+                type="text"
+                value={otherValues[question.id] || ''}
+                onChange={(e) => setOtherValues(prev => ({ ...prev, [question.id]: e.target.value }))}
+                className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${validationErrors[question.id] ? 'border-red-300' : 'border-gray-300'}`}
+                placeholder={question.otherPlaceholder || 'Please specify'}
+              />
+            )}
+          </div>
         );
 
       case QuestionType.RATING:
@@ -446,27 +564,42 @@ const PublicFormView: React.FC = () => {
           ) : (
             currentQuestions.map((question) => (
               <div key={question.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <div className="mb-4">
-                  <label className="block text-lg font-medium text-gray-900 mb-2">
-                    {question.title}
-                    {question.required && (
-                      <span className="text-red-500 ml-1">*</span>
+                {question.type === QuestionType.COMMENT ? (
+                  <>
+                    <div className="text-lg font-medium text-gray-900 mb-1">
+                      {question.title}
+                    </div>
+                    {question.description && (
+                      <p className="text-gray-600 text-sm whitespace-pre-wrap">
+                        {question.description}
+                      </p>
                     )}
-                  </label>
-                  {question.description && (
-                    <p className="text-gray-600 text-sm mb-4">
-                      {question.description}
-                    </p>
-                  )}
-                </div>
-                {renderQuestion(question)}
-                {validationErrors[question.id] && (
-                  <div className="flex items-center space-x-1 mt-3">
-                    <AlertCircle className="w-4 h-4 text-red-500" />
-                    <span className="text-sm text-red-600">
-                      {validationErrors[question.id]}
-                    </span>
-                  </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="mb-4">
+                      <label className="block text-lg font-medium text-gray-900 mb-2">
+                        {question.title}
+                        {question.required && (
+                          <span className="text-red-500 ml-1">*</span>
+                        )}
+                      </label>
+                      {question.description && (
+                        <p className="text-gray-600 text-sm mb-4">
+                          {question.description}
+                        </p>
+                      )}
+                    </div>
+                    {renderQuestion(question)}
+                    {validationErrors[question.id] && (
+                      <div className="flex items-center space-x-1 mt-3">
+                        <AlertCircle className="w-4 h-4 text-red-500" />
+                        <span className="text-sm text-red-600">
+                          {validationErrors[question.id]}
+                        </span>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             ))

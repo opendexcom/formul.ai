@@ -9,7 +9,13 @@ import { MigrationModule } from './migrations/migration.module';
 import { AiModule } from './ai/ai.module';
 import { MonitoringModule } from './monitoring/monitoring.module';
 import { SettingsModule } from './settings/settings.module';
+import { UsersModule } from './users/users.module';
 import { PluginsModule } from './plugins/plugins.module';
+import { CapabilitiesModule } from './capabilities/capabilities.module';
+import { MlflowModule } from './mlflow/mlflow.module';
+import { ProjectsModule } from './projects/projects.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { IntegrationsModule } from './integrations/integrations.module';
 
 @Module({
   imports: [
@@ -19,8 +25,14 @@ import { PluginsModule } from './plugins/plugins.module';
       socketTimeoutMS: 45000,
     }),
     PluginsModule.forRoot(), // Load plugins dynamically
+    MlflowModule,
+    CapabilitiesModule,
     AuthModule,
+    UsersModule,
     FormsModule,
+    ProjectsModule,
+    NotificationsModule,
+    IntegrationsModule,
     MigrationModule,
     AiModule,
     MonitoringModule,

@@ -11,13 +11,17 @@ jobs:
     name: Build Project (pnpm)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v4
         with:
-          node-version: 'lts/*'
-      - run: corepack enable
-      - run: corepack prepare pnpm@latest --activate
+          version: 10.23.0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: pnpm
       - run: pnpm install
+      - run: pnpm --filter @opendexcom/plugin-interface build
+      - run: pnpm audit --audit-level=high
       - run: pnpm build
       - run: pnpm --filter client test
       - run: pnpm --filter server test

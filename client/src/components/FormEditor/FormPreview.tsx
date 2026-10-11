@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { FormData, Question, QuestionType } from '../../services/formsService';
+import { isOtherOption, getOptionLabel, findOtherOption } from '../../utils/otherOption';
 
 interface FormPreviewProps {
   form: FormData;
@@ -7,6 +8,8 @@ interface FormPreviewProps {
 
 const FormPreview: React.FC<FormPreviewProps> = ({ form }) => {
   const [responses, setResponses] = useState<Record<string, any>>({});
+  const [otherValues, setOtherValues] = useState<Record<string, string>>({});
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [currentPage, setCurrentPage] = useState(0);
   const questionsPerPage = 5; // For pagination if needed
   
@@ -15,11 +18,38 @@ const FormPreview: React.FC<FormPreviewProps> = ({ form }) => {
     .sort((a, b) => a.order - b.order)
     .slice(currentPage * questionsPerPage, (currentPage + 1) * questionsPerPage);
 
-  const handleInputChange = (questionId: string, value: any) => {
+  const handleInputChange = (questionId: string, value: any, questionType?: QuestionType) => {
+    let processedValue = value;
+    
+    if (questionType === QuestionType.NUMBER) {
+      const filtered = value.replace(/[^0-9.-]/g, '');
+      processedValue = filtered;
+    }
+    
     setResponses(prev => ({
       ...prev,
-      [questionId]: value
+      [questionId]: processedValue
     }));
+
+    if (questionType === QuestionType.NUMBER && processedValue !== '' && isNaN(Number(processedValue))) {
+      setValidationErrors(prev => ({ ...prev, [questionId]: 'Please enter a valid number' }));
+    } else if (questionType === QuestionType.NUMBER) {
+      setValidationErrors(prev => {
+        const { [questionId]: removed, ...rest } = prev;
+        return rest;
+      });
+    }
+  };
+
+  const validateNumberOnBlur = (questionId: string, value: any) => {
+    if (value !== '' && isNaN(Number(value))) {
+      setValidationErrors(prev => ({ ...prev, [questionId]: 'Please enter a valid number' }));
+    } else {
+      setValidationErrors(prev => {
+        const { [questionId]: removed, ...rest } = prev;
+        return rest;
+      });
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -29,6 +59,14 @@ const FormPreview: React.FC<FormPreviewProps> = ({ form }) => {
   };
 
   const renderQuestionInput = (question: Question) => {
+    if (question.type === QuestionType.COMMENT) {
+      return (
+        <div className="text-gray-600 text-sm whitespace-pre-wrap">
+          {question.description || ''}
+        </div>
+      );
+    }
+
     const value = responses[question.id] || '';
 
     switch (question.type) {
@@ -70,14 +108,20 @@ const FormPreview: React.FC<FormPreviewProps> = ({ form }) => {
 
       case QuestionType.NUMBER:
         return (
-          <input
-            type="number"
-            value={value}
-            onChange={(e) => handleInputChange(question.id, e.target.value)}
-            className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            placeholder="Enter a number"
-            required={question.required}
-          />
+          <div>
+            <input
+              type="number"
+              value={value}
+              onChange={(e) => handleInputChange(question.id, e.target.value, QuestionType.NUMBER)}
+              onBlur={(e) => validateNumberOnBlur(question.id, e.target.value)}
+              className={`w-full p-3 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${validationErrors[question.id] ? 'border-red-300' : 'border-gray-300'}`}
+              placeholder="Enter a number"
+              required={question.required}
+            />
+            {validationErrors[question.id] && (
+              <p className="text-red-500 text-sm mt-1">{validationErrors[question.id]}</p>
+            )}
+          </div>
         );
 
       case QuestionType.DATE:
@@ -92,64 +136,110 @@ const FormPreview: React.FC<FormPreviewProps> = ({ form }) => {
         );
 
       case QuestionType.MULTIPLE_CHOICE:
+        const otherOption = question.canBeOther && question.options ? findOtherOption(question.options) : null;
+        const isOtherSelected = otherOption !== null && value === otherOption;
         return (
           <div className="space-y-3">
-            {question.options?.map((option, index) => (
-              <label key={index} className="flex items-center space-x-3 cursor-pointer">
-                <input
-                  type="radio"
-                  name={question.id}
-                  value={option}
-                  checked={value === option}
-                  onChange={(e) => handleInputChange(question.id, e.target.value)}
-                  className="text-blue-600 focus:ring-blue-500"
-                  required={question.required}
-                />
-                <span className="text-gray-700">{option}</span>
-              </label>
-            ))}
+            {question.options?.map((option, index) => {
+              const isOtherOpt = isOtherOption(option);
+              return (
+                <div key={index}>
+                  <label className="flex items-center space-x-3 cursor-pointer">
+                    <input
+                      type="radio"
+                      name={question.id}
+                      value={option}
+                      checked={value === option}
+                      onChange={(e) => handleInputChange(question.id, e.target.value)}
+                      className="text-blue-600 focus:ring-blue-500"
+                      required={question.required}
+                    />
+                    <span className="text-gray-700">{getOptionLabel(option)}</span>
+                  </label>
+                  {isOtherOpt && isOtherSelected && (
+                    <input
+                      type="text"
+                      value={otherValues[question.id] || ''}
+                      onChange={(e) => setOtherValues(prev => ({ ...prev, [question.id]: e.target.value }))}
+                      className="mt-2 ml-7 w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder={question.otherPlaceholder || 'Please specify'}
+                    />
+                  )}
+                </div>
+              );
+            })}
           </div>
         );
 
       case QuestionType.CHECKBOX:
+        const checkboxValues = Array.isArray(value) ? value : [];
+        const checkboxOtherOption = question.canBeOther && question.options ? findOtherOption(question.options) : null;
+        const isOtherChecked = checkboxOtherOption !== null && checkboxValues.includes(checkboxOtherOption);
         return (
           <div className="space-y-3">
-            {question.options?.map((option, index) => (
-              <label key={index} className="flex items-center space-x-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  value={option}
-                  checked={Array.isArray(value) && value.includes(option)}
-                  onChange={(e) => {
-                    const currentValues = Array.isArray(value) ? value : [];
-                    const newValues = e.target.checked
-                      ? [...currentValues, option]
-                      : currentValues.filter(v => v !== option);
-                    handleInputChange(question.id, newValues);
-                  }}
-                  className="text-blue-600 focus:ring-blue-500"
-                />
-                <span className="text-gray-700">{option}</span>
-              </label>
-            ))}
+            {question.options?.map((option, index) => {
+              const isOtherOpt = isOtherOption(option);
+              return (
+                <div key={index}>
+                  <label className="flex items-center space-x-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      value={option}
+                      checked={checkboxValues.includes(option)}
+                      onChange={(e) => {
+                        const currentValues = Array.isArray(value) ? value : [];
+                        const newValues = e.target.checked
+                          ? [...currentValues, option]
+                          : currentValues.filter(v => v !== option);
+                        handleInputChange(question.id, newValues);
+                      }}
+                      className="text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-gray-700">{getOptionLabel(option)}</span>
+                  </label>
+                  {isOtherOpt && isOtherChecked && (
+                    <input
+                      type="text"
+                      value={otherValues[question.id] || ''}
+                      onChange={(e) => setOtherValues(prev => ({ ...prev, [question.id]: e.target.value }))}
+                      className="mt-2 ml-7 w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder={question.otherPlaceholder || 'Please specify'}
+                    />
+                  )}
+                </div>
+              );
+            })}
           </div>
         );
 
       case QuestionType.DROPDOWN:
+        const dropdownOtherOption = question.canBeOther && question.options ? findOtherOption(question.options) : null;
+        const isDropdownOtherSelected = dropdownOtherOption !== null && value === dropdownOtherOption;
         return (
-          <select
-            value={value}
-            onChange={(e) => handleInputChange(question.id, e.target.value)}
-            className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            required={question.required}
-          >
-            <option value="">Choose an option</option>
-            {question.options?.map((option, index) => (
-              <option key={index} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
+          <div className="space-y-3">
+            <select
+              value={value}
+              onChange={(e) => handleInputChange(question.id, e.target.value)}
+              className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              required={question.required}
+            >
+              <option value="">Choose an option</option>
+              {question.options?.map((option, index) => (
+                <option key={index} value={option}>
+                  {getOptionLabel(option)}
+                </option>
+              ))}
+            </select>
+            {isDropdownOtherSelected && (
+              <input
+                type="text"
+                value={otherValues[question.id] || ''}
+                onChange={(e) => setOtherValues(prev => ({ ...prev, [question.id]: e.target.value }))}
+                className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder={question.otherPlaceholder || 'Please specify'}
+              />
+            )}
+          </div>
         );
 
       case QuestionType.RATING:
@@ -259,20 +349,35 @@ const FormPreview: React.FC<FormPreviewProps> = ({ form }) => {
           ) : (
             currentQuestions.map((question) => (
               <div key={question.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <div className="mb-4">
-                  <label className="block text-lg font-medium text-gray-900 mb-2">
-                    {question.title}
-                    {question.required && (
-                      <span className="text-red-500 ml-1">*</span>
+                {question.type === QuestionType.COMMENT ? (
+                  <>
+                    <div className="text-lg font-medium text-gray-900 mb-1">
+                      {question.title}
+                    </div>
+                    {question.description && (
+                      <p className="text-gray-600 text-sm whitespace-pre-wrap">
+                        {question.description}
+                      </p>
                     )}
-                  </label>
-                  {question.description && (
-                    <p className="text-gray-600 text-sm mb-4">
-                      {question.description}
-                    </p>
-                  )}
-                </div>
-                {renderQuestionInput(question)}
+                  </>
+                ) : (
+                  <>
+                    <div className="mb-4">
+                      <label className="block text-lg font-medium text-gray-900 mb-2">
+                        {question.title}
+                        {question.required && (
+                          <span className="text-red-500 ml-1">*</span>
+                        )}
+                      </label>
+                      {question.description && (
+                        <p className="text-gray-600 text-sm mb-4">
+                          {question.description}
+                        </p>
+                      )}
+                    </div>
+                    {renderQuestionInput(question)}
+                  </>
+                )}
               </div>
             ))
           )}

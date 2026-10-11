@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import authService from '../services/authService';
 import { User, AuthContextType } from '../types';
+import { AUTH_UNAUTHORIZED_EVENT } from '../utils/authSession';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -33,24 +34,29 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setLoading(false);
   }, []);
 
+  useEffect(() => {
+    const onUnauthorized = () => {
+      setUser(null);
+      setUserId(null);
+    };
+    window.addEventListener(AUTH_UNAUTHORIZED_EVENT, onUnauthorized);
+    return () => window.removeEventListener(AUTH_UNAUTHORIZED_EVENT, onUnauthorized);
+  }, []);
+
   const login = async (email: string, password: string): Promise<void> => {
-    setLoading(true);
-    try {
-      const response = await authService.login({ email, password });
-      setUser(response.user);
-      setUserId(authService.getCurrentUserId());
-    } catch (error) {
-      throw error;
-    } finally {
-      setLoading(false);
-    }
+    // Do not toggle `loading` here. PublicRoute/ProtectedRoute unmount children
+    // while loading is true, which remounts LandingPage and wipes the login error.
+    const response = await authService.login({ email, password });
+    setUser(response.user);
+    setUserId(authService.getCurrentUserId());
   };
 
   const register = async (
     email: string,
     password: string,
     firstName: string,
-    lastName: string
+    lastName: string,
+    acceptedTerms?: boolean,
   ): Promise<void> => {
     // We don't set loading here because it triggers a re-render of PublicRoute
     // which unmounts the LandingPage and clears the success message
@@ -60,6 +66,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         password,
         firstName,
         lastName,
+        acceptedTerms,
       });
       // Do not set user here as registration now requires email confirmation
     } catch (error) {
@@ -73,12 +80,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setUserId(null);
   };
 
+  const updateUser = (updatedUser: User): void => {
+    authService.updateStoredUser({
+      ...updatedUser,
+      roles: updatedUser.roles ?? ['user'],
+    });
+    setUser(updatedUser);
+  };
+
   const value: AuthContextType = {
     user,
     userId,
     login,
     register,
     logout,
+    updateUser,
     loading,
     isAuthenticated: !!user,
   };

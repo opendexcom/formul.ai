@@ -1,4 +1,4 @@
-import { Controller, Post, Get, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { MigrationService } from './migration.service';
@@ -32,5 +32,18 @@ export class MigrationController {
   async showProblematicForms() {
     await this.migrationService.showProblematicForms();
     return { message: 'Problematic forms listed - check server logs' };
+  }
+
+  @Post('forms-to-projects')
+  @ApiOperation({ summary: 'Migrate legacy forms to one project per form' })
+  @ApiResponse({ status: 200, description: 'Forms to projects migration finished' })
+  async migrateFormsToProjects(@Query('dryRun') dryRun?: string) {
+    const result = await this.migrationService.migrateFormsToProjects(
+      dryRun === 'true',
+    );
+    return {
+      message: dryRun === 'true' ? 'Dry run finished' : 'Migration finished',
+      ...result,
+    };
   }
 }

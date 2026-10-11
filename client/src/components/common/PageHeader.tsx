@@ -8,6 +8,7 @@ interface PageHeaderProps {
   actionLabel?: string;
   actionIcon?: LucideIcon;
   onAction?: () => void;
+  actionDisabled?: boolean;
   className?: string;
 }
 
@@ -17,6 +18,7 @@ const PageHeader: React.FC<PageHeaderProps> = ({
   actionLabel,
   actionIcon,
   onAction,
+  actionDisabled = false,
   className = ''
 }) => {
   return (
@@ -33,6 +35,7 @@ const PageHeader: React.FC<PageHeaderProps> = ({
           variant="primary"
           icon={actionIcon}
           iconPosition="left"
+          disabled={actionDisabled}
         >
           {actionLabel}
         </Button>
