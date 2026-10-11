@@ -4,6 +4,7 @@ import { Model, Types } from 'mongoose';
 import { Form, FormDocument } from '../schemas/form.schema';
 import { Project, ProjectDocument } from '../schemas/project.schema';
 import { CreateFormDto, UpdateFormDto } from './dto/form.dto';
+import { PUBLIC_FORM_SELECT, toPublicFormDto, type PublicFormDto } from './dto/public-form.dto';
 import { ResponseService } from './response.service';
 import { buildResponseSubmissionLogMeta } from './response-submission-log';
 
@@ -267,12 +268,21 @@ export class FormsService {
   }
 
   // Public form methods (no authentication required)
-  async findPublicForm(id: string): Promise<Form> {
+  async findPublicForm(id: string): Promise<PublicFormDto> {
     console.log('Finding public form with ID:', id);
-    
-    const form = await this.formModel.findById(id).exec();
-    console.log('Form found:', form ? `Title: ${form.title}, isPublic: ${form.isPublic}, isActive: ${form.isActive}` : 'null');
-    
+
+    const form = await this.formModel
+      .findById(id)
+      .select(PUBLIC_FORM_SELECT)
+      .lean()
+      .exec();
+    console.log(
+      'Form found:',
+      form
+        ? `Title: ${form.title}, isPublic: ${form.isPublic}, isActive: ${form.isActive}`
+        : 'null',
+    );
+
     if (!form) {
       console.log('Form not found in database');
       throw new NotFoundException('Form not found');
@@ -289,7 +299,7 @@ export class FormsService {
     }
 
     console.log('Returning public form successfully');
-    return form;
+    return toPublicFormDto(form);
   }
 
   async submitResponse(formId: string, responseData: any, ipAddress?: string, userAgent?: string): Promise<any> {
