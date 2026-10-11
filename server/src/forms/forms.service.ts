@@ -4,6 +4,7 @@ import { Model, Types } from 'mongoose';
 import { Form, FormDocument } from '../schemas/form.schema';
 import { Project, ProjectDocument } from '../schemas/project.schema';
 import { CreateFormDto, UpdateFormDto } from './dto/form.dto';
+import { PUBLIC_FORM_SELECT, toPublicFormDto, type PublicFormDto } from './dto/public-form.dto';
 import { ResponseService } from './response.service';
 import { buildResponseSubmissionLogMeta } from './response-submission-log';
 import { getFormOwnerId, isValidFormId } from './form-access.util';
@@ -263,29 +264,30 @@ export class FormsService {
   }
 
   // Public form methods (no authentication required)
-  async findPublicForm(id: string): Promise<Form> {
-    console.log('Finding public form with ID:', id);
-    
-    const form = await this.formModel.findById(id).exec();
-    console.log('Form found:', form ? `Title: ${form.title}, isPublic: ${form.isPublic}, isActive: ${form.isActive}` : 'null');
-    
+  async findPublicForm(id: string): Promise<PublicFormDto> {
+    const form = await this.formModel
+      .findById(id)
+      .select(PUBLIC_FORM_SELECT)
+      .lean()
+      .exec();
+
     if (!form) {
-      console.log('Form not found in database');
+      console.log('Public form lookup', { formId: id, outcome: 'not_found' });
       throw new NotFoundException('Form not found');
     }
 
     if (!form.isPublic) {
-      console.log('Form is not public');
+      console.log('Public form lookup', { formId: id, outcome: 'not_public' });
       throw new ForbiddenException('This form is not public');
     }
 
     if (!form.isActive) {
-      console.log('Form is not active');
+      console.log('Public form lookup', { formId: id, outcome: 'not_active' });
       throw new ForbiddenException('This form is not currently accepting responses');
     }
 
-    console.log('Returning public form successfully');
-    return form;
+    console.log('Public form lookup', { formId: id, outcome: 'ok' });
+    return toPublicFormDto(form);
   }
 
   async submitResponse(formId: string, responseData: any, ipAddress?: string, userAgent?: string): Promise<any> {
