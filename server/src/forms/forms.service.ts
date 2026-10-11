@@ -5,6 +5,7 @@ import { Form, FormDocument } from '../schemas/form.schema';
 import { Project, ProjectDocument } from '../schemas/project.schema';
 import { CreateFormDto, UpdateFormDto } from './dto/form.dto';
 import { ResponseService } from './response.service';
+import { buildResponseSubmissionLogMeta } from './response-submission-log';
 
 @Injectable()
 export class FormsService {
@@ -294,17 +295,20 @@ export class FormsService {
   async submitResponse(formId: string, responseData: any, ipAddress?: string, userAgent?: string): Promise<any> {
     // First, verify the form exists and is public/active
     await this.findPublicForm(formId);
-    
-    console.log('Submitting response for form:', formId, 'Data:', responseData);
-    
-    // Extract the responses from the request body
+
+    const startedAt = Date.now();
     const { responses, respondentEmail } = responseData;
-    
+
     if (!responses) {
       throw new Error('No responses provided');
     }
-    
-    // Save the response using ResponseService
+
+    const answerCount = Object.keys(responses).length;
+    console.log(
+      'Submitting response',
+      buildResponseSubmissionLogMeta({ formId, answerCount }),
+    );
+
     const savedResponse = await this.responseService.createResponse({
       formId,
       responses,
@@ -312,9 +316,17 @@ export class FormsService {
       ipAddress,
       userAgent,
     });
-    
-    console.log('Response saved successfully:', (savedResponse as any)._id);
-    
+
+    console.log(
+      'Response saved',
+      buildResponseSubmissionLogMeta({
+        formId,
+        responseId: String((savedResponse as any)._id),
+        answerCount,
+        durationMs: Date.now() - startedAt,
+      }),
+    );
+
     return {
       success: true,
       message: 'Response submitted successfully',
