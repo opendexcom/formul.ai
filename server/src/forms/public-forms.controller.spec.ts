@@ -1,6 +1,10 @@
 process.env.JWT_SECRET ??= 'formulai-test-jwt-secret';
 
-import { INestApplication, NotFoundException, ValidationPipe } from '@nestjs/common';
+import {
+  INestApplication,
+  NotFoundException,
+  ValidationPipe,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Types } from 'mongoose';
 import request from 'supertest';
