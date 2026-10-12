@@ -51,9 +51,15 @@ overrides:
   '@opentelemetry/propagator-jaeger': '>=2.9.0'
   '@opentelemetry/sdk-node': '>=0.217.0'
   'postcss-selector-parser@6': '>=6.1.3'
+  # sprintf-js has no 1.1.4+ patch (GHSA-hp3w-g68c-fv3c). global-agent 4.x
+  # dropped roarr/sprintf-js; onnxruntime-node 1.24.3 only requires it in
+  # script/install.js (postinstall), not the inference runtime.
+  global-agent: '>=4.1.3'
 
 # Unpatched advisories. braces is high and would fail `pnpm audit --audit-level=high`.
-# It is reachable only through Tailwind/chokidar at client build time; no 3.0.4+ release exists.
+# It is reachable only through Tailwind/chokidar/Jest/ts-loader at build/test
+# time; no 3.0.4+ release exists. GHSA-hp3w-g68c-fv3c is cleared by dropping
+# sprintf-js via the global-agent override above.
 auditConfig:
   ignoreGhsas:
     - GHSA-vfj7-8cjw-p6xm
