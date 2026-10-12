@@ -47,6 +47,7 @@ const FormEditor: React.FC = () => {
     questions: [],
     isActive: false,
     isPublic: true,
+    language: 'en-US',
     settings: {
       allowMultipleResponses: true,
       requireLogin: false,
@@ -157,7 +158,7 @@ const FormEditor: React.FC = () => {
 
   const migrateFormForOtherOptions = (form: FormData): FormData => {
     const migratedQuestions = form.questions.map(question => migrateQuestionForOther(question));
-    return { ...form, questions: migratedQuestions };
+    return { ...form, questions: migratedQuestions, language: form.language ?? 'en-US' };
   };
 
   const saveForm = async () => {
@@ -464,9 +465,11 @@ const FormEditor: React.FC = () => {
                 settings={form.settings}
                 isActive={form.isActive}
                 isPublic={form.isPublic}
+                language={form.language ?? 'en-US'}
                 onUpdateSettings={(settings: FormSettingsType) => updateForm({ settings })}
                 onToggleActive={(isActive: boolean) => updateForm({ isActive })}
                 onTogglePublic={(isPublic: boolean) => updateForm({ isPublic })}
+                onUpdateLanguage={(language) => updateForm({ language })}
               />
             </div>
           )}

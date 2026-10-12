@@ -3,10 +3,12 @@ import {
   IsOptional,
   IsBoolean,
   IsArray,
+  IsIn,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { FORM_LANGUAGE_CODES } from '../form-languages';
 
 export class CreateQuestionDto {
   @ApiProperty({ example: 'q1' })
@@ -132,6 +134,15 @@ export class CreateFormDto {
   @IsOptional()
   @IsString()
   variantKey?: 'main' | 'A' | 'B';
+
+  @ApiPropertyOptional({
+    enum: FORM_LANGUAGE_CODES,
+    default: 'en-US',
+    description: 'Language of fixed respondent-facing UI strings',
+  })
+  @IsOptional()
+  @IsIn([...FORM_LANGUAGE_CODES])
+  language?: string;
 }
 
 export class UpdateFormDto {
@@ -176,4 +187,18 @@ export class UpdateFormDto {
       fontFamily?: string;
     };
   };
+
+  @ApiPropertyOptional({ description: 'Owning project ID' })
+  @IsOptional()
+  @IsString()
+  projectId?: string;
+
+  @ApiPropertyOptional({
+    enum: FORM_LANGUAGE_CODES,
+    default: 'en-US',
+    description: 'Language of fixed respondent-facing UI strings',
+  })
+  @IsOptional()
+  @IsIn([...FORM_LANGUAGE_CODES])
+  language?: string;
 }

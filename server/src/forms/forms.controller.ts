@@ -19,18 +19,22 @@ import type { Request as ExpressRequest, Response as ExpressResponse } from 'exp
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { JwtService } from '@nestjs/jwt';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { FormAccessGuard } from './form-access.guard';
 import { FormsService } from './forms.service';
 import { EmailService, SendInvitationDto } from './email.service';
 import { AnalyticsService } from './analytics.service';
 import { CreateFormDto, UpdateFormDto } from './dto/form.dto';
 import { buildTopicFilterQuery } from './topic-filter.util';
+import { assertTaskBelongsToForm } from './analytics-task-access';
 import { randomUUID } from 'crypto';
 import { OrchestrationProducer } from '../analytics/queues/orchestration.producer';
 import { ProgressService } from '../analytics/queues/progress.service';
+import { logFormRequest } from '../logging/actor-log';
+import { ParseObjectIdPipe } from '../common/pipes/parse-object-id.pipe';
 
 @ApiTags('Forms')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, FormAccessGuard)
 @Controller('forms')
 export class FormsController {
   constructor(
@@ -48,7 +52,7 @@ export class FormsController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   create(@Body() createFormDto: CreateFormDto, @Request() req) {
     const userId = req.user._id || req.user.id;
-    console.log('CREATE FORM REQUEST - Method: POST, User:', req.user.email, 'Data:', createFormDto);
+    logFormRequest('CREATE FORM REQUEST', req.user);
     return this.formsService.create(createFormDto, userId);
   }
 
@@ -58,7 +62,7 @@ export class FormsController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   findAll(@Request() req) {
     const userId = req.user._id || req.user.id;
-    console.log('GET ALL FORMS REQUEST - Method: GET, User:', req.user.email, 'UserId:', userId);
+    logFormRequest('GET ALL FORMS REQUEST', req.user);
     return this.formsService.findAllByUser(userId);
   }
 
@@ -67,9 +71,9 @@ export class FormsController {
   @ApiResponse({ status: 200, description: 'Form retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Form not found' })
   @ApiResponse({ status: 403, description: 'Access denied' })
-  findOne(@Param('id') id: string, @Request() req) {
+  findOne(@Param('id', ParseObjectIdPipe) id: string, @Request() req) {
     const userId = req.user._id || req.user.id;
-    console.log('GET FORM REQUEST - Form ID:', id, 'User:', req.user.email, 'UserId:', userId);
+    logFormRequest('GET FORM REQUEST', req.user, { formId: id });
     return this.formsService.findOne(id, userId);
   }
 
@@ -78,10 +82,10 @@ export class FormsController {
   @ApiResponse({ status: 200, description: 'Form updated successfully' })
   @ApiResponse({ status: 404, description: 'Form not found' })
   @ApiResponse({ status: 403, description: 'Access denied' })
-  update(@Param('id') id: string, @Body() updateFormDto: UpdateFormDto, @Request() req) {
+  update(@Param('id', ParseObjectIdPipe) id: string, @Body() updateFormDto: UpdateFormDto, @Request() req) {
     // Extract user ID - try both _id and id properties
     const userId = req.user._id || req.user.id;
-    console.log('Update form request - User:', req.user, 'UserId:', userId);
+    logFormRequest('UPDATE FORM REQUEST', req.user, { formId: id });
     return this.formsService.update(id, updateFormDto, userId);
   }
 
@@ -91,7 +95,7 @@ export class FormsController {
   @ApiResponse({ status: 204, description: 'Form deleted successfully' })
   @ApiResponse({ status: 404, description: 'Form not found' })
   @ApiResponse({ status: 403, description: 'Access denied' })
-  remove(@Param('id') id: string, @Request() req) {
+  remove(@Param('id', ParseObjectIdPipe) id: string, @Request() req) {
     const userId = req.user._id || req.user.id;
     return this.formsService.remove(id, userId);
   }
@@ -106,7 +110,7 @@ export class FormsController {
   @Get(':id/stats')
   @ApiOperation({ summary: 'Get form statistics' })
   @ApiResponse({ status: 200, description: 'Form statistics retrieved successfully' })
-  getStats(@Param('id') id: string, @Request() req) {
+  getStats(@Param('id', ParseObjectIdPipe) id: string, @Request() req) {
     const userId = req.user._id || req.user.id;
     return this.formsService.getFormStats(id, userId);
   }
@@ -114,7 +118,7 @@ export class FormsController {
   @Get(':id/response-count')
   @ApiOperation({ summary: 'Get response count for a form' })
   @ApiResponse({ status: 200, description: 'Response count retrieved successfully' })
-  async getResponseCount(@Param('id') id: string, @Request() req) {
+  async getResponseCount(@Param('id', ParseObjectIdPipe) id: string, @Request() req) {
     const userId = req.user._id || req.user.id;
     // Verify user owns the form
     await this.formsService.findOne(id, userId);
@@ -129,7 +133,7 @@ export class FormsController {
   @ApiQuery({ name: 'representativeness', required: false, enum: ['typical', 'deviant', 'mixed'] })
   @ApiQuery({ name: 'depth', required: false, enum: ['superficial', 'moderate', 'deep'] })
   async getFormResponses(
-    @Param('id') id: string,
+    @Param('id', ParseObjectIdPipe) id: string,
     @Request() req,
     @Query('sentiment') sentiment?: string,
     @Query('topics') topics?: string,
@@ -204,7 +208,7 @@ export class FormsController {
   @ApiOperation({ summary: 'Get cached analytics for a form (read-only)' })
   @ApiResponse({ status: 200, description: 'Analytics retrieved successfully' })
   async getAnalytics(
-    @Param('id') id: string,
+    @Param('id', ParseObjectIdPipe) id: string,
     @Request() req,
   ) {
     const userId = req.user._id || req.user.id;
@@ -221,7 +225,7 @@ export class FormsController {
   @ApiQuery({ name: 'reprocess', required: false, type: Boolean, description: 'Whether to reprocess all responses before generating analytics' })
   @ApiQuery({ name: 'onlyFailed', required: false, type: Boolean, description: 'Only reprocess responses that failed (requires reprocess=true)' })
   async streamAnalyticsGeneration(
-    @Param('id') id: string,
+    @Param('id', ParseObjectIdPipe) id: string,
     @Req() reqExpress: ExpressRequest,
     @Res() res: ExpressResponse,
     @Query('taskId') existingTaskId?: string,
@@ -362,7 +366,7 @@ export class FormsController {
   @Get(':id/analytics/task/:taskId')
   @ApiOperation({ summary: 'Get analytics task status' })
   async getAnalyticsTaskStatus(
-    @Param('id') id: string,
+    @Param('id', ParseObjectIdPipe) id: string,
     @Param('taskId') taskId: string,
     @Request() req,
   ) {
@@ -371,7 +375,10 @@ export class FormsController {
     // Verify user owns the form
     await this.formsService.findOne(id, userId);
 
-    const task = this.analyticsService.getTaskStatus(taskId);
+    const task = assertTaskBelongsToForm(
+      this.analyticsService.getTaskStatus(taskId),
+      id,
+    );
     if (!task) {
       return { found: false, message: 'Task not found or expired' };
     }
@@ -387,8 +394,8 @@ export class FormsController {
   @ApiResponse({ status: 200, description: 'Response reprocessed successfully' })
   @ApiResponse({ status: 404, description: 'Response not found' })
   async reprocessResponse(
-    @Param('id') formId: string,
-    @Param('responseId') responseId: string,
+    @Param('id', ParseObjectIdPipe) formId: string,
+    @Param('responseId', ParseObjectIdPipe) responseId: string,
     @Request() req,
   ) {
     const userId = req.user._id || req.user.id;
@@ -404,7 +411,7 @@ export class FormsController {
   @ApiResponse({ status: 200, description: 'All responses queued for reprocessing' })
   @ApiQuery({ name: 'onlyFailed', required: false, type: Boolean, description: 'Only reprocess responses that failed or were not processed' })
   async reprocessAllResponses(
-    @Param('id') formId: string,
+    @Param('id', ParseObjectIdPipe) formId: string,
     @Request() req,
     @Query('onlyFailed') onlyFailed?: string,
   ) {
@@ -421,7 +428,7 @@ export class FormsController {
   @ApiOperation({ summary: 'Send email invitations for a form' })
   @ApiResponse({ status: 200, description: 'Invitations sent successfully' })
   @ApiResponse({ status: 400, description: 'Invalid invitation data' })
-  async sendInvitations(@Param('id') id: string, @Body() invitationData: any, @Request() req) {
+  async sendInvitations(@Param('id', ParseObjectIdPipe) id: string, @Body() invitationData: any, @Request() req) {
     const userId = req.user._id || req.user.id;
 
     // Verify user owns the form and get form details
@@ -457,7 +464,7 @@ export class FormsController {
   @Patch(':id/toggle-active')
   @ApiOperation({ summary: 'Toggle form active status' })
   @ApiResponse({ status: 200, description: 'Form status toggled successfully' })
-  toggleActive(@Param('id') id: string, @Request() req) {
+  toggleActive(@Param('id', ParseObjectIdPipe) id: string, @Request() req) {
     const userId = req.user._id || req.user.id;
     return this.formsService.toggleActiveStatus(id, userId);
   }
@@ -469,40 +476,17 @@ export class FormsController {
 export class PublicFormsController {
   constructor(private readonly formsService: FormsService) { }
 
-  @Get('test')
-  @ApiOperation({ summary: 'Test endpoint to verify public access' })
-  async testPublicAccess() {
-    return { message: 'Public access working', timestamp: new Date() };
-  }
-
-  @Get('debug/:id')
-  @ApiOperation({ summary: 'Debug endpoint to check form status (no auth)' })
-  async debugForm(@Param('id') id: string) {
-    try {
-      const form = await this.formsService.findOne(id);
-      return {
-        id: id,
-        title: form.title,
-        isPublic: form.isPublic,
-        isActive: form.isActive,
-        hasQuestions: form.questions.length > 0,
-        questionCount: form.questions.length
-      };
-    } catch (error) {
-      return {
-        error: error.message,
-        id: id
-      };
-    }
-  }
-
   @Get(':id')
-  @ApiOperation({ summary: 'Get a public form by ID (no authentication required)' })
+  @ApiOperation({
+    summary: 'Get a public form by ID (no authentication required)',
+    description:
+      'Returns a respondent-safe whitelist (id, title, description, questions, settings, optional language). Internal fields such as analytics, owner, and invitations are never included.',
+  })
   @ApiResponse({ status: 200, description: 'Public form retrieved successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid form id' })
   @ApiResponse({ status: 404, description: 'Form not found or not public' })
   @ApiResponse({ status: 403, description: 'Form is not public' })
-  async getPublicForm(@Param('id') id: string) {
-    console.log('Public form request for ID:', id);
+  async getPublicForm(@Param('id', ParseObjectIdPipe) id: string) {
     return this.formsService.findPublicForm(id);
   }
 
@@ -510,8 +494,8 @@ export class PublicFormsController {
   @ApiOperation({ summary: 'Submit a response to a public form' })
   @ApiResponse({ status: 201, description: 'Response submitted successfully' })
   @ApiResponse({ status: 404, description: 'Form not found or not active' })
-  @ApiResponse({ status: 400, description: 'Invalid response data' })
-  async submitResponse(@Param('id') id: string, @Body() responseData: any, @Req() req: ExpressRequest) {
+  @ApiResponse({ status: 400, description: 'Invalid response data or form id' })
+  async submitResponse(@Param('id', ParseObjectIdPipe) id: string, @Body() responseData: any, @Req() req: ExpressRequest) {
     const ipAddress = req.ip || req.socket.remoteAddress;
     const userAgent = req.get('User-Agent');
     return this.formsService.submitResponse(id, responseData, ipAddress, userAgent);

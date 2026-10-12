@@ -2,6 +2,7 @@ import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { FormsService } from './forms.service';
 import { ResponseService } from './response.service';
+import { serializeLogArgs } from './response-submission-log';
 
 describe('FormsService', () => {
   let service: FormsService;
@@ -21,6 +22,7 @@ describe('FormsService', () => {
 
     mockProjectModel = {
       create: jest.fn().mockResolvedValue({}),
+      findById: jest.fn(),
     };
 
     mockResponseService = {
@@ -49,7 +51,41 @@ describe('FormsService', () => {
       expect(instance.data.title).toBe('My form');
       expect(instance.data.createdBy).toBeInstanceOf(Types.ObjectId);
       expect(instance.data.settings.allowMultipleResponses).toBe(true);
+      expect(instance.data.language).toBe('en-US');
       expect(result).toBe(instance);
+    });
+
+    it('allows attaching a form to a project the caller owns', async () => {
+      const userId = new Types.ObjectId().toString();
+      const projectId = new Types.ObjectId();
+      mockProjectModel.findById.mockResolvedValueOnce({
+        _id: projectId,
+        ownerId: { toString: () => userId },
+      });
+
+      await service.create(
+        { title: 'Owned project form', projectId: String(projectId) } as any,
+        userId,
+      );
+
+      expect(mockProjectModel.findById).toHaveBeenCalledWith(String(projectId));
+    });
+
+    it('rejects create when projectId belongs to another user', async () => {
+      const userId = new Types.ObjectId().toString();
+      const projectId = new Types.ObjectId();
+      mockProjectModel.findById.mockResolvedValueOnce({
+        _id: projectId,
+        ownerId: { toString: () => new Types.ObjectId().toString() },
+      });
+
+      await expect(
+        service.create(
+          { title: 'Stolen project', projectId: String(projectId) } as any,
+          userId,
+        ),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(mockFormModel).not.toHaveBeenCalled();
     });
   });
 
@@ -105,7 +141,7 @@ describe('FormsService', () => {
       expect(result).toBe(form);
     });
 
-    it('allows public access when not owner', async () => {
+    it('denies non-owner even when the form is public', async () => {
       const ownerId = new Types.ObjectId();
       const form: any = {
         _id: new Types.ObjectId(),
@@ -118,14 +154,15 @@ describe('FormsService', () => {
         }),
       });
 
-      const result = await service.findOne(
-        String(form._id),
-        new Types.ObjectId().toString(),
-      );
-      expect(result).toBe(form);
+      await expect(
+        service.findOne(
+          String(form._id),
+          new Types.ObjectId().toString(),
+        ),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
 
-    it('forbids access when not owner and not public', async () => {
+    it('denies access when not owner and not public', async () => {
       const ownerId = new Types.ObjectId();
       const form: any = {
         _id: new Types.ObjectId(),
@@ -143,15 +180,62 @@ describe('FormsService', () => {
           String(form._id),
           new Types.ObjectId().toString(),
         ),
-      ).rejects.toBeInstanceOf(ForbiddenException);
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  describe('assertFormAccess', () => {
+    it('returns the form for the owner', async () => {
+      const ownerId = new Types.ObjectId();
+      const form: any = {
+        _id: new Types.ObjectId(),
+        createdBy: ownerId,
+        isPublic: true,
+      };
+      (mockFormModel.findById as jest.Mock).mockResolvedValueOnce(form);
+
+      await expect(
+        service.assertFormAccess(String(ownerId), String(form._id)),
+      ).resolves.toBe(form);
+    });
+
+    it('returns 404 for a non-owner even when the form is public', async () => {
+      const form: any = {
+        _id: new Types.ObjectId(),
+        createdBy: new Types.ObjectId(),
+        isPublic: true,
+      };
+      (mockFormModel.findById as jest.Mock).mockResolvedValueOnce(form);
+
+      await expect(
+        service.assertFormAccess(new Types.ObjectId().toString(), String(form._id)),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('returns 404 when the form does not exist', async () => {
+      (mockFormModel.findById as jest.Mock).mockResolvedValueOnce(null);
+
+      await expect(
+        service.assertFormAccess(new Types.ObjectId().toString(), new Types.ObjectId().toString()),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 
   describe('findPublicForm', () => {
-    it('throws NotFoundException when form missing', async () => {
+    const mockPublicFormQuery = (value: unknown) => {
+      const exec = jest.fn().mockResolvedValue(value);
+      const lean = jest.fn().mockReturnValue({ exec });
+      const select = jest.fn().mockReturnValue({ lean, exec });
       (mockFormModel.findById as jest.Mock).mockReturnValueOnce({
-        exec: jest.fn().mockResolvedValue(null),
+        select,
+        lean,
+        exec,
       });
+      return { select, lean, exec };
+    };
+
+    it('throws NotFoundException when form missing', async () => {
+      mockPublicFormQuery(null);
 
       await expect(
         service.findPublicForm(new Types.ObjectId().toString()),
@@ -165,28 +249,93 @@ describe('FormsService', () => {
         isPublic: false,
         isActive: true,
       };
-      (mockFormModel.findById as jest.Mock).mockReturnValueOnce({
-        exec: jest.fn().mockResolvedValue(form),
-      });
+      mockPublicFormQuery(form);
 
       await expect(
         service.findPublicForm(String(form._id)),
       ).rejects.toBeInstanceOf(ForbiddenException);
     });
 
-    it('returns form when public and active', async () => {
+    it('returns a whitelisted DTO when public and active', async () => {
+      const formId = new Types.ObjectId();
       const form: any = {
-        _id: new Types.ObjectId(),
+        _id: formId,
         title: 'Test',
+        description: 'Public form',
         isPublic: true,
         isActive: true,
+        createdBy: new Types.ObjectId(),
+        invitations: [{ email: 'hidden@example.com' }],
+        analytics: { representativeQuotes: ['secret quote'] },
+        questions: [{ id: 'q1', title: 'Q', type: 'text', required: false, order: 0 }],
+        settings: { showProgressBar: true },
       };
-      (mockFormModel.findById as jest.Mock).mockReturnValueOnce({
-        exec: jest.fn().mockResolvedValue(form),
-      });
+      const { select, lean } = mockPublicFormQuery(form);
 
       const result = await service.findPublicForm(String(form._id));
-      expect(result).toBe(form);
+
+      expect(select).toHaveBeenCalled();
+      expect(lean).toHaveBeenCalled();
+      expect(result).toEqual({
+        id: String(formId),
+        title: 'Test',
+        description: 'Public form',
+        language: 'en-US',
+        questions: [
+          { id: 'q1', title: 'Q', type: 'text', required: false, order: 0 },
+        ],
+        settings: {
+          allowMultipleResponses: true,
+          requireLogin: false,
+          showProgressBar: true,
+        },
+      });
+      expect(result).not.toHaveProperty('analytics');
+      expect(result).not.toHaveProperty('createdBy');
+      expect(result).not.toHaveProperty('invitations');
+    });
+
+    it('returns the creator-chosen language on the public form payload', async () => {
+      const formId = new Types.ObjectId();
+      const form: any = {
+        _id: formId,
+        title: 'Test',
+        description: 'Public form',
+        isPublic: true,
+        isActive: true,
+        language: 'pl',
+        questions: [],
+        settings: {},
+      };
+      mockPublicFormQuery(form);
+
+      const result = await service.findPublicForm(String(formId));
+      expect(result.language).toBe('pl');
+    });
+
+    it('logs only formId and outcome, not the form title', async () => {
+      const formId = new Types.ObjectId();
+      const secretTitle = 'SECRET_TITLE_DO_NOT_LOG';
+      const form: any = {
+        _id: formId,
+        title: secretTitle,
+        isPublic: true,
+        isActive: true,
+        questions: [],
+        settings: {},
+      };
+      mockPublicFormQuery(form);
+      const logSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
+
+      try {
+        await service.findPublicForm(String(formId));
+        const logs = logSpy.mock.calls.map((args) => serializeLogArgs(args)).join('\n');
+        expect(logs).not.toContain(secretTitle);
+        expect(logs).toContain(String(formId));
+        expect(logs).toMatch(/"outcome":"ok"/);
+      } finally {
+        logSpy.mockRestore();
+      }
     });
   });
 
@@ -210,7 +359,7 @@ describe('FormsService', () => {
 
       await expect(
         service.update(String(form._id), { title: 'New' } as any, new Types.ObjectId().toString()),
-      ).rejects.toBeInstanceOf(ForbiddenException);
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
 
     it('updates and saves form for owner', async () => {
@@ -236,6 +385,28 @@ describe('FormsService', () => {
       expect(form.save).toHaveBeenCalled();
       expect(result).toBe(form);
     });
+
+    it('rejects update when projectId belongs to another user', async () => {
+      const ownerId = new Types.ObjectId();
+      const form: any = {
+        _id: new Types.ObjectId(),
+        createdBy: { toString: () => String(ownerId) },
+        title: 'Old',
+      };
+      (mockFormModel.findById as jest.Mock).mockResolvedValueOnce(form);
+      mockProjectModel.findById.mockResolvedValueOnce({
+        ownerId: { toString: () => new Types.ObjectId().toString() },
+      });
+
+      await expect(
+        service.update(
+          String(form._id),
+          { projectId: new Types.ObjectId().toString() } as any,
+          String(ownerId),
+        ),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(form.save).toBeUndefined();
+    });
   });
 
   describe('remove', () => {
@@ -257,7 +428,7 @@ describe('FormsService', () => {
 
       await expect(
         service.remove(String(form._id), new Types.ObjectId().toString()),
-      ).rejects.toBeInstanceOf(ForbiddenException);
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
 
     it('deletes form for owner', async () => {
@@ -317,7 +488,7 @@ describe('FormsService', () => {
       ).rejects.toBeInstanceOf(NotFoundException);
     });
 
-    it('throws ForbiddenException when user is not owner', async () => {
+    it('throws NotFoundException when user is not owner', async () => {
       const form: any = {
         _id: new Types.ObjectId(),
         createdBy: new Types.ObjectId(),
@@ -326,7 +497,7 @@ describe('FormsService', () => {
 
       await expect(
         service.toggleActiveStatus(String(form._id), new Types.ObjectId().toString()),
-      ).rejects.toBeInstanceOf(ForbiddenException);
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
 
     it('toggles isActive and saves for owner', async () => {
@@ -384,7 +555,11 @@ describe('FormsService', () => {
         isActive: true,
       };
       (mockFormModel.findById as jest.Mock).mockReturnValueOnce({
-        exec: jest.fn().mockResolvedValue(form),
+        select: jest.fn().mockReturnValue({
+          lean: jest.fn().mockReturnValue({
+            exec: jest.fn().mockResolvedValue(form),
+          }),
+        }),
       });
 
       await expect(
@@ -400,7 +575,11 @@ describe('FormsService', () => {
         isActive: true,
       };
       (mockFormModel.findById as jest.Mock).mockReturnValueOnce({
-        exec: jest.fn().mockResolvedValue(form),
+        select: jest.fn().mockReturnValue({
+          lean: jest.fn().mockReturnValue({
+            exec: jest.fn().mockResolvedValue(form),
+          }),
+        }),
       });
 
       const saved = { _id: 'resp1', submittedAt: new Date() } as any;
@@ -417,6 +596,52 @@ describe('FormsService', () => {
       expect(result.success).toBe(true);
       expect(result.formId).toBe(String(form._id));
       expect(result.responseId).toBe(saved._id);
+    });
+
+    it('does not log answer text or respondent personal data', async () => {
+      const form: any = {
+        _id: new Types.ObjectId(),
+        title: 'Test',
+        isPublic: true,
+        isActive: true,
+      };
+      (mockFormModel.findById as jest.Mock).mockReturnValueOnce({
+        select: jest.fn().mockReturnValue({
+          lean: jest.fn().mockReturnValue({
+            exec: jest.fn().mockResolvedValue(form),
+          }),
+        }),
+      });
+
+      const saved = { _id: 'resp1', submittedAt: new Date() } as any;
+      mockResponseService.createResponse.mockResolvedValueOnce(saved);
+
+      const logSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
+      const secretAnswer = 'SECRET_ANSWER_TEXT_DO_NOT_LOG';
+      const secretEmail = 'secret.respondent@example.com';
+
+      try {
+        await service.submitResponse(
+          String(form._id),
+          {
+            responses: { q1: secretAnswer },
+            respondentEmail: secretEmail,
+          },
+          '203.0.113.10',
+          'SecretUserAgent/1.0',
+        );
+
+        const logs = logSpy.mock.calls.map((args) => serializeLogArgs(args)).join('\n');
+        expect(logs).not.toContain(secretAnswer);
+        expect(logs).not.toContain(secretEmail);
+        expect(logs).not.toContain('203.0.113.10');
+        expect(logs).not.toContain('SecretUserAgent/1.0');
+        expect(logs).toContain(String(form._id));
+        expect(logs).toContain('resp1');
+        expect(logs).toMatch(/"answerCount":1/);
+      } finally {
+        logSpy.mockRestore();
+      }
     });
   });
 });

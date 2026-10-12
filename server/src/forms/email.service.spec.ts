@@ -41,6 +41,31 @@ describe('EmailService', () => {
       expect(result[1]).toMatchObject({ email: 'b@test.com', success: true });
     });
 
+    it('does not log recipient email addresses', async () => {
+      const logSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
+      const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+      try {
+        await service.sendFormInvitation({
+          formId: 'f1',
+          formTitle: 'Survey',
+          emails: ['secret.invitee@example.com'],
+          subject: 'Invitation',
+          message: 'Hi',
+          formUrl: 'https://app.com/form/1',
+        });
+
+        const logs = [...logSpy.mock.calls, ...errorSpy.mock.calls]
+          .map((args) => args.map((arg) => (typeof arg === 'string' ? arg : JSON.stringify(arg))).join(' '))
+          .join('\n');
+        expect(logs).not.toContain('secret.invitee@example.com');
+        expect(logs).toContain('f1');
+      } finally {
+        logSpy.mockRestore();
+        errorSpy.mockRestore();
+      }
+    });
+
     it('pushes failure result when sendMail throws', async () => {
       mockSendMail
         .mockResolvedValueOnce({ messageId: 'ok' })
@@ -57,6 +82,43 @@ describe('EmailService', () => {
 
       expect(result[0]).toMatchObject({ email: 'ok@test.com', success: true });
       expect(result[1]).toMatchObject({ email: 'fail@test.com', success: false, error: 'SMTP error' });
+    });
+
+    it('logs invitation failures by SMTP code/type only, not error.message', async () => {
+      const smtpError = new Error(
+        'Message failed: 550 5.1.1 <secret.invitee@example.com> User unknown',
+      ) as Error & { code: string; responseCode: number };
+      smtpError.name = 'Error';
+      smtpError.code = 'EENVELOPE';
+      smtpError.responseCode = 550;
+      mockSendMail.mockRejectedValueOnce(smtpError);
+
+      const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+      try {
+        await service.sendFormInvitation({
+          formId: 'form-42',
+          formTitle: 'Survey',
+          emails: ['secret.invitee@example.com'],
+          subject: 'Invitation',
+          message: 'Hi',
+          formUrl: 'https://app.com/form/1',
+        });
+
+        const logs = errorSpy.mock.calls
+          .map((args) => args.map((arg) => (typeof arg === 'string' ? arg : JSON.stringify(arg))).join(' '))
+          .join('\n');
+
+        expect(logs).toContain('form-42');
+        expect(logs).toContain('EENVELOPE');
+        expect(logs).toContain('550');
+        expect(logs).not.toContain('secret.invitee@example.com');
+        expect(logs).not.toContain('User unknown');
+        expect(logs).not.toContain('error.message');
+        expect(JSON.stringify(errorSpy.mock.calls)).not.toContain('"error":');
+      } finally {
+        errorSpy.mockRestore();
+      }
     });
   });
 

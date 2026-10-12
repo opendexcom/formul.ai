@@ -1,9 +1,11 @@
 import './env';
+import { getJwtSecret } from './auth/jwt-secret';
 import { initMlflowLangchainTracing } from './mlflow/mlflow-langchain-tracing';
 import { NestFactory } from '@nestjs/core';
 import { WorkerModule } from './worker.module';
 
 async function bootstrap() {
+  getJwtSecret();
   await initMlflowLangchainTracing();
 
   // Create a standalone application context (no HTTP server, no routes)

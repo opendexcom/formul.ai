@@ -86,6 +86,10 @@ Access the frontend at http://localhost:3000.
 
 The application is configured via environment variables in `server/.env` and `client/.env`. See `server/.env.example` for the full list of server variables.
 
+### JWT secret (required)
+
+`JWT_SECRET` must be set to a non-empty value that is **not** the old insecure default `your-secret-key`. The API and worker fail to start otherwise. Copy `server/.env.example` and replace the sample secret for any shared or production environment. Docker Compose reads `JWT_SECRET` from the host environment (or uses the documented local sample).
+
 ### OpenAI Configuration (Required for AI features)
 
 To enable AI-powered summaries and insights, you must provide an OpenAI API key.
@@ -105,7 +109,7 @@ Configure email delivery settings. For local development, **Mailhog** is pre-con
 | `SMTP_PORT` | SMTP Server Port | `1025` |
 | `SMTP_USER` | SMTP Username | `user` |
 | `SMTP_PASS` | SMTP Password | `pass` |
-| `FROM_EMAIL` | Sender address | `FormulAI <noreply@formulai.com>` |
+| `FROM_EMAIL` | Sender address | `FormulAI <noreply@example.com>` |
 
 > **Note:** When running via `docker compose up`, the backend automatically connects to the `mailhog` service. If running the backend locally, use `localhost`.
 

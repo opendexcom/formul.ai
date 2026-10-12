@@ -6,6 +6,10 @@ on:
 permissions:
   contents: read
 
+env:
+  JWT_SECRET: formulai-ci-jwt-secret
+  JWT_EXPIRES_IN: 7d
+
 jobs:
   build:
     name: Build Project (pnpm)

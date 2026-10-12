@@ -16,6 +16,7 @@ import { AnalyticsUsageTrackerService } from '../services/analytics-usage-tracke
 import { ResearchContextService } from '../../projects/research-context.service';
 import { ResearchContext } from '../../projects/research-context.types';
 import { normalizeCanonicalTopicLabel } from '../utils/normalize-canonical-topic.util';
+import { logResponseTopicCount } from '../utils/topic-count-log';
 
 /**
  * Response Processor
@@ -529,7 +530,10 @@ export class ResponseProcessor {
           updateFields['metadata.topicDetails'] = normalizedTopics || [];
 
           if (mergedTopics.length > 0) {
-            console.log(`[saveChunkResults] Response ${responseId} has ${mergedTopics.length} topics:`, mergedTopics);
+            logResponseTopicCount('[saveChunkResults] extracted topics', {
+              responseId,
+              topicCount: mergedTopics.length,
+            });
             const discovered = filterDiscoveredTopics(
               mergedTopics,
               questionFocusPhrases,

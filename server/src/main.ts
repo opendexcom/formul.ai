@@ -1,4 +1,5 @@
 import './env';
+import { getJwtSecret } from './auth/jwt-secret';
 import { initMlflowLangchainTracing } from './mlflow/mlflow-langchain-tracing';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
@@ -8,6 +9,7 @@ import { AppModule } from './app.module';
 import { PluginLoaderService } from './plugins/plugin-loader.service';
 
 async function bootstrap() {
+  getJwtSecret();
   await initMlflowLangchainTracing();
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
