@@ -27,6 +27,7 @@ import { CreateProjectDto, AddProjectVariantDto, UpdateProjectDto, UpdateProject
 import { ProjectsService } from './projects.service';
 import { ComparativeReportService } from './comparative-report.service';
 import { StudyAnalysisService } from './study-analysis.service';
+import { ParseObjectIdPipe } from '../common/pipes/parse-object-id.pipe';
 
 @ApiTags('Projects')
 @ApiBearerAuth()
@@ -64,35 +65,35 @@ export class ProjectsController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Get project details' })
-  findOne(@Param('id') id: string, @Request() req) {
+  findOne(@Param('id', ParseObjectIdPipe) id: string, @Request() req) {
     const userId = req.user._id || req.user.id;
     return this.projectsService.findOne(id, userId);
   }
 
   @Patch(':id')
   @ApiOperation({ summary: 'Update project metadata' })
-  update(@Param('id') id: string, @Body() dto: UpdateProjectDto, @Request() req) {
+  update(@Param('id', ParseObjectIdPipe) id: string, @Body() dto: UpdateProjectDto, @Request() req) {
     const userId = req.user._id || req.user.id;
     return this.projectsService.update(id, dto, userId);
   }
 
   @Patch(':id/archive')
   @ApiOperation({ summary: 'Archive project' })
-  archive(@Param('id') id: string, @Request() req) {
+  archive(@Param('id', ParseObjectIdPipe) id: string, @Request() req) {
     const userId = req.user._id || req.user.id;
     return this.projectsService.archive(id, userId);
   }
 
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a study and its forms' })
-  remove(@Param('id') id: string, @Request() req) {
+  remove(@Param('id', ParseObjectIdPipe) id: string, @Request() req) {
     const userId = req.user._id || req.user.id;
     return this.projectsService.remove(id, userId);
   }
 
   @Post(':id/variants')
   @ApiOperation({ summary: 'Add a new A/B test variant cloned from an existing variant' })
-  addVariant(@Param('id') id: string, @Body() dto: AddProjectVariantDto, @Request() req) {
+  addVariant(@Param('id', ParseObjectIdPipe) id: string, @Body() dto: AddProjectVariantDto, @Request() req) {
     const userId = req.user._id || req.user.id;
     return this.projectsService.addVariant(id, dto, userId);
   }
@@ -100,7 +101,7 @@ export class ProjectsController {
   @Patch(':id/variants/:key')
   @ApiOperation({ summary: 'Update variant research metadata' })
   updateVariant(
-    @Param('id') id: string,
+    @Param('id', ParseObjectIdPipe) id: string,
     @Param('key') key: string,
     @Body() dto: UpdateProjectVariantDto,
     @Request() req,
@@ -115,7 +116,7 @@ export class ProjectsController {
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'variant', required: false, enum: ['main', 'A', 'B'] })
   getResponses(
-    @Param('id') id: string,
+    @Param('id', ParseObjectIdPipe) id: string,
     @Request() req,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -131,21 +132,21 @@ export class ProjectsController {
 
   @Get(':id/comparative-report/readiness')
   @ApiOperation({ summary: 'Check if project is ready for comparative report generation' })
-  getComparativeReportReadiness(@Param('id') id: string, @Request() req) {
+  getComparativeReportReadiness(@Param('id', ParseObjectIdPipe) id: string, @Request() req) {
     const userId = req.user._id || req.user.id;
     return this.comparativeReportService.checkReadiness(id, userId);
   }
 
   @Get(':id/comparative-report')
   @ApiOperation({ summary: 'Get cached comparative report' })
-  getComparativeReport(@Param('id') id: string, @Request() req) {
+  getComparativeReport(@Param('id', ParseObjectIdPipe) id: string, @Request() req) {
     const userId = req.user._id || req.user.id;
     return this.comparativeReportService.getComparativeReport(id, userId);
   }
 
   @Post(':id/comparative-report')
   @ApiOperation({ summary: 'Generate comparative report (non-streaming)' })
-  async generateComparativeReport(@Param('id') id: string, @Request() req) {
+  async generateComparativeReport(@Param('id', ParseObjectIdPipe) id: string, @Request() req) {
     const userId = req.user._id || req.user.id;
     const taskId = randomUUID();
     const report = await this.comparativeReportService.generateComparativeReport(
@@ -160,7 +161,7 @@ export class ProjectsController {
   @ApiOperation({ summary: 'Generate comparative report with SSE progress streaming' })
   @ApiQuery({ name: 'taskId', required: false })
   async streamComparativeReport(
-    @Param('id') id: string,
+    @Param('id', ParseObjectIdPipe) id: string,
     @Req() reqExpress: ExpressRequest,
     @Res() res: ExpressResponse,
     @Query('taskId') existingTaskId?: string,
@@ -232,14 +233,14 @@ export class ProjectsController {
 
   @Get(':id/analytics')
   @ApiOperation({ summary: 'Get study-level analysis' })
-  getAnalytics(@Param('id') id: string, @Request() req) {
+  getAnalytics(@Param('id', ParseObjectIdPipe) id: string, @Request() req) {
     const userId = req.user._id || req.user.id;
     return this.studyAnalysisService.getStudyAnalysis(id, userId);
   }
 
   @Post(':id/analytics')
   @ApiOperation({ summary: 'Start study-level analysis generation' })
-  startStudyAnalytics(@Param('id') id: string, @Request() req) {
+  startStudyAnalytics(@Param('id', ParseObjectIdPipe) id: string, @Request() req) {
     const userId = req.user._id || req.user.id;
     const taskId = randomUUID();
     void this.studyAnalysisService
@@ -252,7 +253,7 @@ export class ProjectsController {
   @ApiOperation({ summary: 'Generate study analysis with SSE progress streaming' })
   @ApiQuery({ name: 'taskId', required: false })
   async streamStudyAnalytics(
-    @Param('id') id: string,
+    @Param('id', ParseObjectIdPipe) id: string,
     @Req() reqExpress: ExpressRequest,
     @Res() res: ExpressResponse,
     @Query('taskId') existingTaskId?: string,
@@ -322,14 +323,14 @@ export class ProjectsController {
 
   @Post(':id/report')
   @ApiOperation({ summary: 'Generate project report snapshot' })
-  generateReport(@Param('id') id: string, @Request() req) {
+  generateReport(@Param('id', ParseObjectIdPipe) id: string, @Request() req) {
     const userId = req.user._id || req.user.id;
     return this.projectsService.generateProjectReport(id, userId);
   }
 
   @Post(':id/report/send')
   @ApiOperation({ summary: 'Send project report by email' })
-  sendReport(@Param('id') id: string, @Request() req) {
+  sendReport(@Param('id', ParseObjectIdPipe) id: string, @Request() req) {
     const userId = req.user._id || req.user.id;
     return this.projectsService.sendProjectReport(id, userId);
   }

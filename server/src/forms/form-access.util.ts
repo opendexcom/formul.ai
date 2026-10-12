@@ -1,4 +1,4 @@
-import { Types } from 'mongoose';
+import { isValidObjectId } from '../common/object-id';
 
 export const FORM_ACCESS_PATH_PARAM_KEYS = ['id', 'formId'] as const;
 
@@ -17,7 +17,7 @@ export function getFormOwnerId(createdBy: unknown): string {
 }
 
 export function isValidFormId(formId: string): boolean {
-  return Types.ObjectId.isValid(formId);
+  return isValidObjectId(formId);
 }
 
 export function extractFormIdFromRequest(request: {
