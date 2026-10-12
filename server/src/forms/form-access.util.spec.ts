@@ -39,6 +39,7 @@ describe('form-access.util', () => {
       expect(isValidFormId(new Types.ObjectId().toString())).toBe(true);
       expect(isValidFormId('debug')).toBe(false);
       expect(isValidFormId('analytics')).toBe(false);
+      expect(isValidFormId('notanobjectid')).toBe(false);
     });
   });
 });

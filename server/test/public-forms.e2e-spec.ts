@@ -255,6 +255,19 @@ describe('Public forms (e2e) – no analytics / owner / invitations leak', () =>
     }
   });
 
+  it('GET /api/public/forms/notanobjectid returns 400', async () => {
+    await request(app.getHttpServer())
+      .get('/api/public/forms/notanobjectid')
+      .expect(400);
+  });
+
+  it('GET /api/public/forms/:id returns 404 for a nonexistent valid ObjectId', async () => {
+    const missingId = new Types.ObjectId().toString();
+    await request(app.getHttpServer())
+      .get(`/api/public/forms/${missingId}`)
+      .expect(404);
+  });
+
   it('POST /api/public/forms/:id/responses does not return the form document', async () => {
     const res = await request(app.getHttpServer())
       .post(`/api/public/forms/${seededFormId}/responses`)
