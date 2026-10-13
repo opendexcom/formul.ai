@@ -256,6 +256,55 @@ describe('FormsService', () => {
       ).rejects.toBeInstanceOf(ForbiddenException);
     });
 
+    it('keeps language on 403 for a public but inactive form', async () => {
+      const form: any = {
+        _id: new Types.ObjectId(),
+        title: 'Closed Polish form',
+        isPublic: true,
+        isActive: false,
+        language: 'pl',
+      };
+      mockPublicFormQuery(form);
+
+      let thrown: unknown;
+      try {
+        await service.findPublicForm(String(form._id));
+      } catch (err) {
+        thrown = err;
+      }
+
+      expect(thrown).toBeInstanceOf(ForbiddenException);
+      expect((thrown as ForbiddenException).getResponse()).toEqual({
+        message: 'This form is not currently accepting responses',
+        language: 'pl',
+      });
+    });
+
+    it('does not include language on 403 for a non-public form', async () => {
+      const form: any = {
+        _id: new Types.ObjectId(),
+        title: 'Private Polish form',
+        isPublic: false,
+        isActive: true,
+        language: 'pl',
+      };
+      mockPublicFormQuery(form);
+
+      let thrown: unknown;
+      try {
+        await service.findPublicForm(String(form._id));
+      } catch (err) {
+        thrown = err;
+      }
+
+      expect(thrown).toBeInstanceOf(ForbiddenException);
+      const response = (thrown as ForbiddenException).getResponse();
+      expect(JSON.stringify(response)).not.toContain('language');
+      if (typeof response === 'object' && response !== null) {
+        expect(response).not.toHaveProperty('language');
+      }
+    });
+
     it('returns a whitelisted DTO when public and active', async () => {
       const formId = new Types.ObjectId();
       const form: any = {

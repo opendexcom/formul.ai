@@ -5,7 +5,7 @@ import { FormData, Question, QuestionType } from '../services/formsService';
 import { Button, LoadingSpinner, Alert } from '../components/ui';
 import { isOtherOption, getOptionLabel, findOtherOption, migrateQuestionForOther } from '../utils/otherOption';
 import {
-  DEFAULT_FORM_LANGUAGE,
+  detectBrowserLanguage,
   getFormLanguage,
   resolveFormLanguage,
   t,
@@ -28,7 +28,7 @@ const PublicFormView: React.FC = () => {
   const [submitted, setSubmitted] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [currentPage, setCurrentPage] = useState(0);
-  const [uiLanguage, setUiLanguage] = useState<FormLanguage>(DEFAULT_FORM_LANGUAGE);
+  const [uiLanguage, setUiLanguage] = useState<FormLanguage>(() => detectBrowserLanguage());
   const questionsPerPage = 5;
   const language = form ? getFormLanguage(form) : uiLanguage;
 
@@ -61,12 +61,15 @@ const PublicFormView: React.FC = () => {
       const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api'}/public/forms/${id}`);
 
       if (!response.ok) {
-        let errorLanguage: FormLanguage = DEFAULT_FORM_LANGUAGE;
+        let errorLanguage = detectBrowserLanguage();
         try {
           const body = await response.json();
-          errorLanguage = resolveFormLanguage(body.language ?? body.message?.language);
+          const fromBody = body.language ?? body.message?.language;
+          if (fromBody != null) {
+            errorLanguage = resolveFormLanguage(fromBody);
+          }
         } catch {
-          // Keep default language when the error body is not JSON.
+          // Keep the browser language when the error body is not JSON.
         }
         setUiLanguage(errorLanguage);
         if (response.status === 404) {

@@ -278,15 +278,13 @@ export class FormsService {
       throw new NotFoundException('Form not found');
     }
 
-    const language = resolveFormLanguage(form.language);
-
     if (!form.isPublic) {
       console.log('Public form lookup', { formId: id, outcome: 'not_public' });
-      throw new ForbiddenException({
-        message: 'This form is not public',
-        language,
-      });
+      // Do not include `language` here: a non-public form must not leak metadata.
+      throw new ForbiddenException('This form is not public');
     }
+
+    const language = resolveFormLanguage(form.language);
 
     if (!form.isActive) {
       console.log('Public form lookup', { formId: id, outcome: 'not_active' });

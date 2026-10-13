@@ -120,6 +120,52 @@ describe('PublicFormView Polish respondent strings', () => {
     expect(submitCall[1].method).toBe('POST');
     expect(JSON.parse(submitCall[1].body).responses.q1).toBe('Bardzo dobrze');
   });
+
+  it('uses the browser language on a generic 403 that omits language', async () => {
+    const languageDesc = Object.getOwnPropertyDescriptor(window.navigator, 'language');
+    const languagesDesc = Object.getOwnPropertyDescriptor(window.navigator, 'languages');
+    Object.defineProperty(window.navigator, 'language', {
+      configurable: true,
+      value: 'pl-PL',
+    });
+    Object.defineProperty(window.navigator, 'languages', {
+      configurable: true,
+      value: ['pl-PL', 'pl'],
+    });
+
+    try {
+      fetchMock.mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        json: async () => ({
+          statusCode: 403,
+          message: 'This form is not public',
+          error: 'Forbidden',
+        }),
+      });
+
+      renderPublicForm('/form/private-form');
+
+      expect(
+        await screen.findByText(
+          'Ten formularz nie jest dostępny publicznie lub nie przyjmuje już odpowiedzi',
+        ),
+      ).toBeInTheDocument();
+      expect(document.documentElement.lang).toBe('pl');
+      expect(
+        screen.queryByText(
+          'This form is not publicly available or is no longer accepting responses',
+        ),
+      ).not.toBeInTheDocument();
+    } finally {
+      if (languageDesc) {
+        Object.defineProperty(window.navigator, 'language', languageDesc);
+      }
+      if (languagesDesc) {
+        Object.defineProperty(window.navigator, 'languages', languagesDesc);
+      }
+    }
+  });
 });
 
 describe('PublicFormView reduced public payload', () => {
