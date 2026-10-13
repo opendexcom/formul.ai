@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { FORM_LANGUAGE_CODES } from './languages';
 import {
   DEFAULT_FORM_LANGUAGE,
+  detectBrowserLanguage,
   getFormLanguage,
   getTranslationKeys,
   interpolate,
@@ -28,6 +29,15 @@ describe('respondent i18n', () => {
     expect(interpolate('Page {current} of {total}', { current: 2, total: 5 })).toBe('Page 2 of 5');
     expect(interpolate('Hello {name}', {})).toBe('Hello {name}');
     expect(t('submit', 'en-US', { unused: 1 })).toBe('Submit');
+  });
+
+  it('maps the browser locale to a supported respondent language', () => {
+    expect(detectBrowserLanguage(['pl-PL', 'en-US'])).toBe('pl');
+    expect(detectBrowserLanguage(['de'])).toBe('de');
+    expect(detectBrowserLanguage(['en-GB'])).toBe('en-US');
+    expect(detectBrowserLanguage(['xx-YY', 'fr'])).toBe('fr');
+    expect(detectBrowserLanguage(['xx-YY'])).toBe('en-US');
+    expect(detectBrowserLanguage([])).toBe(DEFAULT_FORM_LANGUAGE);
   });
 
   it('reads language from the form, falling back to en-US', () => {

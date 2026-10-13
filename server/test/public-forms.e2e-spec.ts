@@ -227,6 +227,34 @@ describe('Public forms (e2e) – no analytics / owner / invitations leak', () =>
     expect(res.body.questions[0]).not.toHaveProperty('reverseCoded');
   });
 
+  it('GET /api/public/forms/:id for a non-public form returns 403 without language', async () => {
+    const privateFormId = new Types.ObjectId();
+    await formModel.collection.insertOne({
+      _id: privateFormId,
+      title: 'Private Ankieta',
+      description: 'Should not leak language',
+      createdBy: new Types.ObjectId(),
+      isPublic: false,
+      isActive: true,
+      language: 'pl',
+      questions: [],
+      settings: {},
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    try {
+      const res = await request(app.getHttpServer())
+        .get(`/api/public/forms/${String(privateFormId)}`)
+        .expect(403);
+
+      expect(res.body).not.toHaveProperty('language');
+      expect(JSON.stringify(res.body)).not.toContain('"language"');
+    } finally {
+      await formModel.collection.deleteOne({ _id: privateFormId });
+    }
+  });
+
   it('GET /api/public/forms/:id returns the creator-chosen language', async () => {
     const polishFormId = new Types.ObjectId();
     await formModel.collection.insertOne({

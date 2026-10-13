@@ -26,6 +26,41 @@ export function resolveFormLanguage(language: unknown): FormLanguage {
     : DEFAULT_FORM_LANGUAGE;
 }
 
+function navigatorLanguages(): string[] {
+  if (typeof navigator === 'undefined') {
+    return [];
+  }
+  const seen = new Set<string>();
+  const ordered: string[] = [];
+  for (const value of [navigator.language, ...(navigator.languages ?? [])]) {
+    if (typeof value === 'string' && value && !seen.has(value)) {
+      seen.add(value);
+      ordered.push(value);
+    }
+  }
+  return ordered;
+}
+
+/**
+ * Map the browser locale to a supported respondent language.
+ * `pl-PL` → `pl`, `en-GB` → `en-US`, unknown → `en-US`.
+ */
+export function detectBrowserLanguage(languages: readonly string[] = navigatorLanguages()): FormLanguage {
+  for (const raw of languages) {
+    if (FORM_LANGUAGE_CODES.includes(raw as FormLanguage)) {
+      return raw as FormLanguage;
+    }
+    const primary = raw.split('-')[0];
+    if (primary === 'en') {
+      return DEFAULT_FORM_LANGUAGE;
+    }
+    if (FORM_LANGUAGE_CODES.includes(primary as FormLanguage)) {
+      return primary as FormLanguage;
+    }
+  }
+  return DEFAULT_FORM_LANGUAGE;
+}
+
 export function interpolate(template: string, vars?: Record<string, string | number>): string {
   if (!vars) return template;
   return template.replace(/\{(\w+)\}/g, (match, name: string) =>
