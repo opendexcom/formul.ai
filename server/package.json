@@ -64,7 +64,7 @@
     "langchain": "^1.2.23",
     "libreoffice-convert": "^1.8.2",
     "mongoose": "^8.24.5",
-    "nodemailer": "^10.1.0",
+    "nodemailer": "^10.1.4",
     "openai": "^6.7.0",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
